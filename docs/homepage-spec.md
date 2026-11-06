@@ -1,7 +1,7 @@
 # صفحة Home (`/`): المطلوب من بتول
 
 تحويل تصميمك (اللي بـ [BatoolQubaa/HomePage](https://github.com/BatoolQubaa/HomePage)) لصفحة حقيقية
-جوّا مشروعنا. **اسم المشروع صار MARS.**
+جوّا مشروعنا. **اسم المشروع SKYTRACE.**
 
 **تقسيم الفرونت:** مشروع Next.js واحد جوّا `frontend/`.
 | الصفحة | مين |
@@ -34,7 +34,7 @@
 | Space background / Purple Milky Way / Nebula | WebP، حوالي 1920px عرض | `frontend/public/images/bg-*.webp` |
 | Earth (transparent) | WebP **مع شفافية** | `frontend/public/images/earth.webp` |
 | SPHEREx Telescope (transparent) | WebP مع شفافية | `frontend/public/images/telescope.webp` |
-| **SKYTRACE logo** | ❌ **لازم شعار جديد باسم MARS**، ويفضّل SVG | `frontend/public/brand/mars-logo.svg` |
+| **SKYTRACE logo** | ✅ استعمليه، ويفضّل تحوّليه لـ SVG أو WebP شفاف | `frontend/public/brand/skytrace-logo.svg` |
 | Page mockup / Assets board | مرجع للشكل بس، **ما بتنرفع** | — |
 
 - [ ] **الحجم:** كل صورة هلأ 1.3–2MB. بعد WebP لازم تكون **أقل من 300KB**.
@@ -67,7 +67,7 @@
 ## 3. أقسام الصفحة
 
 ### Navbar (مشترك)
-- [ ] يسار: شعار MARS، وبيودّي على `/`.
+- [ ] يسار: شعار SKYTRACE، وبيودّي على `/`.
 - [ ] يمين: **Home** و **Explorer** (`/explore`)، والصفحة الحالية تحتها خط.
 - [ ] شفاف فوق الـ Hero، ولما ينزل المستخدم بتصير خلفيته غامقة.
 - [ ] موبايل: قائمة ☰.
@@ -93,7 +93,7 @@
 - [ ] العنوان: **See What Time Reveals.**
 - [ ] النص (من تصميمك، مع الاسم الجديد):
   "NASA's SPHEREx observes the sky in infrared light, revealing what our eyes cannot see.
-  MARS brings these observations together across time, helping you spot changes,
+  SKYTRACE brings these observations together across time, helping you spot changes,
   investigate moving-object candidates, and uncover the stories hidden between them."
 - [ ] *(إضافة قوية)* **Blink صغير حقيقي:** 3–4 صور SPHEREx حقيقية بتتقلّب لحالها كل ثانية، وتحتها
   التاريخ و"Data: NASA/IPAC IRSA".
@@ -118,7 +118,7 @@
 ---
 
 ## 5. Checklist التسليم
-- [ ] شعار MARS بالـ Navbar والـ Footer.
+- [ ] شعار SKYTRACE بالـ Navbar والـ Footer.
 - [ ] الـ Hero بيطابق التصميم (الطبقات والعنوان والزر).
 - [ ] زر Start Exploring بيودّي على `/explore`.
 - [ ] Scroll animation للتلسكوب شغّالة، وبتحترم reduced-motion.

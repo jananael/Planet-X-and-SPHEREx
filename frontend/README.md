@@ -1,8 +1,8 @@
-# MARS frontend
+# SKYTRACE frontend
 
 Next.js App Router + TypeScript. The Explorer lives at `/explore` and follows
 [`explorer-spec.md`](../docs/explorer-spec.md) and [`api-contract.md`](../docs/api-contract.md).
-The dark background, purple accents, orbital brand, and pill controls follow Batool’s design reference (the project is now named MARS; final logo pending).
+The dark background, purple accents, orbital brand, and pill controls follow Batool’s SKYTRACE design reference.
 The root page is a temporary entry point for Batoul’s future Home page integration.
 
 ## Run locally
@@ -25,7 +25,7 @@ Restart the frontend after changing environment variables.
 
 - `app/explore/page.tsx`: Explorer route.
 - `components/explorer.tsx`: target form, results, playback, loading and errors.
-- `components/brand.tsx`: shared MARS wordmark (placeholder until Batool’s logo) with a code-drawn orbital icon.
+- `components/brand.tsx`: shared SKYTRACE wordmark with a code-drawn orbital icon.
 - `app/globals.css`: shared theme and mobile layout.
 - `lib/types.ts`: TypeScript data shapes corresponding to the API contract.
 - `lib/api.ts`: API requests, 60-second image timeouts, first-image brightness limits,
