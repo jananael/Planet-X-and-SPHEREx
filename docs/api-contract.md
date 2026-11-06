@@ -13,6 +13,7 @@ Mock data: [`backend/app/mock_data/`](../backend/app/mock_data/). The JSON shape
 | GET | `/api/search?ra=&dec=&radius=` | SPHEREx observations covering the point, oldest first |
 | GET | `/api/observations/{id}` | one observation's metadata |
 | GET | `/api/observations/{id}/image?ra=&dec=&size=&stretch=&vmin=&vmax=` | PNG cutout |
+| GET | `/api/hips/allwise/{file}` | Sky-map tiles for the Explorer's map picker (AllWISE colour from IRSA, relayed because IRSA sends no CORS headers; only HiPS file names accepted, cached on disk) |
 
 ---
 

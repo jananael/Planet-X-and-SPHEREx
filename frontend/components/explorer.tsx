@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { Brand } from "./brand";
+
+// Loaded only when the user opens it (Aladin Lite + sky imagery are heavy).
+const SkyMap = dynamic(() => import("./sky-map").then(m => m.SkyMap), { ssr: false });
 import { errorMessage, getJson, loadBlink } from "../lib/api";
 import { bestBand, defaultSelection, groupVisits, parseCoordinates } from "../lib/observations";
 import { PIXEL_ARCSEC, STORIES, storyById, type Story } from "../lib/stories";
@@ -36,6 +40,7 @@ export function Explorer() {
   const [speed, setSpeed] = useState(0.7);
   const [difference, setDifference] = useState(false);
   const [compare, setCompare] = useState(false);
+  const [showMap, setShowMap] = useState(false);
   const compareRef = useRef(false); compareRef.current = compare;
   const [split, setSplit] = useState(50);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -233,6 +238,8 @@ export function Explorer() {
             <div className="divider-label"><span />OR ENTER COORDINATES<span /></div>
             <form noValidate onSubmit={event => { event.preventDefault(); endStory(); try { void search(parseCoordinates(ra, dec)); } catch (error) { setSearchError((error as Error).message); } }}><div className="coordinate-grid"><label>Right ascension <span>RA · degrees</span><input aria-label="Right ascension in degrees" type="number" step="any" min="0" max="359.999999" placeholder="0 ≤ RA < 360" value={ra} onChange={event => setRa(event.target.value)} /></label><label>Declination <span>Dec · degrees</span><input aria-label="Declination in degrees" type="number" step="any" min="-90" max="90" placeholder="−90 to 90" value={dec} onChange={event => setDec(event.target.value)} /></label></div><button className="primary-button search-button" type="submit">{searching ? "Searching the sky…" : "Search observations"}<span aria-hidden="true">↗</span></button></form>
             {searchError && <div className="notice error" role="alert">{searchError}{coordinates && <button onClick={() => void search(coordinates, targetId)}>Retry search</button>}</div>}
+            <button type="button" className="map-toggle" aria-expanded={showMap} onClick={() => setShowMap(v => !v)}>{showMap ? "Hide sky map" : "Or pick a point on the sky map"} <span aria-hidden="true">{showMap ? "▴" : "▾"}</span></button>
+            {showMap && <SkyMap center={coordinates} markers={targets} onPick={point => { endStory(); void search(point); }} />}
           </section>
           <section className="panel results-panel" aria-labelledby="results-title"><div className="section-heading"><span className="step-number">02</span><div><p className="eyebrow">MOMENTS TO COMPARE</p><h2 id="results-title">Observations <span className="count">{observations.length}</span></h2></div></div>
             <p className="section-hint" role="status">{searching ? "Searching the archive. Real data may take 5–15 seconds." : !searched ? "Your search results will appear here." : !observations.length ? "No SPHEREx coverage here yet. Try another location." : `${visits.length} ${visits.length === 1 ? "visit" : "visits"} · oldest first`}</p>

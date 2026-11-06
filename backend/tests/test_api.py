@@ -156,3 +156,30 @@ def test_mock_observations_reference_known_targets():
     ids = {t["id"] for t in targets}
     assert all(o["target_id"] in ids or o["target_id"] is None for o in obs)
     assert len({o["id"] for o in obs}) == len(obs)
+
+
+# ---------- sky-map relay ----------
+
+def test_hips_relay_rejects_anything_but_hips_files():
+    for path in ["../secret", "http://evil.example/x", "Norder3/Dir0/Npix1.exe", "index.html"]:
+        assert client.get(f"/api/hips/allwise/{path}").status_code in (400, 404)
+    assert_error(client.get("/api/hips/other/properties"), 404, "NOT_FOUND")
+
+
+def test_hips_relay_serves_and_caches(tmp_path, monkeypatch):
+    from app.config import get_settings
+    from app.routers import hips
+
+    monkeypatch.setattr(get_settings(), "cache_dir", tmp_path)
+    calls = []
+
+    class Resp:
+        status_code = 200
+        content = b"\xff\xd8jpeg"
+
+    monkeypatch.setattr(hips.requests, "get", lambda url, timeout: calls.append(url) or Resp())
+    for _ in range(2):
+        r = client.get("/api/hips/allwise/Norder3/Dir0/Npix12.jpg", headers={"Origin": "http://localhost:3000"})
+        assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
+        assert r.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert len(calls) == 1 and calls[0].endswith("/RGB-W4-W2-W1/Norder3/Dir0/Npix12.jpg")

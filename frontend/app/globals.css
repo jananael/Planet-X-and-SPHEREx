@@ -44,3 +44,13 @@
 .compare-tag{position:absolute;top:44px;font-size:9px;letter-spacing:.08em;color:#e3d6ef;background:#080813c9;padding:4px 8px;border-radius:4px;pointer-events:none}
 .compare-tag.left{left:13px}.compare-tag.right{right:13px}
 .compare-range{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:ew-resize;padding:0;border:0}
+
+/* ---------- Sky map picker ---------- */
+.map-toggle{width:100%;margin-top:14px;border-radius:999px;padding:10px 16px;font-size:12px;display:flex;justify-content:space-between;align-items:center;background:#10121f}
+.sky-map{margin-top:14px}
+.sky-map-view{width:100%;aspect-ratio:1;border:1px solid #303047;border-radius:10px;overflow:hidden;background:#03050b;position:relative}
+.sky-map-status{font-size:11px;color:var(--muted);margin-top:8px}
+.sky-map-status.error{color:#e5bfc8}
+.sky-map-pick{display:flex;flex-direction:column;gap:10px;margin-top:10px;font-size:11px}
+.sky-map-pick .primary-button{width:100%;justify-content:space-between;padding:10px 18px;font-size:12px}
+.sky-map-credit{font-size:9px;color:#8b859b;margin-top:8px;line-height:1.5}
