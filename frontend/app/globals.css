@@ -34,3 +34,13 @@
 .story-dots span{width:6px;height:6px;border-radius:50%;background:#494154}
 .story-dots span.on{background:var(--purple);box-shadow:0 0 7px #b978eb88}
 @media(max-width:760px){.story-list{grid-template-columns:1fr}.story-card{padding:14px 16px}}
+
+/* ---------- Scale bar + swipe comparison ---------- */
+.scale-bar{position:absolute;left:13px;bottom:12px;display:flex;flex-direction:column;gap:4px;pointer-events:none}
+.scale-bar span{display:block;height:3px;background:#f3f2fb;border-left:1px solid #f3f2fb;border-right:1px solid #f3f2fb;box-shadow:0 0 0 1px #080813c9}
+.scale-bar small{font-size:9px;letter-spacing:.06em;color:#e3d6ef;background:#080813c9;padding:2px 6px;border-radius:4px}
+.compare-reference{visibility:visible}
+.compare-line{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--purple);box-shadow:0 0 10px #b978eb;pointer-events:none}
+.compare-tag{position:absolute;top:44px;font-size:9px;letter-spacing:.08em;color:#e3d6ef;background:#080813c9;padding:4px 8px;border-radius:4px;pointer-events:none}
+.compare-tag.left{left:13px}.compare-tag.right{right:13px}
+.compare-range{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:ew-resize;padding:0;border:0}
