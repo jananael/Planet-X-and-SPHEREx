@@ -21,6 +21,10 @@ test("default detector is based on visit coverage rather than exposure count", (
   const list = [obs("a", 10, "D1"), obs("b", 11, "D1"), obs("c", 12, "D1"), obs("d", 10), obs("e", 80)];
   assert.equal(bestBand(list), "D3");
   assert.deepEqual(defaultSelection(list, "D3"), ["d", "e"]);
-  assert.deepEqual(defaultSelection(list, "D1"), ["a"]);
   assert.deepEqual(defaultSelection([], "D3"), []);
+});
+
+test("a band seen in only one visit selects all of its exposures so there is something to blink", () => {
+  const list = [obs("c", 10.2, "D1"), obs("a", 10.0, "D1"), obs("b", 10.1, "D1"), obs("d", 80)];
+  assert.deepEqual(defaultSelection(list, "D1"), ["a", "b", "c"]);
 });

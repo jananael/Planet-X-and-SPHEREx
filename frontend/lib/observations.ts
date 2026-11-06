@@ -25,5 +25,9 @@ export function bestBand(observations: Observation[]): string {
 }
 
 export function defaultSelection(observations: Observation[], band: string): string[] {
-  return groupVisits(observations).flatMap(v => { const obs = v.find(o => o.band === band); return obs ? [obs.id] : []; });
+  const perVisit = groupVisits(observations).flatMap(v => { const obs = v.find(o => o.band === band); return obs ? [obs.id] : []; });
+  if (perVisit.length >= 2) return perVisit;
+  // Only one visit in this band (e.g. an asteroid imaged hours apart): blink its exposures instead,
+  // otherwise there is a single frame and nothing to compare.
+  return [...observations].filter(o => o.band === band).sort((a, b) => a.mjd - b.mjd).map(o => o.id);
 }

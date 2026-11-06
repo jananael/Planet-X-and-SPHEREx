@@ -1,15 +1,30 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ApiFailure, errorMessage, loadBlink } from "../lib/api.ts";
+import { ApiFailure, errorMessage, loadBlink, waitForImage } from "../lib/api.ts";
 import type { Observation } from "../lib/types.ts";
 
 const observation = (id: string): Observation => ({ id, target_id: null, obs_time: "2025-08-14T02:10:00Z", mjd: 60901, band: "D3", release: "QR2", source_file: `${id}.fits`, wavelength_um: null, image_url: `/api/observations/${id}/image` });
 const settings = { ra: 210.4, dec: -11.85, size: 300, stretch: "asinh" as const };
 
+// Minimal browser Image: fires onload asynchronously once src is set.
+class FakeImage {
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  set src(_: string) { setTimeout(() => this.onload?.(), 0); }
+}
+
+test("waitForImage does not hang when the image never loads (e.g. hidden tab)", async () => {
+  const originalImage = globalThis.Image;
+  globalThis.Image = class { onload = null; onerror = null; set src(_: string) {} } as unknown as typeof Image;
+  try {
+    await assert.rejects(waitForImage("blob:x", new AbortController().signal, 20), (e: unknown) => e instanceof ApiFailure && e.code === "INVALID_IMAGE");
+  } finally { globalThis.Image = originalImage; }
+});
+
 test("blink loader reuses first-image limits, reads header wavelength, and limits concurrency", async () => {
   const originalFetch = globalThis.fetch;
   const originalImage = globalThis.Image;
-  globalThis.Image = class { src = ""; async decode() {} } as unknown as typeof Image;
+  globalThis.Image = FakeImage as unknown as typeof Image;
   let active = 0, peak = 0;
   const calls: URL[] = [];
   globalThis.fetch = async (input) => {
@@ -34,7 +49,7 @@ test("blink loader reuses first-image limits, reads header wavelength, and limit
 
 test("an uncovered first frame is reported and the next frame establishes the shared scale", async () => {
   const originalFetch = globalThis.fetch, originalImage = globalThis.Image;
-  globalThis.Image = class { src = ""; async decode() {} } as unknown as typeof Image;
+  globalThis.Image = FakeImage as unknown as typeof Image;
   const calls: URL[] = [];
   globalThis.fetch = async input => {
     const url = new URL(String(input)); calls.push(url);
@@ -55,7 +70,7 @@ test("an uncovered first frame is reported and the next frame establishes the sh
 
 test("cancelling a batch aborts requests and releases previously loaded image URLs", async () => {
   const originalFetch = globalThis.fetch, originalImage = globalThis.Image, originalRevoke = URL.revokeObjectURL;
-  globalThis.Image = class { src = ""; async decode() {} } as unknown as typeof Image;
+  globalThis.Image = FakeImage as unknown as typeof Image;
   const controller = new AbortController(); const revoked: string[] = [];
   URL.revokeObjectURL = url => { revoked.push(url); originalRevoke(url); };
   globalThis.fetch = async (input, init) => {

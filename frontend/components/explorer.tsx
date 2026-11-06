@@ -81,6 +81,13 @@ export function Explorer() {
     return () => { window.removeEventListener("popstate", readLocation); searchController.current?.abort(); frameController.current?.abort(); };
   }, [search]);
 
+  // A shared link (?ra=&dec=) carries only coordinates: re-highlight the matching demo target.
+  useEffect(() => {
+    if (targetId || !coordinates || !targets.length) return;
+    const match = targets.find(t => Math.abs(t.ra - coordinates.ra) < 1e-6 && Math.abs(t.dec - coordinates.dec) < 1e-6);
+    if (match) setTargetId(match.id);
+  }, [targets, coordinates, targetId]);
+
   const selectedObservations = useMemo(() => observations.filter(o => selected.includes(o.id)), [observations, selected]);
   const visits = useMemo(() => groupVisits(observations), [observations]);
 
@@ -164,7 +171,7 @@ export function Explorer() {
           <section className="panel results-panel" aria-labelledby="results-title"><div className="section-heading"><span className="step-number">02</span><div><p className="eyebrow">MOMENTS TO COMPARE</p><h2 id="results-title">Observations <span className="count">{observations.length}</span></h2></div></div>
             <p className="section-hint" role="status">{searching ? "Searching the archive. Real data may take 5–15 seconds." : !searched ? "Your search results will appear here." : !observations.length ? "No SPHEREx coverage here yet. Try another location." : `${visits.length} ${visits.length === 1 ? "visit" : "visits"} · oldest first`}</p>
             <fieldset className="band-filter" disabled={!observations.length}><legend>Detector band</legend>{["D1", "D2", "D3", "D4", "D5", "D6"].map(value => <button key={value} type="button" aria-pressed={band === value} disabled={!observations.some(o => o.band === value)} className={band === value ? "active" : ""} onClick={() => changeBand(value)}>{value}</button>)}</fieldset>
-            {!!observations.length && <><div className="selection-tools"><span>{selected.length} selected</span><button onClick={() => setSelected(observations.filter(o => o.band === band).map(o => o.id))}>Select all {band}</button><button onClick={() => setSelected(defaultSelection(observations, band))}>Reset</button></div><p className="tiny muted">One frame per visit is selected by default. Select more exposures to compare motion within a visit.</p></>}
+            {!!observations.length && <><div className="selection-tools"><span>{selected.length} selected</span><button onClick={() => setSelected(observations.filter(o => o.band === band).map(o => o.id))}>Select all {band}</button><button onClick={() => setSelected(defaultSelection(observations, band))}>Reset</button></div><p className="tiny muted">One frame per visit is selected by default (all exposures when there is only one visit). Select more to compare motion within a visit.</p></>}
             <div className="visits">{visits.map((visit, i) => {
               const matching = visit.filter(o => o.band === band); if (!matching.length) return null;
               return <details key={visit[0].id} open={visits.length <= 4}><summary><span>Visit {i + 1}<small>{month(visit[0].obs_time)}</small></span><span className="visit-count">{matching.length} frames</span></summary><div className="visit-frames">{matching.map(obs => <label key={obs.id}><input type="checkbox" checked={selected.includes(obs.id)} onChange={() => toggle(obs.id)} /><span>{utc(obs.obs_time)}<small>{obs.band} · {obs.release}</small></span></label>)}</div></details>;

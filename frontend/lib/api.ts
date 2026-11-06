@@ -57,10 +57,29 @@ export async function loadFrame(obs: Observation, settings: ImageSettings, signa
   const wavelengthUm = wl?.trim() && Number.isFinite(Number(wl)) ? Number(wl) : null;
   const url = URL.createObjectURL(await res.blob());
   try {
-    const img = new Image(); img.src = url; await img.decode();
+    await waitForImage(url, signal);
     signal.throwIfAborted();
     return { obs, url, wavelengthUm, vmin, vmax };
   } catch (error) { URL.revokeObjectURL(url); throw error; }
+}
+
+// Wait for the browser to load the PNG. Uses the load event, not img.decode(): decode() can stay
+// pending while the tab is hidden (no rendering), which froze loading until the user came back.
+export function waitForImage(url: string, signal: AbortSignal, timeout = 15_000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const done = (error?: unknown) => {
+      clearTimeout(timer); signal.removeEventListener("abort", onAbort);
+      img.onload = img.onerror = null;
+      if (error) reject(error); else resolve();
+    };
+    const onAbort = () => done(signal.reason);
+    const timer = setTimeout(() => done(new ApiFailure("INVALID_IMAGE", "Image took too long to load")), timeout);
+    signal.addEventListener("abort", onAbort, { once: true });
+    img.onload = () => done();
+    img.onerror = () => done(new ApiFailure("INVALID_IMAGE", "Image could not be read"));
+    img.src = url;
+  });
 }
 
 // Establish brightness limits with the first successful image, then use three workers.
