@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Brand } from "./brand";
 import { errorMessage, getJson, loadBlink } from "../lib/api";
 import { bestBand, defaultSelection, groupVisits, parseCoordinates } from "../lib/observations";
+import { STORIES, storyById, type Story } from "../lib/stories";
 import type { BlinkFrame, Coordinates, FrameFailure, Observation, Stretch, Target } from "../lib/types";
 
 const targetIcons = { asteroid: "☄", comet: "✧", brown_dwarf: "◉", star: "✦", variable: "◈" };
@@ -36,10 +37,13 @@ export function Explorer() {
   const [difference, setDifference] = useState(false);
   const [copied, setCopied] = useState(false);
   const [shareError, setShareError] = useState("");
+  const [story, setStory] = useState<{ id: string; step: number } | null>(null);
+  const storyAutoplayed = useRef<string | null>(null);
   const searchController = useRef<AbortController | null>(null);
   const frameController = useRef<AbortController | null>(null);
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const selectedTarget = targets.find(t => t.id === targetId);
+  const activeStory = story ? storyById(story.id) : undefined;
 
   const search = useCallback(async (position: Coordinates, id: string | null = null) => {
     searchController.current?.abort(); frameController.current?.abort();
@@ -121,13 +125,22 @@ export function Explorer() {
     window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
   }, [step]);
 
+  // Guided stories: start playback by themselves once the story's frames are ready.
+  useEffect(() => {
+    if (!story || loadingFrames || frames.length < 2 || storyAutoplayed.current === story.id) return;
+    storyAutoplayed.current = story.id; setPlaying(true);
+  }, [story, loadingFrames, frames.length]);
+
   const frame = frames[index];
   const showDifference = difference && frames.length > 1;
   useEffect(() => {
     if (!showDifference || !canvas.current || !frame) return;
     let cancelled = false;
-    const current = new Image(), reference = new Image(); current.src = frame.url; reference.src = frames[0].url;
-    Promise.all([current.decode(), reference.decode()]).then(() => {
+    // Load-event based (not img.decode(), which can stay pending while the tab is hidden).
+    const load = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = src;
+    });
+    Promise.all([load(frame.url), load(frames[0].url)]).then(([current, reference]) => {
       if (cancelled || !canvas.current) return;
       const surface = canvas.current; surface.width = current.naturalWidth; surface.height = current.naturalHeight;
       const context = surface.getContext("2d", { willReadFrequently: true }); if (!context) return;
@@ -145,6 +158,22 @@ export function Explorer() {
 
   const wavelengths = frames.flatMap(f => f.wavelengthUm === null ? [] : [f.wavelengthUm]);
   const wavelengthWarning = wavelengths.length > 1 && Math.max(...wavelengths) - Math.min(...wavelengths) > 0.05;
+  function startStory(next: Story) {
+    const target = targets.find(t => t.id === next.targetId); if (!target) return;
+    storyAutoplayed.current = null; setDifference(false); setStory({ id: next.id, step: 0 });
+    void search({ ra: target.ra, dec: target.dec }, target.id);
+    document.getElementById("viewer-title")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  // Relative moves from the latest state, so quick repeated clicks never skip or repeat a step.
+  function moveStory(delta: number) {
+    setStory(current => {
+      const def = current && storyById(current.id); if (!current || !def) return current;
+      const step = Math.min(def.steps.length - 1, Math.max(0, current.step + delta));
+      setDifference(!!def.steps[step].difference);
+      return { id: current.id, step };
+    });
+  }
+  function endStory() { setStory(null); setDifference(false); }
   function changeBand(value: string) { setBand(value); setSelected(defaultSelection(observations, value)); }
   function toggle(id: string) { setSelected(ids => ids.includes(id) ? ids.filter(i => i !== id) : [...ids, id]); }
   async function share() {
@@ -157,15 +186,25 @@ export function Explorer() {
     <header className="site-header"><Brand /><nav aria-label="Main navigation"><Link href="/">Home</Link><Link href="/explore" aria-current="page">Explorer</Link></nav><div className={`source-badge ${source === "mock" ? "mock" : ""}`}><span />{source === "mock" ? "MOCK DATA" : source === "real" ? "LIVE ARCHIVE" : "API NOT CONNECTED"}</div></header>
     <main id="explorer" className="explorer-shell">
       <section className="intro"><div><p className="eyebrow"><span />THE SKY, ACROSS TIME</p><h1>A new way to <span>look closer.</span></h1><p>Pick a patch of sky. Compare infrared observations.<br className="desktop-break" /> See what moves — and what changes.</p></div><div className="intro-note"><span className="orbit-mark" aria-hidden="true">✧</span><span>One sky.<br /><strong>Different moments.</strong></span></div></section>
+      <section className="stories" aria-labelledby="stories-title">
+        <div className="stories-heading"><p className="eyebrow"><span />GUIDED STORIES</p><h2 id="stories-title">Not sure where to look? <span>Start with a story.</span></h2></div>
+        <div className="story-list">{STORIES.map(s => {
+          const available = targets.some(t => t.id === s.targetId);
+          return <button key={s.id} type="button" className={`story-card ${story?.id === s.id ? "active" : ""}`} disabled={!available} aria-pressed={story?.id === s.id} onClick={() => startStory(s)}>
+            <span className="story-kicker">{s.kicker}</span><strong>{s.title}</strong><span className="story-summary">{s.summary}</span>
+            <span className="story-go">{!available ? (targets.length ? "Demo data only" : "Loading…") : story?.id === s.id ? "In progress" : "Start story →"}</span>
+          </button>;
+        })}</div>
+      </section>
       {startupError && <div className="notice error" role="alert">{startupError}<button onClick={() => setStartupRetry(n => n + 1)}>Retry connection</button></div>}
       <div className="workspace">
         <aside className="sidebar">
           <section className="panel target-panel" aria-labelledby="choose-title"><div className="section-heading"><span className="step-number">01</span><div><p className="eyebrow">YOUR STARTING POINT</p><h2 id="choose-title">Choose a location</h2></div></div>
             <p className="section-hint">Start with a familiar explorer’s target.</p>
-            <div className="target-list">{targets.map(target => <button key={target.id} className={`target-card ${targetId === target.id ? "selected" : ""}`} onClick={() => void search({ ra: target.ra, dec: target.dec }, target.id)}><span className="target-icon" aria-hidden="true">{targetIcons[target.type]}</span><span><strong>{target.name}</strong><small>{target.type.replace("_", " ")}</small></span><span className="target-arrow" aria-hidden="true">↗</span></button>)}{!targets.length && <p className="muted">{startupError ? "Connect the backend to load demo targets, or enter coordinates below." : "Loading demo targets…"}</p>}</div>
+            <div className="target-list">{targets.map(target => <button key={target.id} className={`target-card ${targetId === target.id ? "selected" : ""}`} onClick={() => { endStory(); void search({ ra: target.ra, dec: target.dec }, target.id); }}><span className="target-icon" aria-hidden="true">{targetIcons[target.type]}</span><span><strong>{target.name}</strong><small>{target.type.replace("_", " ")}</small></span><span className="target-arrow" aria-hidden="true">↗</span></button>)}{!targets.length && <p className="muted">{startupError ? "Connect the backend to load demo targets, or enter coordinates below." : "Loading demo targets…"}</p>}</div>
             {selectedTarget && <p className="target-description">{selectedTarget.description}{["barnards-star", "wise-0855-0714"].includes(selectedTarget.id) && " Motion is less than one SPHEREx pixel between six-month visits."}</p>}
             <div className="divider-label"><span />OR ENTER COORDINATES<span /></div>
-            <form noValidate onSubmit={event => { event.preventDefault(); try { void search(parseCoordinates(ra, dec)); } catch (error) { setSearchError((error as Error).message); } }}><div className="coordinate-grid"><label>Right ascension <span>RA · degrees</span><input aria-label="Right ascension in degrees" type="number" step="any" min="0" max="359.999999" placeholder="0 ≤ RA < 360" value={ra} onChange={event => setRa(event.target.value)} /></label><label>Declination <span>Dec · degrees</span><input aria-label="Declination in degrees" type="number" step="any" min="-90" max="90" placeholder="−90 to 90" value={dec} onChange={event => setDec(event.target.value)} /></label></div><button className="primary-button search-button" type="submit">{searching ? "Searching the sky…" : "Search observations"}<span aria-hidden="true">↗</span></button></form>
+            <form noValidate onSubmit={event => { event.preventDefault(); endStory(); try { void search(parseCoordinates(ra, dec)); } catch (error) { setSearchError((error as Error).message); } }}><div className="coordinate-grid"><label>Right ascension <span>RA · degrees</span><input aria-label="Right ascension in degrees" type="number" step="any" min="0" max="359.999999" placeholder="0 ≤ RA < 360" value={ra} onChange={event => setRa(event.target.value)} /></label><label>Declination <span>Dec · degrees</span><input aria-label="Declination in degrees" type="number" step="any" min="-90" max="90" placeholder="−90 to 90" value={dec} onChange={event => setDec(event.target.value)} /></label></div><button className="primary-button search-button" type="submit">{searching ? "Searching the sky…" : "Search observations"}<span aria-hidden="true">↗</span></button></form>
             {searchError && <div className="notice error" role="alert">{searchError}{coordinates && <button onClick={() => void search(coordinates, targetId)}>Retry search</button>}</div>}
           </section>
           <section className="panel results-panel" aria-labelledby="results-title"><div className="section-heading"><span className="step-number">02</span><div><p className="eyebrow">MOMENTS TO COMPARE</p><h2 id="results-title">Observations <span className="count">{observations.length}</span></h2></div></div>
@@ -179,6 +218,12 @@ export function Explorer() {
           </section>
         </aside>
         <section className="panel viewer-panel" aria-labelledby="viewer-title"><div className="viewer-heading"><div className="section-heading"><span className="step-number">03</span><div><p className="eyebrow">SEE WHAT TIME REVEALS</p><h2 id="viewer-title">Blink viewer</h2></div></div><span className="alignment-badge">◎ North up · East left</span></div>
+          {activeStory && story && <div className="story-panel" role="region" aria-label={`Story: ${activeStory.title}`}>
+            <div className="story-panel-top"><span className="story-kicker">{activeStory.kicker} · STEP {story.step + 1} OF {activeStory.steps.length}</span><button className="story-exit" onClick={endStory} aria-label="Exit story">✕</button></div>
+            <h3>{activeStory.title}</h3>
+            <p aria-live="polite">{activeStory.steps[story.step].text}</p>
+            <div className="story-nav"><button disabled={story.step === 0} onClick={() => moveStory(-1)}>← Back</button><span className="story-dots" aria-hidden="true">{activeStory.steps.map((_, i) => <span key={i} className={i === story.step ? "on" : ""} />)}</span>{story.step < activeStory.steps.length - 1 ? <button className="story-next" onClick={() => moveStory(1)}>Next →</button> : <button className="story-next" onClick={endStory}>Finish</button>}</div>
+          </div>}
           <div className="viewer-stage" aria-busy={loadingFrames}>
             {frame && !loadingFrames ? <>{frames.map((f, i) => <img key={f.obs.id} src={f.url} alt={`SPHEREx observation, ${utc(f.obs.obs_time)}, ${f.obs.band}`} className="sky-frame" style={{ visibility: i === index && !showDifference ? "visible" : "hidden" }} />)}{difference && frames.length > 1 && <canvas ref={canvas} className="sky-frame difference-canvas" role="img" aria-label="Difference between the current frame and the first frame" />}<span className="crosshair" aria-hidden="true" /><span className="stage-label">{difference && frames.length > 1 ? "DIFFERENCE · FRAME 1 REFERENCE" : `${frame.obs.band} · ${frame.obs.release}`}</span><span className="stage-counter">{index + 1} / {frames.length}</span><span className="north-label" aria-hidden="true">N ↑</span></> : <div className="viewer-empty"><div className={`view-reticle ${loadingFrames || searching ? "loading" : ""}`} aria-hidden="true"><span>✧</span></div><h3>{searching ? "Finding your patch of sky" : loadingFrames ? "Gathering moments in time" : failures.length ? "Images could not be loaded" : searched && !observations.length ? "A little further into the sky" : "Every comparison starts somewhere"}</h3><p>{loadingFrames ? `${progress.ready} of ${selectedObservations.length} images ready · ${progress.completed} processed` : searching ? "We’re looking for observations at your coordinates." : searched && !observations.length ? "Try another position or one of the demo targets." : selected.length === 0 && observations.length ? "Select observations from the list to begin." : "Choose a target or enter coordinates to explore."}</p>{loadingFrames && <><progress value={progress.completed} max={selectedObservations.length} /><small>First-time archive images can take 5–30 seconds each.</small></>}</div>}
           </div>
