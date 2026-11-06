@@ -39,12 +39,7 @@ html { scroll-behavior: smooth; }
 .sky-home .home-nav { gap: 28px; }
 .sky-home .home-nav a { font-size: 13px; padding: 6px 0; color: rgba(247,246,252,.92); }
 .sky-home .home-nav a:hover { color: #c696ff; }
-.sky-home .brand {
-  display: flex;
-  align-items: center;
-  width: 176px;
-  height: 44px;
-}
+.sky-home .brand { --wm: 19px; }
 .sky-home .footer-links a {
   position: relative;
   padding: 5px 0;
@@ -213,7 +208,7 @@ html { scroll-behavior: smooth; }
   padding: 10px 0;
   border-top: 1px solid rgba(206,207,225,.2);
 }
-.sky-home .footer-brand { width: 145px; height: 37px; }
+.sky-home .footer-brand { --wm: 15px; }
 .sky-home .footer-links { display: flex; align-items: center; gap: 25px; }
 
 @media (min-width: 900px) {
@@ -222,7 +217,7 @@ html { scroll-behavior: smooth; }
 }
 @media (max-width: 640px) {
   .sky-home .home-header { padding: 16px 21px; }
-  .sky-home .brand { width: 155px; height: 39px; }
+  .sky-home .brand { --wm: 16px; }
   .sky-home .home-nav { gap: 18px; }
   .sky-home .hero { min-height: 760px; min-height: 100svh; padding: 178px 22px 132px; }
   .sky-home .earth-art { top: 38px; right: -12%; width: 95vw; }
