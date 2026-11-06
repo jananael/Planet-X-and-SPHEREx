@@ -143,9 +143,10 @@ def test_unknown_route_uses_error_shape():
     assert_error(client.get("/api/nope"), 404, "NOT_FOUND")
 
 
-def test_cors_allows_localhost_3000_and_exposes_provenance():
-    r = client.get(f"/api/observations/{VESTA_1}/image", headers={"Origin": "http://localhost:3000"})
-    assert r.headers["access-control-allow-origin"] == "http://localhost:3000"
+@pytest.mark.parametrize("origin", ["http://localhost:3000", "http://127.0.0.1:3000"])
+def test_cors_allows_dev_frontend_and_exposes_provenance(origin):
+    r = client.get(f"/api/observations/{VESTA_1}/image", headers={"Origin": origin})
+    assert r.headers["access-control-allow-origin"] == origin
     assert "x-source-file" in r.headers["access-control-expose-headers"].lower()
 
 

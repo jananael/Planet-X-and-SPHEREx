@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     data_source: Literal["mock", "real"] = "mock"
     mock_dir: Path = APP_DIR / "mock_data"
     cache_dir: Path = APP_DIR.parent / ".cache"  # RealSource: search records + cutout FITS
-    cors_origins: str = "http://localhost:3000"
+    # Next dev server binds 127.0.0.1 (see frontend/package.json); browsers may use either name.
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     @property
     def cors_origin_list(self) -> list[str]:
