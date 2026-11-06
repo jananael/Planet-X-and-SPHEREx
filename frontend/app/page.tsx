@@ -1,7 +1,13 @@
-import Link from "next/link";
-import { Brand } from "../components/brand";
+import type { Metadata } from "next";
+import { HomePage } from "../components/home-page";
+import "./home.css";
 
-// Batoul owns the Home page. This small entry point keeps that route available until integration.
+export const metadata: Metadata = {
+  title: "SKYTRACE — The Sky Is Never Still",
+  description: "Beyond what the eye can see, the universe is always changing. Explore its hidden story through NASA SPHEREx.",
+};
+
+// Home page designed and built by Batool (see components/home-page.tsx).
 export default function Home() {
-  return <main className="home-placeholder"><Brand /><p className="eyebrow">POWERED BY SPHEREx</p><h1>The sky is<br /><span>never still.</span></h1><p>Explore the infrared sky across time.</p><Link className="primary-button" href="/explore">Start exploring <span aria-hidden="true">↗</span></Link><p className="muted">The team’s Home page will be integrated here.</p></main>;
+  return <HomePage />;
 }

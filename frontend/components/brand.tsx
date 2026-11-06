@@ -1,5 +1,11 @@
 import Link from "next/link";
 
-export function Brand() {
-  return <Link className="brand" href="/" aria-label="SKYTRACE home"><svg viewBox="0 0 58 42" fill="none" aria-hidden="true"><circle cx="29" cy="21" r="13" stroke="currentColor" strokeWidth="1.7" /><ellipse cx="29" cy="21" rx="28" ry="7" transform="rotate(-30 29 21)" stroke="currentColor" strokeWidth="1.7" /><path d="m38 5 4 1-2 4" stroke="currentColor" strokeWidth="1.5" /></svg><span>SKY<span>TRACE</span></span></Link>;
+// Batool's SKYTRACE logo, shared by every page. The image has a dark space background;
+// `mix-blend-mode: screen` (in CSS) drops it so only the white/purple wordmark shows.
+export function Brand({ className = "" }: { className?: string }) {
+  return (
+    <Link className={`brand ${className}`.trim()} href="/" aria-label="SKYTRACE home">
+      <img src="/skytrace/logo.webp" alt="SKYTRACE" width={720} height={240} />
+    </Link>
+  );
 }

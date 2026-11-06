@@ -1,0 +1,241 @@
+/* Batool's SKYTRACE home page styles (from her Vite version), scoped to .sky-home so they
+   don't collide with the Explorer. Values are unchanged; only class names that clashed with
+   the Explorer were renamed: site-header -> home-header, site-footer -> home-footer,
+   eyebrow -> home-eyebrow. */
+
+html { scroll-behavior: smooth; }
+
+.sky-home {
+  position: relative;
+  min-height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
+  background-color: #03040a;
+  color: #f3f2fb;
+  font-size: 16px;
+  line-height: normal;
+  -webkit-font-smoothing: antialiased;
+}
+.sky-home .space-backdrop {
+  position: absolute;
+  z-index: -3;
+  inset: 0;
+  background-image: linear-gradient(180deg, rgba(2,3,10,.06) 0%, rgba(2,3,10,.04) 35%, rgba(2,3,10,.33) 57%, rgba(2,3,10,.08) 100%), url('/skytrace/milky-way.webp');
+  background-size: 100% 100%, 100% auto;
+  background-position: center, center top;
+  background-repeat: no-repeat, repeat-y;
+}
+.sky-home .home-header {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 18px clamp(24px, 6.8vw, 82px);
+}
+.sky-home .home-nav { gap: 28px; }
+.sky-home .home-nav a { font-size: 13px; padding: 6px 0; color: rgba(247,246,252,.92); }
+.sky-home .home-nav a:hover { color: #c696ff; }
+.sky-home .brand {
+  display: flex;
+  align-items: center;
+  width: 176px;
+  height: 44px;
+}
+.sky-home .footer-links a {
+  position: relative;
+  padding: 5px 0;
+  color: rgba(247,246,252,.92);
+  font-size: 12px;
+  font-weight: 400;
+  transition: color 180ms ease;
+}
+.sky-home .footer-links a:hover { color: #c696ff; }
+
+.sky-home .hero {
+  position: relative;
+  display: flex;
+  min-height: 100svh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 160px 24px 140px;
+  text-align: center;
+}
+.sky-home .earth-art {
+  position: absolute;
+  z-index: -1;
+  top: -1px;
+  right: 0;
+  width: min(70vw, 850px);
+  height: auto;
+  pointer-events: none;
+}
+.sky-home .shared-telescope {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 12%;
+  display: block;
+  width: clamp(320px, 35vw, 500px);
+  height: auto;
+  transform-origin: center center;
+  pointer-events: none;
+  filter: drop-shadow(0 0 22px rgba(114,89,255,.22));
+  will-change: transform;
+}
+.sky-home .hero-copy { position: relative; z-index: 2; margin-top: 5px; }
+.sky-home .hero h1 {
+  margin: 0;
+  font-size: clamp(48px, 8.3vw, 82px);
+  line-height: .98;
+  letter-spacing: -.045em;
+  font-weight: 400;
+}
+.sky-home .headline-first {
+  display: block;
+  color: transparent;
+  background: linear-gradient(90deg, #f8f7fd 0%, #f8f7fd 49%, #c4edff 56%, #fff 60%, #f8f7fd 67%, #f8f7fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 0 17px rgba(116,192,255,.2));
+}
+.sky-home .headline-second {
+  display: block;
+  margin-top: 2px;
+  color: transparent;
+  background: linear-gradient(98deg, #a365ff 8%, #d27cff 48%, #b968ff 70%, #8858ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 0 8px rgba(166,78,255,.5)) drop-shadow(0 0 29px rgba(115,55,255,.18));
+}
+.sky-home .hero p {
+  max-width: 620px;
+  margin: 19px auto 0;
+  color: rgba(245,244,251,.88);
+  font-size: clamp(13px, 1.45vw, 15px);
+  line-height: 1.58;
+  letter-spacing: -.015em;
+}
+.sky-home .primary-cta {
+  display: inline-flex;
+  min-width: 164px;
+  min-height: 39px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 0 24px;
+  border: 1px solid #c27af3;
+  border-radius: 999px;
+  color: #f7f1ff;
+  font-size: 12px;
+  box-shadow: inset 0 0 0 1px rgba(194,122,243,.12), 0 0 16px rgba(171,77,255,.12);
+  transition: background-color 180ms ease, transform 180ms ease;
+}
+.sky-home .primary-cta:hover { background: rgba(177,100,237,.16); transform: translateY(-2px); }
+.sky-home .primary-cta span { font-size: 15px; line-height: 1; }
+.sky-home .scroll-cue {
+  position: absolute;
+  z-index: 3;
+  bottom: 38px;
+  left: 50%;
+  display: flex;
+  width: 27px;
+  height: 50px;
+  align-items: center;
+  justify-content: center;
+  transform: translateX(-50%);
+}
+.sky-home .chevron-arrow {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-right: 1px solid white;
+  border-bottom: 1px solid white;
+  transform: rotate(45deg);
+  animation: chevron-drift 1.9s ease-in-out infinite;
+}
+@keyframes chevron-drift {
+  0%, 100% { transform: translateY(-3px) rotate(45deg); }
+  50% { transform: translateY(3px) rotate(45deg); }
+}
+
+.sky-home .story {
+  position: relative;
+  display: grid;
+  min-height: 410px;
+  grid-template-columns: .88fr 1.12fr;
+  align-items: center;
+  gap: 34px;
+  padding: 28px clamp(40px, 6.8vw, 82px) 94px;
+}
+.sky-home .story-copy { position: relative; z-index: 2; grid-column: 1; grid-row: 1; max-width: 425px; }
+.sky-home .home-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 16px;
+  color: #f1eff8;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .24em;
+}
+.sky-home .home-eyebrow::before { width: 29px; height: 1px; background: #cf85ff; content: ''; }
+.sky-home .story h2 {
+  margin: 0 0 11px;
+  color: #f7f6fb;
+  font-size: clamp(30px, 4.5vw, 42px);
+  line-height: 1.05;
+  letter-spacing: -.035em;
+  font-weight: 500;
+}
+.sky-home .story h2 span { color: #c17af0; }
+.sky-home .story p {
+  max-width: 390px;
+  margin: 0;
+  color: rgba(245,244,251,.9);
+  font-size: 12px;
+  line-height: 1.54;
+  letter-spacing: -.005em;
+}
+.sky-home .story-visual { grid-column: 2; grid-row: 1; min-width: 0; min-height: 330px; }
+.sky-home .home-footer {
+  position: relative;
+  display: flex;
+  min-height: 61px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 24px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(206,207,225,.2);
+}
+.sky-home .footer-brand { width: 145px; height: 37px; }
+.sky-home .footer-links { display: flex; align-items: center; gap: 25px; }
+
+@media (min-width: 900px) {
+  .sky-home .hero { min-height: min(100svh, 760px); }
+  .sky-home .story { min-height: 400px; }
+}
+@media (max-width: 640px) {
+  .sky-home .home-header { padding: 16px 21px; }
+  .sky-home .brand { width: 155px; height: 39px; }
+  .sky-home .home-nav { gap: 18px; }
+  .sky-home .hero { min-height: 760px; min-height: 100svh; padding: 178px 22px 132px; }
+  .sky-home .earth-art { top: 38px; right: -12%; width: 95vw; }
+  .sky-home .shared-telescope { right: 6%; width: min(86vw, 440px); }
+  .sky-home .hero h1 { font-size: clamp(48px, 13vw, 70px); }
+  .sky-home .hero p { max-width: 440px; margin-top: 17px; font-size: 13px; }
+  .sky-home .story { min-height: auto; grid-template-columns: 1fr; gap: 7px; padding: 30px 26px 76px; }
+  .sky-home .story-copy { grid-column: 1; grid-row: 1; max-width: 470px; }
+  .sky-home .story p { max-width: 440px; font-size: 12px; }
+  .sky-home .story-visual { grid-column: 1; grid-row: 2; min-height: clamp(220px, 70vw, 320px); margin: 8px -8px 0; }
+  .sky-home .home-footer { margin: 0 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .sky-home .chevron-arrow { animation: none; }
+}
