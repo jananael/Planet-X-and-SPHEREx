@@ -50,3 +50,7 @@ spike_out/
 
 # RealSource cache (search records, cutout FITS)
 .cache/
+
+# Local tool settings / generated agent notes
+.claude/
+frontend/AGENTS.md
