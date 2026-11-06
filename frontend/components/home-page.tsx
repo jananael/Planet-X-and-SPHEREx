@@ -24,6 +24,7 @@ function HomeFooter() {
   return (
     <footer className="home-footer">
       <Brand className="footer-brand" />
+      <p className="home-credit">Data: NASA SPHEREx via NASA/IPAC IRSA · NASA Space Apps Challenge 2026 project, not an official NASA product.</p>
       <nav className="footer-links" aria-label="Footer navigation">
         <Link href="/">Home</Link>
         <Link href="/explore">Explorer</Link>

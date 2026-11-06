@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- SKYTRACE favicon: the crossbar-less "A" and star from Batool's logo -->
+  <defs>
+    <linearGradient id="a" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d9a8ff"/>
+      <stop offset="1" stop-color="#9b55f0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".42" cy=".7" r=".35">
+      <stop offset="0" stop-color="#a855f7" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#a855f7" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#06051a"/>
+  <rect width="64" height="64" rx="14" fill="url(#glow)"/>
+  <path d="M28 8 L37 8 L58 58 L50 58 L32.5 18 L15 52 L7 52 Z" fill="url(#a)"/>
+  <path d="M26 33 Q27.3 42 35 43 Q27.3 44 26 53 Q24.7 44 17 43 Q24.7 42 26 33 Z" fill="#fff"/>
+</svg>

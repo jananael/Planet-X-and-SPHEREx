@@ -265,6 +265,6 @@ export function Explorer() {
       </div>
       <section className="explore-note"><span aria-hidden="true">✦</span><p><strong>Explore with curiosity. Compare with care.</strong> These observations help you investigate changes, not confirm discoveries. A quiet-looking sky can still tell a story.</p></section>
     </main>
-    <footer className="site-footer"><Brand /><p>NASA SPHEREx observations. A new perspective.</p><nav aria-label="Footer navigation"><Link href="/">Home</Link><Link href="/explore" aria-current="page">Explorer</Link></nav></footer>
+    <footer className="site-footer"><Brand /><p>Data: NASA SPHEREx via NASA/IPAC IRSA · NASA Space Apps Challenge 2026 project, not an official NASA product.</p><nav aria-label="Footer navigation"><Link href="/">Home</Link><Link href="/explore" aria-current="page">Explorer</Link></nav></footer>
   </>;
 }

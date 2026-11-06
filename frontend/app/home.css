@@ -219,6 +219,7 @@ html { scroll-behavior: smooth; }
 }
 .sky-home .footer-brand { --wm: 15px; }
 .sky-home .footer-links { display: flex; align-items: center; gap: 25px; }
+.sky-home .home-credit { margin: 0 20px; text-align: center; color: rgba(245,244,251,.55); font-size: 10px; line-height: 1.5; }
 
 @media (min-width: 900px) {
   .sky-home .hero { min-height: min(100svh, 760px); }
@@ -239,6 +240,8 @@ html { scroll-behavior: smooth; }
   .sky-home .story p { max-width: 440px; font-size: 12px; }
   .sky-home .story-visual { grid-column: 1; grid-row: 2; min-height: clamp(220px, 70vw, 320px); margin: 8px -8px 0; }
   .sky-home .home-footer { margin: 0 20px; }
+  .sky-home .home-footer { flex-wrap: wrap; gap: 10px; }
+  .sky-home .home-credit { order: 3; width: 100%; margin: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
