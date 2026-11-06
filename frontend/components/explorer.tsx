@@ -41,6 +41,7 @@ export function Explorer() {
   const [difference, setDifference] = useState(false);
   const [compare, setCompare] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const compareRef = useRef(false); compareRef.current = compare;
   const [split, setSplit] = useState(50);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -208,6 +209,16 @@ export function Explorer() {
   function endStory() { setStory(null); setDifference(false); }
   function changeBand(value: string) { setBand(value); setSelected(defaultSelection(observations, value)); }
   function toggle(id: string) { setSelected(ids => ids.includes(id) ? ids.filter(i => i !== id) : [...ids, id]); }
+  async function exportGif() {
+    setExporting(true); setShareError("");
+    try {
+      const { makeBlinkGif, downloadBlob } = await import("../lib/gif"); // loaded only when used
+      const blob = await makeBlinkGif(frames, { delayMs: Math.round(speed * 1000), synthetic: source === "mock" });
+      const name = targetId ?? (coordinates ? `${coordinates.ra.toFixed(4)}_${coordinates.dec.toFixed(4)}` : "sky");
+      downloadBlob(blob, `skytrace-${name}.gif`);
+    } catch { setShareError("The GIF could not be created. Please try again."); }
+    finally { setExporting(false); }
+  }
   async function share() {
     try { await navigator.clipboard.writeText(window.location.href); setCopied(true); setShareError(""); setTimeout(() => setCopied(false), 2000); }
     catch { setShareError("Copy the address from your browser to share this position."); }
@@ -266,7 +277,7 @@ export function Explorer() {
           <div className="metadata" aria-live="polite"><div className="metadata-title"><span className="eyebrow">{frame ? "CURRENT OBSERVATION" : "OBSERVATION DETAILS"}</span><span>{frame ? `Frame ${index + 1} of ${frames.length}` : "Awaiting selection"}</span></div>{frame ? <><p className="observation-time">{utc(frame.obs.obs_time)}</p><div className="metadata-tags"><span>{frame.obs.band}</span><span>{frame.wavelengthUm === null ? "Wavelength unavailable" : `${frame.wavelengthUm.toFixed(3)} µm`}</span><span>{frame.obs.release}</span></div><p className="source-file">{frame.obs.source_file}</p></> : <p className="muted">Time, wavelength, and source file will appear with each frame.</p>}<p className="data-credit">Data: NASA/IPAC IRSA, SPHEREx{source === "mock" && " · Synthetic demo images"}</p></div>
           {wavelengthWarning && <div className="notice warning" role="status">Images were taken at different wavelengths (more than 0.05 µm apart). Brightness differences may reflect wavelength rather than a real change.</div>}
           {failures.length > 0 && <div className="notice error" role="alert"><strong>{failures.length} {failures.length === 1 ? "image unavailable" : "images unavailable"}</strong><ul>{failures.map(f => <li key={f.observation.id}>{utc(f.observation.obs_time)}: {f.message}</li>)}</ul><button onClick={() => setFrameRetry(n => n + 1)}>Retry images</button></div>}
-          <div className="viewer-settings"><label>Display stretch<select value={stretch} onChange={event => setStretch(event.target.value as Stretch)}><option value="asinh">Asinh</option><option value="zscale">Zscale</option><option value="linear">Linear</option></select></label><label>Field of view<select value={size} onChange={event => setSize(Number(event.target.value))}><option value="120">120″ · closer</option><option value="300">300″ · standard</option><option value="600">600″ · wider</option></select></label><button className="share-button" disabled={!coordinates} onClick={() => void share()}>{copied ? "Link copied ✓" : "Share position ↗"}</button></div>
+          <div className="viewer-settings"><label>Display stretch<select value={stretch} onChange={event => setStretch(event.target.value as Stretch)}><option value="asinh">Asinh</option><option value="zscale">Zscale</option><option value="linear">Linear</option></select></label><label>Field of view<select value={size} onChange={event => setSize(Number(event.target.value))}><option value="120">120″ · closer</option><option value="300">300″ · standard</option><option value="600">600″ · wider</option></select></label><button className="share-button" disabled={loadingFrames || frames.length < 2 || exporting} onClick={() => void exportGif()}>{exporting ? "Making GIF…" : "Download GIF ↓"}</button><button className="share-button" disabled={!coordinates} onClick={() => void share()}>{copied ? "Link copied ✓" : "Share position ↗"}</button></div>
           {shareError && <p className="tiny" role="status">{shareError}</p>}<p className="viewer-footnote">Aligned sky position. Shared brightness scale. A fairer comparison.<br />{difference ? "Difference mode subtracts the first displayed PNG from the current one; it is a visual aid, not a scientific flux measurement." : "Tip: use the left and right arrow keys to step through your frames."}</p>
         </section>
       </div>
