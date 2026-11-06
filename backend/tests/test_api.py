@@ -40,7 +40,7 @@ def test_targets_shape_and_types():
     body = client.get("/api/targets").json()
     assert body["count"] == len(body["targets"]) == 5
     for t in body["targets"]:
-        assert set(t) == {"id", "name", "type", "ra", "dec", "description"}
+        assert set(t) == {"id", "name", "type", "ra", "dec", "description", "pm_ra", "pm_dec", "epoch"}
     assert {t["type"] for t in body["targets"]} == {"asteroid", "comet", "brown_dwarf", "star", "variable"}
 
 

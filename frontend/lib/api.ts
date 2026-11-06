@@ -49,7 +49,8 @@ export async function getJson<T>(path: string, signal: AbortSignal): Promise<T> 
 export async function loadFrame(obs: Observation, settings: ImageSettings, signal: AbortSignal, limits?: { vmin: number; vmax: number }): Promise<BlinkFrame> {
   const q = new URLSearchParams({ ra: String(settings.ra), dec: String(settings.dec), size: String(settings.size), stretch: settings.stretch });
   if (limits) { q.set("vmin", String(limits.vmin)); q.set("vmax", String(limits.vmax)); }
-  const res = await request(`${obs.image_url}?${q}`, signal);
+  // Real archive images can take 5–30 s, and the backend retries IRSA for up to ~170 s.
+  const res = await request(`${obs.image_url}?${q}`, signal, IMAGE_TIMEOUT_MS);
   const min = res.headers.get("X-Stretch-Vmin"), max = res.headers.get("X-Stretch-Vmax");
   const vmin = Number(min), vmax = Number(max);
   if (!min || !max || !Number.isFinite(vmin) || !Number.isFinite(vmax) || vmax <= vmin) throw new ApiFailure("INVALID_IMAGE", "Missing brightness limits");
@@ -82,6 +83,18 @@ export function waitForImage(url: string, signal: AbortSignal, timeout = 15_000)
   });
 }
 
+export const IMAGE_TIMEOUT_MS = 180_000;
+export let UPSTREAM_RETRY_DELAY_MS = 2_000;
+export function setUpstreamRetryDelay(ms: number) { UPSTREAM_RETRY_DELAY_MS = ms; } // for tests
+
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { signal.removeEventListener("abort", onAbort); resolve(); }, ms);
+    const onAbort = () => { clearTimeout(timer); reject(signal.reason); };
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 // Establish brightness limits with the first successful image, then use three workers.
 export async function loadBlink(list: Observation[], settings: ImageSettings, signal: AbortSignal, progress: (ready: number, completed: number) => void) {
   const frames = new Map<string, BlinkFrame>();
@@ -90,7 +103,14 @@ export async function loadBlink(list: Observation[], settings: ImageSettings, si
   let reference: BlinkFrame | undefined;
   async function load(obs: Observation, limits?: BlinkFrame) {
     try {
-      const frame = await loadFrame(obs, settings, signal, limits);
+      let frame: BlinkFrame;
+      try { frame = await loadFrame(obs, settings, signal, limits); }
+      catch (error) {
+        // NASA's archive fails now and then and works a moment later: retry those once by ourselves.
+        if (signal.aborted || !(error instanceof ApiFailure) || error.code !== "UPSTREAM_ERROR") throw error;
+        await sleep(UPSTREAM_RETRY_DELAY_MS, signal);
+        frame = await loadFrame(obs, settings, signal, limits);
+      }
       frames.set(obs.id, frame); return frame;
     } catch (error) {
       if (signal.aborted) throw error;

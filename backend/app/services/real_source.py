@@ -19,6 +19,20 @@ from app.services import irsa
 from app.services.data_source import Cutout, DataSource, angular_separation_deg
 
 
+REAL_EPOCH = 2026.0  # middle of the SPHEREx QR2 + QR3 coverage (mid-2025 to late 2026)
+SOLAR_SYSTEM = {"asteroid", "comet"}
+
+
+def propagate(target: Target, epoch: float) -> Target:
+    """Move a target's position by its proper motion from target.epoch to `epoch`."""
+    if target.pm_ra is None or target.pm_dec is None or target.epoch is None:
+        return target
+    years = epoch - target.epoch
+    dec = target.dec + target.pm_dec * years / 3600
+    ra = (target.ra + target.pm_ra * years / 3600 / math.cos(math.radians(target.dec))) % 360
+    return target.model_copy(update={"ra": round(ra, 6), "dec": round(dec, 6), "epoch": epoch})
+
+
 class RealSource(DataSource):
     name = "real"
 
@@ -71,7 +85,14 @@ class RealSource(DataSource):
     # ---------- DataSource ----------
 
     def list_targets(self) -> list[Target]:
-        return list(self._targets)
+        """Demo targets usable with live data.
+
+        - Asteroids/comets are left out: their mock positions are illustrative, not ephemerides,
+          so a live search there would show an unrelated patch of sky.
+        - Stars/brown dwarfs are moved by proper motion to REAL_EPOCH. Catalogue (J2000 / WISE-epoch)
+          positions are off by minutes of arc for fast movers (Barnard's Star: ~4.5' by 2026).
+        """
+        return [propagate(t, REAL_EPOCH) for t in self._targets if t.type not in SOLAR_SYSTEM]
 
     def get_observation(self, observation_id: str) -> Observation:
         return self._to_observation(self._lookup(observation_id)[0])

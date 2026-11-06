@@ -58,6 +58,11 @@ TARGETS = [
 ]
 
 
+# Epoch of the catalogue coordinates above. WISE designations give the position at the WISE
+# epoch (~2010.5), not J2000. Approximate; to confirm with the science team.
+CATALOG_EPOCH = {"wise-0855-0714": 2010.5, "barnards-star": 2000.0, "mira": 2000.0}
+
+
 def position_at(ra0, dec0, motion, t0: datetime, t: datetime):
     days = (t - t0).total_seconds() / 86400
     kind, a, b = motion
@@ -70,7 +75,10 @@ def position_at(ra0, dec0, motion, t0: datetime, t: datetime):
 def main():
     targets, observations = [], []
     for tid, name, ttype, ra, dec, desc, motion, obs in TARGETS:
-        targets.append({"id": tid, "name": name, "type": ttype, "ra": ra, "dec": dec, "description": desc})
+        target = {"id": tid, "name": name, "type": ttype, "ra": ra, "dec": dec, "description": desc}
+        if motion[0] == "pm":
+            target |= {"pm_ra": motion[1], "pm_dec": motion[2], "epoch": CATALOG_EPOCH[tid]}
+        targets.append(target)
         t0 = utc(obs[0][0])
         for n, (when, band, wl, flux) in enumerate(obs, 1):
             assert BANDS[band][0] <= wl <= BANDS[band][1], (tid, band, wl)

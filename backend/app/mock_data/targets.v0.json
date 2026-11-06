@@ -24,7 +24,10 @@
       "type": "brown_dwarf",
       "ra": 133.79513,
       "dec": -7.24514,
-      "description": "Coldest known brown dwarf (~250 K). Proper motion ~8 arcsec/yr, i.e. about 1 SPHEREx pixel per year: barely visible between 6-month visits."
+      "description": "Coldest known brown dwarf (~250 K). Proper motion ~8 arcsec/yr, i.e. about 1 SPHEREx pixel per year: barely visible between 6-month visits.",
+      "pm_ra": -8.1,
+      "pm_dec": 0.7,
+      "epoch": 2010.5
     },
     {
       "id": "barnards-star",
@@ -32,7 +35,10 @@
       "type": "star",
       "ra": 269.45208,
       "dec": 4.69339,
-      "description": "Highest proper-motion star (~10.4 arcsec/yr). Still under 1 SPHEREx pixel per 6 months."
+      "description": "Highest proper-motion star (~10.4 arcsec/yr). Still under 1 SPHEREx pixel per 6 months.",
+      "pm_ra": -0.8,
+      "pm_dec": 10.33,
+      "epoch": 2000.0
     },
     {
       "id": "mira",
@@ -40,7 +46,10 @@
       "type": "variable",
       "ra": 34.83663,
       "dec": -2.97764,
-      "description": "Long-period variable (~332 d). Position fixed; the change over time is brightness."
+      "description": "Long-period variable (~332 d). Position fixed; the change over time is brightness.",
+      "pm_ra": 0.0,
+      "pm_dec": 0.0,
+      "epoch": 2000.0
     }
   ]
 }

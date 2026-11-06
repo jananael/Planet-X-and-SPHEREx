@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ApiFailure, errorMessage, loadBlink, waitForImage } from "../lib/api.ts";
+import { ApiFailure, errorMessage, loadBlink, setUpstreamRetryDelay, waitForImage } from "../lib/api.ts";
 import type { Observation } from "../lib/types.ts";
 
 const observation = (id: string): Observation => ({ id, target_id: null, obs_time: "2025-08-14T02:10:00Z", mjd: 60901, band: "D3", release: "QR2", source_file: `${id}.fits`, wavelength_um: null, image_url: `/api/observations/${id}/image` });
@@ -91,4 +91,27 @@ test("errors are presented according to API codes", () => {
   assert.match(errorMessage(new ApiFailure("UPSTREAM_ERROR", "technical")), /NASA/);
   assert.match(errorMessage(new ApiFailure("NOT_FOUND", "technical")), /Search again/);
   assert.equal(errorMessage(new ApiFailure("BAD_REQUEST", "Invalid RA")), "Invalid RA");
+});
+
+test("a temporary NASA archive failure (UPSTREAM_ERROR) is retried once automatically", async () => {
+  const originalFetch = globalThis.fetch, originalImage = globalThis.Image;
+  globalThis.Image = FakeImage as unknown as typeof Image;
+  setUpstreamRetryDelay(1);
+  const attempts = new Map<string, number>();
+  globalThis.fetch = async input => {
+    const id = new URL(String(input)).pathname.split("/")[3];
+    const n = (attempts.get(id) ?? 0) + 1; attempts.set(id, n);
+    const upstream = () => new Response(JSON.stringify({ error: { code: "UPSTREAM_ERROR", message: "IRSA" } }), { status: 502 });
+    if (id === "flaky" && n === 1) return upstream();   // fails once, then works
+    if (id === "down") return upstream();               // keeps failing
+    return new Response(new Blob(["PNG"]), { headers: { "X-Stretch-Vmin": "0", "X-Stretch-Vmax": "1" } });
+  };
+  try {
+    const { frames, failures } = await loadBlink([observation("flaky"), observation("ok"), observation("down")], settings, new AbortController().signal, () => {});
+    try {
+      assert.deepEqual(frames.map(f => f.obs.id), ["flaky", "ok"]);
+      assert.deepEqual(failures.map(f => [f.observation.id, f.code]), [["down", "UPSTREAM_ERROR"]]);
+      assert.equal(attempts.get("flaky"), 2); assert.equal(attempts.get("down"), 2); assert.equal(attempts.get("ok"), 1);
+    } finally { frames.forEach(f => URL.revokeObjectURL(f.url)); }
+  } finally { globalThis.fetch = originalFetch; globalThis.Image = originalImage; setUpstreamRetryDelay(2_000); }
 });

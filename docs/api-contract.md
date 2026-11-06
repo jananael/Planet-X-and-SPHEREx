@@ -35,6 +35,8 @@ Mock data: [`backend/app/mock_data/`](../backend/app/mock_data/). The JSON shape
 |---|---|---|
 | `type` | `asteroid` \| `comet` \| `brown_dwarf` \| `star` \| `variable` | |
 | `ra`, `dec` | number, deg (ICRS) | Moving objects: position at the **first** observation |
+| `pm_ra`, `pm_dec` | number \| null, arcsec/yr | Proper motion (`pm_ra` includes cos Dec). `null` for asteroids/comets |
+| `epoch` | number \| null | Decimal year of `ra`/`dec` (e.g. `2000.0`; `2026.0` in real mode) |
 
 ### `Observation`
 
@@ -160,6 +162,7 @@ Same endpoints and shapes. What differs:
 | Observation `id` | `vesta-20250814-d3-1` | `obs_id` + detector, e.g. `2026W11_2A_0501_1D2` |
 | Valid ids | Fixed list | **Only ids returned by a `/search`** (remembered on disk, so they survive a restart) |
 | `target_id` | Set | `null` |
+| `/targets` | All 5 demo targets | **Stars only** (asteroid/comet positions are illustrative), with `ra`/`dec` **moved by proper motion to 2026.0** (`epoch: 2026.0`) |
 | `wavelength_um` | Set | `null` in search, exact value in `X-Wavelength-Um` on `/image` |
 | `/image` default centre | Target position | **The point you searched** |
 | `/image` latency | Instant | **5–30 s the first time**, ~0.1 s after (disk cache). Show a loading state |
@@ -170,6 +173,11 @@ Same endpoints and shapes. What differs:
 
 **High proper-motion targets:** search at the position **for the observation epoch**, not J2000.
 Barnard's Star has moved ~4.5′ since 2000, so a J2000 search finds images whose cutout misses it.
+`/api/targets` already does this in real mode, so clicking a target card searches the right place.
+
+**Temporary archive failures:** the backend retries IRSA (3 tries, ~170 s worst case, logged as
+`IRSA cutout attempt n/3 failed`). The frontend waits up to 180 s per image and retries an
+`UPSTREAM_ERROR` once by itself before showing it.
 
 ---
 

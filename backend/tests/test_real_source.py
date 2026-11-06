@@ -168,9 +168,17 @@ def test_upstream_failure_is_502(real, monkeypatch):
     assert r.status_code == 502 and r.json()["error"]["code"] == "UPSTREAM_ERROR"
 
 
-def test_targets_come_from_curated_file(real):
+def test_live_targets_skip_illustrative_and_apply_proper_motion(real):
+    """Live mode: no asteroid/comet with made-up positions; stars moved to the SPHEREx epoch."""
     client, _, _, _ = real
-    assert client.get("/api/targets").json()["count"] == 5
+    targets = {t["id"]: t for t in client.get("/api/targets").json()["targets"]}
+    assert set(targets) == {"wise-0855-0714", "barnards-star", "mira"}
+    barnard = targets["barnards-star"]
+    assert barnard["epoch"] == 2026.0
+    # 26 years x 10.33"/yr north = ~268" = ~0.0746 deg (the position we verified against real images)
+    assert barnard["dec"] == pytest.approx(4.69339 + 10.33 * 26 / 3600, abs=1e-5)
+    assert barnard["ra"] == pytest.approx(269.4463, abs=2e-4)
+    assert targets["mira"]["ra"] == pytest.approx(34.83663)  # no proper motion -> unchanged
 
 
 # ---------- real IRSA (opt-in) ----------

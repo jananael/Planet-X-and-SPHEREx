@@ -6,6 +6,7 @@ Findings behind each choice: docs/irsa-spike-findings.md.
 from __future__ import annotations
 
 import io
+import logging
 import math
 import time
 from dataclasses import dataclass
@@ -17,6 +18,8 @@ import numpy as np
 import requests
 
 from app.errors import UpstreamError
+
+log = logging.getLogger("skytrace.irsa")
 
 SIA_URL = "https://irsa.ipac.caltech.edu/SIA"
 COLLECTIONS = ("spherex_qr2", "spherex_qr3")  # different time ranges, not versions: search both
@@ -93,20 +96,27 @@ def sia_search(ra: float, dec: float, radius_deg: float, collection: str) -> lis
 
 
 def fetch_cutout(access_url: str, ra: float, dec: float, size_arcsec: float, *, tries: int = 3,
-                 connect_timeout: float = 10, read_timeout: float = 90) -> bytes:
-    """IRSA cutout = access_url?center=&size=. Retries: the spike saw transient 503s and timeouts."""
+                 connect_timeout: float = 10, read_timeout: float = 45) -> bytes:
+    """IRSA cutout = access_url?center=&size=. Retries: we see transient 503s and timeouts.
+
+    Worst case ~3 x (10 + 45) s + backoff ≈ 170 s, kept under the frontend's 180 s image timeout
+    so the user gets UPSTREAM_ERROR (with Retry) rather than a silent client timeout.
+    """
     url = f"{access_url}?center={ra},{dec}deg&size={size_arcsec:.1f}arcsec"
     last = ""
     for attempt in range(1, tries + 1):
         try:
             resp = requests.get(url, timeout=(connect_timeout, read_timeout))
             if resp.status_code == 200 and resp.content[:6] == b"SIMPLE":
+                if attempt > 1:
+                    log.info("IRSA cutout succeeded on attempt %d: %s", attempt, url)
                 return resp.content
             last = f"HTTP {resp.status_code}"
         except requests.RequestException as e:
             last = type(e).__name__
+        log.warning("IRSA cutout attempt %d/%d failed (%s): %s", attempt, tries, last, url)
         if attempt < tries:
-            time.sleep(1.5 * attempt)
+            time.sleep(2 * attempt)
     raise UpstreamError(f"IRSA cutout failed after {tries} tries ({last})")
 
 
