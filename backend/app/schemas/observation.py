@@ -16,7 +16,14 @@ class Observation(BaseModel):
     target_id: str | None = Field(description="null when the image isn't tied to a demo target")
     obs_time: datetime = Field(description="UTC, ISO-8601")
     mjd: float = Field(description="Modified Julian Date (UTC)")
-    wavelength_um: float = Field(description="Wavelength at the cutout centre (varies across a SPHEREx image)")
+    wavelength_um: float | None = Field(
+        description="Wavelength at the cutout centre (varies across a SPHEREx image). "
+                    "Real data: null in search results (needs the image header); the /image response "
+                    "carries it in X-Wavelength-Um."
+    )
+    wavelength_range_um: tuple[float, float] | None = Field(
+        default=None, description="Whole-detector wavelength range, NOT the value at the target"
+    )
     band: str = Field(examples=["D3"], description="SPHEREx detector D1..D6")
     release: str = Field(examples=["QR2"])
     source_file: str = Field(description="Archive file name, shown in the UI as provenance")

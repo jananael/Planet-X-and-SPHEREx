@@ -58,7 +58,8 @@ Mock data: [`backend/app/mock_data/`](../backend/app/mock_data/). The JSON shape
 | `target_id` | string \| null | null = image not tied to a demo target |
 | `obs_time` | ISO-8601 UTC | |
 | `mjd` | number | Same instant as `obs_time` |
-| `wavelength_um` | number | At the **cutout centre**: SPHEREx wavelength varies across the image |
+| `wavelength_um` | number \| null | At the **cutout centre**: SPHEREx wavelength varies across the image. **Real data: `null` in search results** (it needs the image header). The exact value comes with the image in `X-Wavelength-Um` |
+| `wavelength_range_um` | [min, max] \| null | Whole-detector range. Fine for "roughly which colour", **not** the value at the target |
 | `band` | `D1`…`D6` | SPHEREx detector (D1 0.75–1.09 µm … D6 4.42–5.00 µm) |
 | `release` | string | e.g. `QR2` |
 | `source_file` | string | Archive file name. **Show it in the UI** (provenance) |
@@ -145,7 +146,30 @@ Errors: `400 BAD_REQUEST`, `404 NOT_FOUND`, `404 NO_COVERAGE`, `502 UPSTREAM_ERR
 3. Read `X-Stretch-Vmin`/`X-Stretch-Vmax` from that response.
 4. Load the other epochs with those `vmin`/`vmax`. Otherwise each image is normalised on its own
    and brightness changes (variable stars) disappear.
-5. Show `source_file`, `obs_time` and `wavelength_um` under every frame.
+5. Show `source_file`, `obs_time` and `X-Wavelength-Um` under every frame.
+
+---
+
+## Real data mode (`DATA_SOURCE=real`)
+
+Same endpoints and shapes. What differs:
+
+| | Mock | Real |
+|---|---|---|
+| `/search` | Mock observations | Live IRSA SIA2, **QR2 + QR3 merged**, ~5–15 s |
+| Observation `id` | `vesta-20250814-d3-1` | `obs_id` + detector, e.g. `2026W11_2A_0501_1D2` |
+| Valid ids | Fixed list | **Only ids returned by a `/search`** (remembered on disk, so they survive a restart) |
+| `target_id` | Set | `null` |
+| `wavelength_um` | Set | `null` in search, exact value in `X-Wavelength-Um` on `/image` |
+| `/image` default centre | Target position | **The point you searched** |
+| `/image` latency | Instant | **5–30 s the first time**, ~0.1 s after (disk cache). Show a loading state |
+| `/image` pixels | Synthetic | Real, ZODI subtracted, **reprojected north-up** so every visit lines up |
+| Saturated stars | — | Core pixels masked by SPHEREx, shown white |
+| `NO_COVERAGE` | — | The point is outside that image |
+| `UPSTREAM_ERROR` (502) | — | IRSA down or timed out after retries |
+
+**High proper-motion targets:** search at the position **for the observation epoch**, not J2000.
+Barnard's Star has moved ~4.5′ since 2000, so a J2000 search finds images whose cutout misses it.
 
 ---
 

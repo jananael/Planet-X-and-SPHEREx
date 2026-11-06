@@ -12,6 +12,7 @@ class Settings(BaseSettings):
 
     data_source: Literal["mock", "real"] = "mock"
     mock_dir: Path = APP_DIR / "mock_data"
+    cache_dir: Path = APP_DIR.parent / ".cache"  # RealSource: search records + cutout FITS
     cors_origins: str = "http://localhost:3000"
 
     @property

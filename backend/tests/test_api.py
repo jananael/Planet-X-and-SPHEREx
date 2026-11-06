@@ -8,7 +8,6 @@ from PIL import Image
 
 from app.config import APP_DIR
 from app.main import app
-from app.services.data_source import RealSource, get_data_source
 
 client = TestClient(app)
 VESTA_1 = "vesta-20250814-d3-1"
@@ -148,14 +147,6 @@ def test_cors_allows_localhost_3000_and_exposes_provenance():
     r = client.get(f"/api/observations/{VESTA_1}/image", headers={"Origin": "http://localhost:3000"})
     assert r.headers["access-control-allow-origin"] == "http://localhost:3000"
     assert "x-source-file" in r.headers["access-control-expose-headers"].lower()
-
-
-def test_real_source_returns_501():
-    app.dependency_overrides[get_data_source] = RealSource
-    try:
-        assert_error(client.get("/api/targets"), 501, "NOT_IMPLEMENTED")
-    finally:
-        app.dependency_overrides.clear()
 
 
 def test_mock_observations_reference_known_targets():

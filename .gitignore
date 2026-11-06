@@ -47,3 +47,6 @@ Thumbs.db
 
 # Spike outputs (FITS cutouts, PNGs)
 spike_out/
+
+# RealSource cache (search records, cutout FITS)
+.cache/

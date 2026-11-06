@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 
 from app.config import get_settings
-from app.errors import NoCoverage, NotFound, NotImplementedYet
+from app.errors import NoCoverage, NotFound
 from app.schemas import Observation, Target
 from app.services import mock_sky
 
@@ -52,7 +52,12 @@ class DataSource(ABC):
 
     @abstractmethod
     def get_cutout(self, observation_id: str, ra: float | None, dec: float | None, size_arcsec: float) -> Cutout:
-        """Pixels of one observation around (ra, dec). Defaults to the target's reference position."""
+        """North-up pixels (row 0 = north) of one observation around (ra, dec).
+
+        Default centre: mock = the target's reference position; real = the point that was searched.
+        The returned Cutout.observation may carry fields only known after reading the image
+        (e.g. wavelength_um at the target).
+        """
 
 
 class MockSource(DataSource):
@@ -110,32 +115,12 @@ class MockSource(DataSource):
         return Cutout(data=data, ra=ra, dec=dec, pixel_scale_arcsec=SPHEREX_PIXEL_ARCSEC, observation=obs)
 
 
-class RealSource(DataSource):
-    """IRSA access (SIA2 search + Cutout Service). To be filled in with the science team's code.
-
-    Planned:
-      search      -> pyvo SIA2 query on the SPHEREx Quick Release collection at (ra, dec)
-      get_cutout  -> IRSA cutout of the spectral image, read with astropy.io.fits, raise
-                     UpstreamError on archive failures and NoCoverage when (ra, dec) is off-image
-    """
-
-    name = "real"
-
-    def list_targets(self) -> list[Target]:
-        raise NotImplementedYet("RealSource.list_targets is not implemented yet")
-
-    def get_observation(self, observation_id: str) -> Observation:
-        raise NotImplementedYet("RealSource.get_observation is not implemented yet")
-
-    def search(self, ra: float, dec: float, radius: float) -> list[Observation]:
-        raise NotImplementedYet("RealSource.search is not implemented yet")
-
-    def get_cutout(self, observation_id: str, ra: float | None, dec: float | None, size_arcsec: float) -> Cutout:
-        raise NotImplementedYet("RealSource.get_cutout is not implemented yet")
-
-
 @lru_cache
 def get_data_source() -> DataSource:
     """FastAPI dependency. Override in tests via app.dependency_overrides."""
     s = get_settings()
-    return RealSource() if s.data_source == "real" else MockSource(s.mock_dir)
+    if s.data_source == "real":
+        from app.services.real_source import RealSource  # lazy: pulls in astropy / pyvo
+
+        return RealSource(targets_file=s.mock_dir / f"targets.{MOCK_VERSION}.json", cache_dir=s.cache_dir)
+    return MockSource(s.mock_dir)

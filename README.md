@@ -39,11 +39,27 @@ uvicorn app.main:app --reload --port 8000
 
 | Var | Default | Meaning |
 |---|---|---|
-| `DATA_SOURCE` | `mock` | `mock` = JSON + synthetic images; `real` = `RealSource` (IRSA, not implemented yet → 501) |
-| `MOCK_DIR` | `backend/app/mock_data` | Folder holding the mock JSON files |
+| `DATA_SOURCE` | `mock` | `mock` = JSON + synthetic images; `real` = live SPHEREx data from IRSA |
+| `MOCK_DIR` | `backend/app/mock_data` | Mock JSON files (the curated target list is used in both modes) |
+| `CACHE_DIR` | `backend/.cache` | Real mode: remembered search results + cutout FITS |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated list of allowed origins |
 
 Routers only call the `DataSource` interface, so switching to real data is one env var.
+
+### Real mode
+
+```bash
+DATA_SOURCE=real uvicorn app.main:app --port 8000
+```
+
+Live SPHEREx data from IRSA (QR2 + QR3): search via SIA2, cutouts reprojected north-up, cached in
+`backend/.cache/`. The first image per observation takes 5–30 s; cached ones are instant. Details and
+differences from mock: [`docs/api-contract.md`](docs/api-contract.md#real-data-mode-data_sourcereal).
+
+Tests: `pytest` runs offline (IRSA is faked). `RUN_NETWORK_TESTS=1 pytest -k network` hits the real archive.
+
+> **Windows:** put the venv on a short path (e.g. `C:\venvs\planetx`). astropy fails to load its DLLs
+> from very long paths ("The filename or extension is too long").
 
 ### Mock mode
 `/image` renders **synthetic** cutouts: fixed background stars per field, plus the target at its

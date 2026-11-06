@@ -54,7 +54,8 @@ def get_observation_image(
 
     obs = cutout.observation
     headers = dict(zip(IMAGE_HEADERS, (
-        obs.source_file, obs.obs_time.strftime("%Y-%m-%dT%H:%M:%SZ"), f"{obs.wavelength_um}", obs.band,
+        obs.source_file, obs.obs_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "" if obs.wavelength_um is None else f"{obs.wavelength_um}", obs.band,
         obs.release, f"{cutout.ra:.6f}", f"{cutout.dec:.6f}", f"{used_min:.6g}", f"{used_max:.6g}",
     )))
     headers["Cache-Control"] = "public, max-age=3600"

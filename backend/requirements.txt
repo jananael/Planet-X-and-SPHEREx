@@ -4,7 +4,9 @@ pydantic>=2.7
 pydantic-settings>=2.3
 numpy>=1.26
 Pillow>=10.4
+requests>=2.31
 
-# RealSource (IRSA SIA2 + cutouts, FITS/WCS) — add when wiring real data:
-# astropy>=6.0
-# pyvo>=1.5
+# RealSource (DATA_SOURCE=real): IRSA SIA2 + cutouts, FITS / WCS.
+# Windows: keep the venv on a short path, astropy fails to load DLLs from very long paths.
+astropy>=6.0
+pyvo>=1.5
