@@ -44,3 +44,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Spike outputs (FITS cutouts, PNGs)
+spike_out/
