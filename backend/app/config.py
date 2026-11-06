@@ -4,14 +4,14 @@ from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+APP_DIR = Path(__file__).resolve().parent
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     data_source: Literal["mock", "real"] = "mock"
-    mock_dir: Path = REPO_ROOT / "mock"
+    mock_dir: Path = APP_DIR / "mock_data"
     cors_origins: str = "http://localhost:3000"
 
     @property

@@ -1,137 +1,167 @@
-# API Contract — v0
+# API Contract — v0 (draft, to review with Yazan)
 
-Base URL (dev): `http://localhost:8000`  ·  All paths are prefixed with `/api`.
-Content type: `application/json; charset=utf-8` (except the image endpoint, which redirects).
-CORS: `http://localhost:3000` is allowed in dev.
+Base URL (dev): `http://localhost:8000`. All paths start with `/api`.
+JSON everywhere except the image endpoint (`image/png`). CORS: `http://localhost:3000`.
 
-The shapes below match `mock/targets.v0.json` and `mock/observations.v0.json` exactly, so the
-frontend can be built against the mock files before the backend is running.
+Mock data: [`backend/app/mock_data/`](../backend/app/mock_data/). The JSON shapes below match it exactly
+(minus the internal `mock_truth` field, which the API never returns).
+
+| Method | Path | Returns |
+|---|---|---|
+| GET | `/api/health` | service status + active data source |
+| GET | `/api/targets` | demo targets |
+| GET | `/api/search?ra=&dec=&radius=` | SPHEREx observations covering the point, oldest first |
+| GET | `/api/observations/{id}` | one observation's metadata |
+| GET | `/api/observations/{id}/image?ra=&dec=&size=&stretch=&vmin=&vmax=` | PNG cutout |
 
 ---
 
-## Data types
-
-### `Observation`
-
-| Field | Type | Notes |
-|---|---|---|
-| `id` | string | Unique, URL-safe (e.g. `wise-0855-0714-neowise-w2-2`) |
-| `survey` | string | One of `allwise`, `neowise`, `spherex` (v0) |
-| `mjd` | number | Modified Julian Date of the observation (UTC) |
-| `band` | string | `W1`, `W2` for WISE; `SPHEREx-B1` … `SPHEREx-B6` for SPHEREx (v0, see open questions) |
-| `image_url` | string | Absolute URL to a preview image (placeholder PNGs in v0) |
-
-### `ObservationDetail` = `Observation` + `target_id: string`
+## Types
 
 ### `Target`
 
+```json
+{
+  "id": "vesta",
+  "name": "(4) Vesta",
+  "type": "asteroid",
+  "ra": 210.4,
+  "dec": -11.85,
+  "description": "Bright main-belt asteroid. Moves visibly between SPHEREx exposures taken hours apart. ..."
+}
+```
+
 | Field | Type | Notes |
 |---|---|---|
-| `id` | string | Unique, URL-safe (e.g. `wise-0855-0714`) |
-| `name` | string | Display name |
-| `ra` | number | Right ascension, degrees, ICRS/J2000, `0 ≤ ra < 360` |
-| `dec` | number | Declination, degrees, `-90 ≤ dec ≤ 90` |
-| `observations` | `Observation[]` | Sorted by `mjd` ascending |
+| `type` | `asteroid` \| `comet` \| `brown_dwarf` \| `star` \| `variable` | |
+| `ra`, `dec` | number, deg (ICRS) | Moving objects: position at the **first** observation |
 
-### `SearchResult` = `Target` + `distance_deg: number` (angular separation from the query point)
-
-### Error
-
-Every non-2xx response uses this shape:
+### `Observation`
 
 ```json
-{ "error": { "code": "TARGET_NOT_FOUND", "message": "No observation with id 'abc'" } }
+{
+  "id": "vesta-20250814-d3-1",
+  "target_id": "vesta",
+  "obs_time": "2025-08-14T02:10:00Z",
+  "mjd": 60901.09028,
+  "wavelength_um": 2.04,
+  "band": "D3",
+  "release": "QR2",
+  "source_file": "MOCK_spherex_qr2_vesta-20250814-d3-1.fits",
+  "image_url": "/api/observations/vesta-20250814-d3-1/image",
+  "footprint": { "ra": 210.85, "dec": -12.15, "radius_deg": 1.75 }
+}
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `target_id` | string \| null | null = image not tied to a demo target |
+| `obs_time` | ISO-8601 UTC | |
+| `mjd` | number | Same instant as `obs_time` |
+| `wavelength_um` | number | At the **cutout centre**: SPHEREx wavelength varies across the image |
+| `band` | `D1`…`D6` | SPHEREx detector (D1 0.75–1.09 µm … D6 4.42–5.00 µm) |
+| `release` | string | e.g. `QR2` |
+| `source_file` | string | Archive file name. **Show it in the UI** (provenance) |
+| `image_url` | string | Relative. Prefix with the API base URL |
+| `footprint` | object \| null | Approximate coverage circle (v0 simplification, extra field beyond the brief) |
+
+### Error (every non-2xx JSON response)
+
+```json
+{ "error": { "code": "NOT_FOUND", "message": "No observation with id 'x'" } }
 ```
 
 | HTTP | `code` | When |
 |---|---|---|
-| 400 | `BAD_REQUEST` | Malformed request |
-| 404 | `NOT_FOUND` | Unknown route |
-| 404 | `OBSERVATION_NOT_FOUND` | Unknown observation id |
-| 422 | `VALIDATION_ERROR` | Missing/invalid query or path params (message says which) |
-| 501 | `NOT_IMPLEMENTED` | Data source doesn't support this yet (e.g. `DATA_SOURCE=real`) |
-| 500 | `INTERNAL_ERROR` | Anything unexpected |
+| 400 | `BAD_REQUEST` | Missing / invalid params (message names the param) |
+| 404 | `NOT_FOUND` | Unknown observation id or route |
+| 404 | `NO_COVERAGE` | Image requested at a ra/dec the observation doesn't cover |
+| 502 | `UPSTREAM_ERROR` | IRSA / archive failed (RealSource only) |
+| 501 | `NOT_IMPLEMENTED` | Feature not available in the active data source |
+| 500 | `INTERNAL_ERROR` | Unexpected |
 
-The frontend should switch on `error.code`, not on `message` (messages may change).
+Switch on `error.code`, never on `message`.
 
 ---
 
 ## Endpoints
 
 ### `GET /api/health`
-
-Liveness + which data source is active.
-
 ```json
 200 { "status": "ok", "data_source": "mock", "version": "0.1.0" }
 ```
 
 ### `GET /api/targets`
+```json
+200 { "targets": [Target, ...], "count": 5 }
+```
 
-All targets with their observations.
+### `GET /api/search`
+
+| Param | Required | Rules |
+|---|---|---|
+| `ra` | yes | deg, `0 ≤ ra < 360` |
+| `dec` | yes | deg, `-90 ≤ dec ≤ 90` |
+| `radius` | no (default `0`) | deg, `0 ≤ radius ≤ 5`. `0` = image must cover the exact point |
 
 ```json
-200 {
-  "targets": [
-    {
-      "id": "wise-0855-0714",
-      "name": "WISE J085510.83-071442.5",
-      "ra": 133.79513,
-      "dec": -7.24514,
-      "observations": [
-        { "id": "wise-0855-0714-allwise-w2-1", "survey": "allwise", "mjd": 55325.4, "band": "W2",
-          "image_url": "https://placehold.co/512x512/png?text=..." }
-      ]
-    }
-  ],
-  "count": 5
-}
+200 { "query": { "ra": 133.79513, "dec": -7.24514, "radius": 0 },
+      "observations": [Observation, ...], "count": 3 }
 ```
+Sorted by `obs_time` ascending. **No coverage is not an error:** `200` with `"observations": []`
+(the UI should say "no SPHEREx coverage here yet").
 
 ### `GET /api/observations/{id}`
-
-One observation by **observation id** (not target id).
-
 ```json
-200 { "id": "wise-0855-0714-neowise-w2-2", "target_id": "wise-0855-0714", "survey": "neowise",
-      "mjd": 58978.2, "band": "W2", "image_url": "https://placehold.co/..." }
-404 { "error": { "code": "OBSERVATION_NOT_FOUND", "message": "No observation with id 'x'" } }
+200 Observation
+404 { "error": { "code": "NOT_FOUND", ... } }
 ```
-
-### `GET /api/search?ra=&dec=&radius=`
-
-Cone search. Returns targets whose position is within `radius` of (`ra`, `dec`), nearest first.
-
-| Param | Type | Required | Rules |
-|---|---|---|---|
-| `ra` | float (deg) | yes | `0 ≤ ra < 360` |
-| `dec` | float (deg) | yes | `-90 ≤ dec ≤ 90` |
-| `radius` | float (deg) | no, default `0.1` | `0 < radius ≤ 10` |
-
-```json
-200 {
-  "query": { "ra": 133.8, "dec": -7.25, "radius": 0.1 },
-  "results": [ { "...Target fields...": "", "distance_deg": 0.0067 } ],
-  "count": 1
-}
-422 { "error": { "code": "VALIDATION_ERROR", "message": "query.ra: Input should be less than 360" } }
-```
-
-No matches is **not** an error: `200` with `"results": []`.
 
 ### `GET /api/observations/{id}/image`
 
-Returns the image for an observation as a **`307` redirect** to its `image_url`, so it can
-be used directly: `<img src="http://localhost:8000/api/observations/{id}/image">`.
-Unknown id → `404 OBSERVATION_NOT_FOUND` (JSON).
+| Param | Default | Rules |
+|---|---|---|
+| `ra`, `dec` | target's `ra`/`dec` (or footprint centre) | deg. Pass both or neither |
+| `size` | `300` | arcsec, `30–1800` (SPHEREx pixel ≈ 6.15″, so 300″ ≈ 49 px) |
+| `stretch` | `asinh` | `linear` \| `asinh` \| `zscale` |
+| `vmin`, `vmax` | auto | Fixed stretch limits. Pass both or neither, `vmax > vmin` |
 
-> Later (RealSource) this may stream the bytes instead of redirecting (e.g. cutouts from
-> FITS). The URL stays the same, so the frontend doesn't change.
+Returns `image/png`, north up / east left, upscaled (nearest-neighbour) to ≥ 256 px so the real
+pixels stay visible. Response headers (exposed to the browser via CORS):
+
+| Header | Example |
+|---|---|
+| `X-Source-File` | `MOCK_spherex_qr2_vesta-20250814-d3-1.fits` |
+| `X-Obs-Time` | `2025-08-14T02:10:00Z` |
+| `X-Wavelength-Um` / `X-Band` / `X-Release` | `2.04` / `D3` / `QR2` |
+| `X-Cutout-Ra` / `X-Cutout-Dec` | centre actually used |
+| `X-Stretch-Vmin` / `X-Stretch-Vmax` | limits actually used |
+
+Errors: `400 BAD_REQUEST`, `404 NOT_FOUND`, `404 NO_COVERAGE`, `502 UPSTREAM_ERROR`.
+
+#### Blink recipe (frontend)
+1. `GET /api/search?ra=&dec=` → list of observations.
+2. Load the first image with the **same** `ra`, `dec`, `size`, `stretch` you'll use for all of them.
+3. Read `X-Stretch-Vmin`/`X-Stretch-Vmax` from that response.
+4. Load the other epochs with those `vmin`/`vmax`. Otherwise each image is normalised on its own
+   and brightness changes (variable stars) disappear.
+5. Show `source_file`, `obs_time` and `wavelength_um` under every frame.
 
 ---
 
-## Versioning
+## Mock targets (v0)
 
-- Mock files are versioned by filename (`*.v0.json`). A breaking shape change → `v1` files
-  + update this doc in the same PR.
-- Additive fields are non-breaking; the frontend must ignore unknown fields.
+| id | type | What the blink shows |
+|---|---|---|
+| `vesta` | asteroid | Clear motion across 3 exposures ~95 min apart |
+| `12p-pons-brooks` | comet | Fuzzy, slow motion over 3 days |
+| `wise-0855-0714` | brown_dwarf | ~8″/yr: **under 1 pixel** per 6 months, which honestly shows the resolution limit |
+| `barnards-star` | star | ~10″/yr: still under 1 pixel per 6 months |
+| `mira` | variable | Same position, brightness drops |
+
+Asteroid and comet positions are illustrative, not ephemerides. Images are synthetic
+(`app/services/mock_sky.py`). Regenerate the JSON with `python scripts/generate_mock.py`.
+
+## Versioning
+Breaking shape change → `*.v1.json` + update this doc in the same PR. New optional fields are
+non-breaking; clients ignore unknown fields.

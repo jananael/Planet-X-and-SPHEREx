@@ -1,31 +1,43 @@
-"""Uniform error shape: {"error": {"code": str, "message": str}}."""
+"""Uniform error shape: {"error": {"code": str, "message": str}}. Codes: app.schemas.ErrorCode."""
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.schemas import ErrorCode
+
 
 class ApiError(Exception):
-    def __init__(self, status_code: int, code: str, message: str):
-        self.status_code, self.code, self.message = status_code, code, message
+    status_code = 500
+    code = ErrorCode.INTERNAL_ERROR
+
+    def __init__(self, message: str):
+        self.message = message
         super().__init__(message)
 
 
+class BadRequest(ApiError):
+    status_code, code = 400, ErrorCode.BAD_REQUEST
+
+
 class NotFound(ApiError):
-    def __init__(self, code: str, message: str):
-        super().__init__(404, code, message)
+    status_code, code = 404, ErrorCode.NOT_FOUND
+
+
+class NoCoverage(ApiError):
+    status_code, code = 404, ErrorCode.NO_COVERAGE
+
+
+class UpstreamError(ApiError):
+    status_code, code = 502, ErrorCode.UPSTREAM_ERROR
 
 
 class NotImplementedYet(ApiError):
-    def __init__(self, message: str = "Not implemented for this data source yet"):
-        super().__init__(501, "NOT_IMPLEMENTED", message)
+    status_code, code = 501, ErrorCode.NOT_IMPLEMENTED
 
 
-_HTTP_CODES = {400: "BAD_REQUEST", 404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED"}
-
-
-def error_body(code: str, message: str) -> dict:
-    return {"error": {"code": code, "message": message}}
+def error_body(code: ErrorCode, message: str) -> dict:
+    return {"error": {"code": code.value, "message": message}}
 
 
 def register_error_handlers(app: FastAPI) -> None:
@@ -35,14 +47,15 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(StarletteHTTPException)
     async def _http_error(_: Request, exc: StarletteHTTPException):
-        code = _HTTP_CODES.get(exc.status_code, "HTTP_ERROR")
+        code = ErrorCode.NOT_FOUND if exc.status_code == 404 else (
+            ErrorCode.BAD_REQUEST if 400 <= exc.status_code < 500 else ErrorCode.INTERNAL_ERROR)
         return JSONResponse(error_body(code, str(exc.detail)), status_code=exc.status_code)
 
     @app.exception_handler(RequestValidationError)
     async def _validation_error(_: Request, exc: RequestValidationError):
         parts = [f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()]
-        return JSONResponse(error_body("VALIDATION_ERROR", "; ".join(parts)), status_code=422)
+        return JSONResponse(error_body(ErrorCode.BAD_REQUEST, "; ".join(parts)), status_code=400)
 
     @app.exception_handler(Exception)
     async def _unhandled(_: Request, exc: Exception):
-        return JSONResponse(error_body("INTERNAL_ERROR", "Unexpected server error"), status_code=500)
+        return JSONResponse(error_body(ErrorCode.INTERNAL_ERROR, "Unexpected server error"), status_code=500)

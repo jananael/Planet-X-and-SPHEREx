@@ -1,9 +1,10 @@
-from .common import ErrorBody, ErrorResponse, HealthResponse
-from .observation import Observation, ObservationDetail
-from .target import SearchQuery, SearchResponse, SearchResult, Target, TargetList
+from .errors import ErrorBody, ErrorCode, ErrorResponse
+from .health import HealthResponse
+from .observation import Footprint, Observation, ObservationSearch, SearchQuery
+from .target import Target, TargetList, TargetType
 
 __all__ = [
-    "ErrorBody", "ErrorResponse", "HealthResponse",
-    "Observation", "ObservationDetail",
-    "Target", "TargetList", "SearchQuery", "SearchResult", "SearchResponse",
+    "ErrorBody", "ErrorCode", "ErrorResponse", "HealthResponse",
+    "Footprint", "Observation", "ObservationSearch", "SearchQuery",
+    "Target", "TargetList", "TargetType",
 ]

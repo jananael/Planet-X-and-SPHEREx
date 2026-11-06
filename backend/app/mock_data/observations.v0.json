@@ -1,0 +1,292 @@
+{
+  "version": "v0",
+  "note": "MOCK data for development. Not real SPHEREx measurements.",
+  "observations": [
+    {
+      "id": "vesta-20250814-d3-1",
+      "target_id": "vesta",
+      "obs_time": "2025-08-14T02:10:00Z",
+      "mjd": 60901.09028,
+      "wavelength_um": 2.04,
+      "band": "D3",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_vesta-20250814-d3-1.fits",
+      "image_url": "/api/observations/vesta-20250814-d3-1/image",
+      "footprint": {
+        "ra": 210.85,
+        "dec": -12.15,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 210.4,
+        "dec": -11.85,
+        "flux": 1.0,
+        "fwhm_px": 1.4
+      }
+    },
+    {
+      "id": "vesta-20250814-d3-2",
+      "target_id": "vesta",
+      "obs_time": "2025-08-14T03:45:00Z",
+      "mjd": 60901.15625,
+      "wavelength_um": 2.06,
+      "band": "D3",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_vesta-20250814-d3-2.fits",
+      "image_url": "/api/observations/vesta-20250814-d3-2/image",
+      "footprint": {
+        "ra": 210.85,
+        "dec": -12.15,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 210.4171528,
+        "dec": -11.8546181,
+        "flux": 1.0,
+        "fwhm_px": 1.4
+      }
+    },
+    {
+      "id": "vesta-20250814-d3-3",
+      "target_id": "vesta",
+      "obs_time": "2025-08-14T05:20:00Z",
+      "mjd": 60901.22222,
+      "wavelength_um": 2.03,
+      "band": "D3",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_vesta-20250814-d3-3.fits",
+      "image_url": "/api/observations/vesta-20250814-d3-3/image",
+      "footprint": {
+        "ra": 210.85,
+        "dec": -12.15,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 210.4343056,
+        "dec": -11.8592361,
+        "flux": 1.0,
+        "fwhm_px": 1.4
+      }
+    },
+    {
+      "id": "12p-pons-brooks-20251002-d4-1",
+      "target_id": "12p-pons-brooks",
+      "obs_time": "2025-10-02T11:00:00Z",
+      "mjd": 60950.45833,
+      "wavelength_um": 3.1,
+      "band": "D4",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_12p-pons-brooks-20251002-d4-1.fits",
+      "image_url": "/api/observations/12p-pons-brooks-20251002-d4-1/image",
+      "footprint": {
+        "ra": 95.65,
+        "dec": 22.1,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 95.2,
+        "dec": 22.4,
+        "flux": 0.6,
+        "fwhm_px": 3.0
+      }
+    },
+    {
+      "id": "12p-pons-brooks-20251003-d4-2",
+      "target_id": "12p-pons-brooks",
+      "obs_time": "2025-10-03T11:30:00Z",
+      "mjd": 60951.47917,
+      "wavelength_um": 3.12,
+      "band": "D4",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_12p-pons-brooks-20251003-d4-2.fits",
+      "image_url": "/api/observations/12p-pons-brooks-20251003-d4-2/image",
+      "footprint": {
+        "ra": 95.65,
+        "dec": 22.1,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 95.21225,
+        "dec": 22.4040833,
+        "flux": 0.6,
+        "fwhm_px": 3.0
+      }
+    },
+    {
+      "id": "12p-pons-brooks-20251004-d4-3",
+      "target_id": "12p-pons-brooks",
+      "obs_time": "2025-10-04T12:05:00Z",
+      "mjd": 60952.50347,
+      "wavelength_um": 3.08,
+      "band": "D4",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_12p-pons-brooks-20251004-d4-3.fits",
+      "image_url": "/api/observations/12p-pons-brooks-20251004-d4-3/image",
+      "footprint": {
+        "ra": 95.65,
+        "dec": 22.1,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 95.2245417,
+        "dec": 22.4081806,
+        "flux": 0.55,
+        "fwhm_px": 3.0
+      }
+    },
+    {
+      "id": "wise-0855-0714-20250521-d5-1",
+      "target_id": "wise-0855-0714",
+      "obs_time": "2025-05-21T08:00:00Z",
+      "mjd": 60816.33333,
+      "wavelength_um": 4.1,
+      "band": "D5",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_wise-0855-0714-20250521-d5-1.fits",
+      "image_url": "/api/observations/wise-0855-0714-20250521-d5-1/image",
+      "footprint": {
+        "ra": 134.24513,
+        "dec": -7.54514,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 133.79513,
+        "dec": -7.24514,
+        "flux": 0.5,
+        "fwhm_px": 1.4
+      }
+    },
+    {
+      "id": "wise-0855-0714-20251119-d5-2",
+      "target_id": "wise-0855-0714",
+      "obs_time": "2025-11-19T08:30:00Z",
+      "mjd": 60998.35417,
+      "wavelength_um": 4.12,
+      "band": "D5",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_wise-0855-0714-20251119-d5-2.fits",
+      "image_url": "/api/observations/wise-0855-0714-20251119-d5-2/image",
+      "footprint": {
+        "ra": 134.24513,
+        "dec": -7.54514,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 133.7939997,
+        "dec": -7.2450431,
+        "flux": 0.5,
+        "fwhm_px": 1.4
+      }
+    },
+    {
+      "id": "wise-0855-0714-20260518-d5-3",
+      "target_id": "wise-0855-0714",
+      "obs_time": "2026-05-18T07:45:00Z",
+      "mjd": 61178.32292,
+      "wavelength_um": 4.09,
+      "band": "D5",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_wise-0855-0714-20260518-d5-3.fits",
+      "image_url": "/api/observations/wise-0855-0714-20260518-d5-3/image",
+      "footprint": {
+        "ra": 134.24513,
+        "dec": -7.54514,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 133.7928821,
+        "dec": -7.2449473,
+        "flux": 0.5,
+        "fwhm_px": 1.4
+      }
+    },
+    {
+      "id": "barnards-star-20250903-d2-1",
+      "target_id": "barnards-star",
+      "obs_time": "2025-09-03T20:00:00Z",
+      "mjd": 60921.83333,
+      "wavelength_um": 1.3,
+      "band": "D2",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_barnards-star-20250903-d2-1.fits",
+      "image_url": "/api/observations/barnards-star-20250903-d2-1/image",
+      "footprint": {
+        "ra": 269.90208,
+        "dec": 4.39339,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 269.45208,
+        "dec": 4.69339,
+        "flux": 1.0,
+        "fwhm_px": 1.4
+      }
+    },
+    {
+      "id": "barnards-star-20260304-d2-2",
+      "target_id": "barnards-star",
+      "obs_time": "2026-03-04T19:40:00Z",
+      "mjd": 61103.81944,
+      "wavelength_um": 1.32,
+      "band": "D2",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_barnards-star-20260304-d2-2.fits",
+      "image_url": "/api/observations/barnards-star-20260304-d2-2/image",
+      "footprint": {
+        "ra": 269.90208,
+        "dec": 4.39339,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 269.4519689,
+        "dec": 4.6948197,
+        "flux": 1.0,
+        "fwhm_px": 1.4
+      }
+    },
+    {
+      "id": "mira-20250730-d2-1",
+      "target_id": "mira",
+      "obs_time": "2025-07-30T03:00:00Z",
+      "mjd": 60886.125,
+      "wavelength_um": 1.25,
+      "band": "D2",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_mira-20250730-d2-1.fits",
+      "image_url": "/api/observations/mira-20250730-d2-1/image",
+      "footprint": {
+        "ra": 35.28663,
+        "dec": -3.27764,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 34.83663,
+        "dec": -2.97764,
+        "flux": 1.0,
+        "fwhm_px": 1.4
+      }
+    },
+    {
+      "id": "mira-20260128-d2-2",
+      "target_id": "mira",
+      "obs_time": "2026-01-28T03:20:00Z",
+      "mjd": 61068.13889,
+      "wavelength_um": 1.27,
+      "band": "D2",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_mira-20260128-d2-2.fits",
+      "image_url": "/api/observations/mira-20260128-d2-2/image",
+      "footprint": {
+        "ra": 35.28663,
+        "dec": -3.27764,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 34.83663,
+        "dec": -2.97764,
+        "flux": 0.18,
+        "fwhm_px": 1.4
+      }
+    }
+  ]
+}

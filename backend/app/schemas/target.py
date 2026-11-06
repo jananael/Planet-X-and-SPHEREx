@@ -1,32 +1,19 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
-from .observation import Observation
+TargetType = Literal["asteroid", "comet", "brown_dwarf", "star", "variable"]
 
 
 class Target(BaseModel):
     id: str
     name: str
-    ra: float = Field(ge=0, lt=360, description="Right ascension, degrees (ICRS/J2000)")
-    dec: float = Field(ge=-90, le=90, description="Declination, degrees")
-    observations: list[Observation] = []
+    type: TargetType
+    ra: float = Field(ge=0, lt=360, description="Reference RA, degrees (ICRS). For moving objects: position at first observation.")
+    dec: float = Field(ge=-90, le=90, description="Reference Dec, degrees (ICRS)")
+    description: str
 
 
 class TargetList(BaseModel):
     targets: list[Target]
-    count: int
-
-
-class SearchResult(Target):
-    distance_deg: float
-
-
-class SearchQuery(BaseModel):
-    ra: float
-    dec: float
-    radius: float
-
-
-class SearchResponse(BaseModel):
-    query: SearchQuery
-    results: list[SearchResult]
     count: int

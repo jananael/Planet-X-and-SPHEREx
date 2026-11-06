@@ -1,0 +1,46 @@
+{
+  "version": "v0",
+  "note": "MOCK data for development. Not real SPHEREx measurements.",
+  "targets": [
+    {
+      "id": "vesta",
+      "name": "(4) Vesta",
+      "type": "asteroid",
+      "ra": 210.4,
+      "dec": -11.85,
+      "description": "Bright main-belt asteroid. Moves visibly between SPHEREx exposures taken hours apart. Mock positions are illustrative, not an ephemeris."
+    },
+    {
+      "id": "12p-pons-brooks",
+      "name": "12P/Pons-Brooks",
+      "type": "comet",
+      "ra": 95.2,
+      "dec": 22.4,
+      "description": "Periodic comet; diffuse coma, slower apparent motion than the asteroid. Mock positions are illustrative, not an ephemeris."
+    },
+    {
+      "id": "wise-0855-0714",
+      "name": "WISE J085510.83-071442.5",
+      "type": "brown_dwarf",
+      "ra": 133.79513,
+      "dec": -7.24514,
+      "description": "Coldest known brown dwarf (~250 K). Proper motion ~8 arcsec/yr, i.e. about 1 SPHEREx pixel per year: barely visible between 6-month visits."
+    },
+    {
+      "id": "barnards-star",
+      "name": "Barnard's Star (GJ 699)",
+      "type": "star",
+      "ra": 269.45208,
+      "dec": 4.69339,
+      "description": "Highest proper-motion star (~10.4 arcsec/yr). Still under 1 SPHEREx pixel per 6 months."
+    },
+    {
+      "id": "mira",
+      "name": "Mira (o Ceti)",
+      "type": "variable",
+      "ra": 34.83663,
+      "dec": -2.97764,
+      "description": "Long-period variable (~332 d). Position fixed; the change over time is brightness."
+    }
+  ]
+}

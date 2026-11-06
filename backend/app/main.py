@@ -17,6 +17,7 @@ def create_app() -> FastAPI:
         allow_credentials=False,
         allow_methods=["GET"],
         allow_headers=["*"],
+        expose_headers=list(observations.IMAGE_HEADERS),
     )
     register_error_handlers(app)
 
