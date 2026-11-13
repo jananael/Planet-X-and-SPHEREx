@@ -233,7 +233,7 @@ Engine inputs, rules and open questions: [measurement-contract.md](measurement-c
   "quality": { "data_quality": "valid", "insufficient_evidence": false },
   "status": "known_object", "known_match": "(4) Vesta", "data_release": "QR2",
   "engine_version": "mock", "is_mock": true,
-  "snr": null, "quality_flags": [], "evidence": {}
+  "median_snr": null, "min_snr": null, "quality_flags": [], "evidence": {}
 }
 ```
 - `delta_ra_arcsec` is on-sky (× cos Dec). Times are UTC mid-exposure with `Z`. Units are in the field names.
@@ -241,7 +241,9 @@ Engine inputs, rules and open questions: [measurement-contract.md](measurement-c
 - `candidate_type`: `possible_moving_object` | `possible_variable` | `sub_pixel_motion` | `unclassified`.
 - `status`: `pending_validation` | `known_object` | `artifact` | `rejected` (there is no "discovered").
 - Mock candidates are built from the demo targets' synthetic positions and are labelled `is_mock: true`.
-- `snr`, `quality_flags`, `evidence` are filled by the science team's detection engine (a Python library
+- Contract 0.2-draft: each detection also has `band`, `wavelength_um`, `bandwidth_um`, `snr`, `quality_flags`;
+  the candidate has `median_snr`, `min_snr`; flags come from a fixed list. Details: measurement-contract.md.
+- `median_snr`/`min_snr`, `quality_flags`, `evidence` are filled by the science team's detection engine (a Python library
   called by the backend). Until then: `null`, `[]`, `{}`. A candidate near cosmic-ray (TRANSIENT) pixels
   should carry `"near_transient_pixels"` in `quality_flags`.
 - **Units (science team, 2026-11-13):** image pixels are **MJy/sr**. `flux` and `flux_error` are integrated

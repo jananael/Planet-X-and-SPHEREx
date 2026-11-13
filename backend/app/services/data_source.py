@@ -77,7 +77,8 @@ def build_mock_candidate(target: Target, observations: list[Observation], truth:
     """A candidate from mock positions/fluxes, labelled as mock. These are KNOWN objects, so the
     status is known_object: the point is to exercise the contract, not to claim anything."""
     obs = sorted(observations, key=lambda o: o.mjd)
-    dets = [Detection(observation_id=o.id, observation_time=o.obs_time, ra_deg=truth[o.id]["ra"],
+    dets = [Detection(observation_id=o.id, observation_time=o.obs_time, band=o.band, wavelength_um=o.wavelength_um,
+                      ra_deg=truth[o.id]["ra"],
                       dec_deg=truth[o.id]["dec"], flux=truth[o.id]["flux"], flux_unit="arbitrary (synthetic)")
             for o in obs]
     first, last = dets[0], dets[-1]
@@ -102,7 +103,7 @@ def build_mock_candidate(target: Target, observations: list[Observation], truth:
         kind = "unclassified"
     return Candidate(
         candidate_id=f"cand-{target.id}", observation_ids=[o.id for o in obs], detections=dets,
-        motion=motion, brightness=Brightness(delta_flux=round(dflux, 4),
+        motion=motion, brightness=Brightness(band=first.band, delta_flux=round(dflux, 4),
                                             variability_status="variable" if rel > 0.3 else "inconclusive"),
         classification=Classification(candidate_type=kind, method="mock: synthetic positions and fluxes"),
         quality=Quality(data_quality="valid", insufficient_evidence=False),

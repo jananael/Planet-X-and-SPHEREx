@@ -2,6 +2,27 @@
   "$defs": {
     "Brightness": {
       "properties": {
+        "band": {
+          "anyOf": [
+            {
+              "enum": [
+                "D1",
+                "D2",
+                "D3",
+                "D4",
+                "D5",
+                "D6"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The single band this time series uses",
+          "title": "Band"
+        },
         "delta_flux": {
           "anyOf": [
             {
@@ -57,6 +78,8 @@
         "score": {
           "anyOf": [
             {
+              "maximum": 1,
+              "minimum": 0,
               "type": "number"
             },
             {
@@ -64,7 +87,7 @@
             }
           ],
           "default": null,
-          "description": "Stays null until a documented method defines it",
+          "description": "Ranking of how strongly the evidence deserves review (0-1). NOT a probability and NOT a discovery claim. Null until the method is documented",
           "title": "Score"
         },
         "method": {
@@ -80,6 +103,7 @@
       "type": "object"
     },
     "Detection": {
+      "description": "The object measured in ONE observation (one detector image of one exposure).",
       "properties": {
         "observation_id": {
           "title": "Observation Id",
@@ -90,6 +114,51 @@
           "format": "date-time",
           "title": "Observation Time",
           "type": "string"
+        },
+        "band": {
+          "anyOf": [
+            {
+              "enum": [
+                "D1",
+                "D2",
+                "D3",
+                "D4",
+                "D5",
+                "D6"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Band"
+        },
+        "wavelength_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "At the source position",
+          "title": "Wavelength Um"
+        },
+        "bandwidth_um": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bandwidth Um"
         },
         "ra_deg": {
           "anyOf": [
@@ -112,6 +181,19 @@
             }
           ],
           "title": "Dec Deg"
+        },
+        "snr": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Signal-to-noise in this observation; null if not reliable",
+          "title": "Snr"
         },
         "flux": {
           "anyOf": [
@@ -149,6 +231,25 @@
           "default": null,
           "description": "Real engine: \"uJy\" (integrated flux). Never MJy/sr",
           "title": "Flux Unit"
+        },
+        "quality_flags": {
+          "items": {
+            "enum": [
+              "near_transient_pixels",
+              "saturated",
+              "edge_of_image",
+              "mixed_pipeline",
+              "extended_source",
+              "low_snr",
+              "poor_wcs",
+              "high_background",
+              "insufficient_epochs",
+              "photometry_failed"
+            ],
+            "type": "string"
+          },
+          "title": "Quality Flags",
+          "type": "array"
         }
       },
       "required": [
@@ -352,7 +453,7 @@
       "title": "Engine Version",
       "type": "string"
     },
-    "snr": {
+    "median_snr": {
       "anyOf": [
         {
           "type": "number"
@@ -362,12 +463,35 @@
         }
       ],
       "default": null,
-      "description": "Signal-to-noise of the detection, as defined by the engine",
-      "title": "Snr"
+      "title": "Median Snr"
+    },
+    "min_snr": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Min Snr"
     },
     "quality_flags": {
-      "description": "e.g. 'near_transient_pixels', 'saturated', 'mixed_pipeline'",
+      "description": "Candidate-level flags; per-observation flags live on each detection",
       "items": {
+        "enum": [
+          "near_transient_pixels",
+          "saturated",
+          "edge_of_image",
+          "mixed_pipeline",
+          "extended_source",
+          "low_snr",
+          "poor_wcs",
+          "high_background",
+          "insufficient_epochs",
+          "photometry_failed"
+        ],
         "type": "string"
       },
       "title": "Quality Flags",

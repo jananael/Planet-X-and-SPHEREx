@@ -1,0 +1,69 @@
+{
+  "candidate_id": "example-vesta-20260713-d2",
+  "observation_ids": [
+    "2026W29_1A_0138_4D2",
+    "2026W29_1A_0163_1D2"
+  ],
+  "detections": [
+    {
+      "observation_id": "2026W29_1A_0138_4D2",
+      "observation_time": "2026-07-13T15:57:52Z",
+      "band": "D2",
+      "wavelength_um": null,
+      "bandwidth_um": null,
+      "ra_deg": 22.53819,
+      "dec_deg": 1.3646,
+      "snr": null,
+      "flux": null,
+      "flux_error": null,
+      "flux_unit": "uJy",
+      "quality_flags": []
+    },
+    {
+      "observation_id": "2026W29_1A_0163_1D2",
+      "observation_time": "2026-07-13T19:07:09Z",
+      "band": "D2",
+      "wavelength_um": null,
+      "bandwidth_um": null,
+      "ra_deg": 22.57212,
+      "dec_deg": 1.37061,
+      "snr": null,
+      "flux": null,
+      "flux_error": null,
+      "flux_unit": "uJy",
+      "quality_flags": []
+    }
+  ],
+  "motion": {
+    "delta_ra_arcsec": 122.1,
+    "delta_dec_arcsec": 21.6,
+    "angular_displacement_arcsec": 124.0,
+    "angular_speed_arcsec_per_day": 943.5,
+    "position_angle_deg": 80.0,
+    "uncertainty_arcsec": null
+  },
+  "brightness": null,
+  "classification": {
+    "candidate_type": "possible_moving_object",
+    "score": null,
+    "method": "contract example (no engine yet)"
+  },
+  "quality": {
+    "data_quality": "unknown",
+    "insufficient_evidence": true
+  },
+  "status": "known_object",
+  "known_match": "(4) Vesta",
+  "data_release": "QR3",
+  "engine_version": "contract-example",
+  "median_snr": null,
+  "min_snr": null,
+  "quality_flags": [
+    "insufficient_epochs"
+  ],
+  "evidence": {
+    "note": "Real SPHEREx QR3 observation ids. Positions are JPL Horizons predictions at mid-exposure, NOT engine measurements; snr and flux are null because nothing was measured.",
+    "position_source": "JPL_HORIZONS"
+  },
+  "is_mock": true
+}

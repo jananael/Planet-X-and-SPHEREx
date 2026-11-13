@@ -1,9 +1,10 @@
 # S2-T3: عقد بيانات القياس (محرك التحليل ↔ Backend ↔ Frontend)
 
-**المسؤولين:** يزان + جنى · **النسخة:** `0.1-draft` · **الحالة:** مسودة، بدها موافقة يزان
+**المسؤولين:** يزان + جنى · **النسخة:** `0.2-draft` · **الحالة:** قرارات يزان (2026-11-13) مطبّقة بالكود.
+بدها مراجعة مشتركة قبل `1.0`.
 
 يزان بيعرّف الخوارزمية والقياسات والـ scoring. جنى بتعرّف كيف بتوصل البيانات وكيف بترجع.
-لما نتفق، بنغيّر النسخة لـ `1.0` وما بنغيّر الحقول بدون ما نحكي لبعض.
+ما بنغيّر الحقول بدون ما نحكي لبعض.
 
 ## 1. شكل الربط
 
@@ -12,68 +13,115 @@ Frontend ──GET /api/candidates?ra&dec&radius──▶ Backend ──EngineRe
          ◀──────── CandidateList (JSON) ───────         ◀── list[Candidate] ──
 ```
 
-- المحرك **مكتبة Python جوّا الريبو** (قرار يزان)، مش خدمة منفصلة.
-- الواجهة بالكود: [`backend/app/services/engine.py`](../backend/app/services/engine.py) (`DetectionEngine.detect(request)`).
-- شكل الـ Candidate: [`backend/app/schemas/candidate.py`](../backend/app/schemas/candidate.py)، وكـ JSON Schema:
-  [`candidate.schema.json`](candidate.schema.json). في اختبار بيتأكد إن الملفين متطابقين.
+| الملف | شو فيه |
+|---|---|
+| [`backend/app/services/engine.py`](../backend/app/services/engine.py) | المدخلات (`EngineRequest`، `EngineFrame`، `KnownObject`) والحدود الزمنية |
+| [`backend/app/schemas/candidate.py`](../backend/app/schemas/candidate.py) | المخرجات (`Candidate`، `Detection`، `QualityFlag`) والقواعد كـ validation |
+| [`candidate.schema.json`](candidate.schema.json) | نفس المخرجات كـ JSON Schema (في اختبار بيتأكد إنه مطابق للكود) |
+| [`examples/candidate.example.json`](examples/candidate.example.json) | مثال من بيانات حقيقية (فيستا، QR3، 2026-07-13) |
+| [`backend/tests/test_candidate_contract.py`](../backend/tests/test_candidate_contract.py) | اختبارات القواعد |
 
-## 2. شو بيعطي الـ Backend للمحرك (`EngineRequest`)
+## 2. المدخلات: شو بيعطي الـ Backend للمحرك
 
-| الحقل | النوع | الشرح |
-|---|---|---|
-| `ra_deg`, `dec_deg` | float | النقطة اللي سأل عنها المستخدم (ICRS) |
-| `radius_deg` | float | نصف قطر البحث |
-| `frames` | list[EngineFrame] | كل الصور اللي بتغطي النقطة، مرتبة بالوقت |
-| `known_objects` | list[dict] | اختياري: مواقع متوقعة لأجسام معروفة (Horizons / Gaia) لكل وقت رصد |
+**القاعدة:** المحرك **ما بيتصل** بـ IRSA ولا Horizons ولا Gaia. الـ backend بينزّل الصور وبيحضّر المواقع المتوقعة،
+فالتحليل بينعاد بنفس المدخلات وبدون إنترنت.
 
-كل `EngineFrame`:
+`EngineRequest`: `ra_deg`، `dec_deg`، `radius_deg`، `frames`، `known_objects`.
+
+**`EngineFrame`** (صورة وحدة):
 
 | الحقل | الشرح |
 |---|---|
-| `observation_id` | نفس الـ id بالـ API، مثلاً `2025W19_1B_0241_1D1` |
-| `fits_path` | ملف FITS الأصلي من IRSA (cutout): `IMAGE`، `FLAGS`، `VARIANCE`، `ZODI`، `EPSF`، `WCS-WAVE` |
+| `observation_id` | نفس الـ id بالـ API، مثلاً `2026W29_1A_0138_4D2` |
+| `fits_path` | ملف FITS الأصلي: `IMAGE`، `FLAGS`، `VARIANCE`، `ZODI`، `EPSF`، `WCS-WAVE` |
 | `obs_time` | UTC، منتصف التعريض |
-| `band` | D1..D6 |
-| `release`, `processing_version` | DR1/QR3، و `l2b-v27-…`. التوافق حسب الـ pipeline، مش الاسم ([data-releases.md](data-releases.md)) |
-| `wavelength_um`, `bandwidth_um` | عند بكسل الهدف (CWAVE، وإلا WCS-WAVE) |
-| `pixel_scale_arcsec` | 6.15 |
+| `band`، `wavelength_um`، `bandwidth_um` | الـ band، والطول الموجي عند الهدف (CWAVE، وإلا WCS-WAVE) |
+| `release`، `processing_version` | DR1/QR3، و `l2b-v27-…` ([data-releases.md](data-releases.md)) |
 
-**مهم:** المحرك بيقرأ من الـ FITS الأصلي، **مش من صور الـ PNG** تبعت العرض (هدول فيهم تصليح وstretch).
+المحرك بيقرأ من الـ FITS الأصلي، **مش من صور PNG تبعت العرض**.
 
-## 3. شو بيرجّع المحرك (`Candidate`)
+**`KnownObject`** (موقع متوقع لجسم معروف بوقت معيّن):
 
-الحقول موجودة بالـ schema. القواعد:
-
-| الموضوع | القاعدة |
+| الحقل | الشرح |
 |---|---|
-| **الوحدات** | البكسلات MJy/sr. `flux` و `flux_error` **µJy** (`flux_unit: "uJy"`) بعد التحويل بخريطة الـ solid angle. ممنوع نجمع MJy/sr كـ flux |
-| **الـ photometry** | PSF (أداة SPHEREx المبنية على Tractor) للمصادر النقطية. الـ aperture (2 / 2.5 / 3 px + annulus) تجربة بس. الأجسام الممتدة (3I/ATLAS) بدها تحليل خاص |
-| **الوقت** | UTC، منتصف التعريض، بـ `Z` |
-| **الموقع** | `delta_ra_arcsec` على السما (مضروب بـ cos Dec). `position_angle_deg` من الشمال للشرق |
-| **القيم الناقصة** | `null`، ممنوع نخترع قيم. `score` بيضل `null` لحد ما نوثّق الطريقة |
-| **TRANSIENT** | ما منصلّحها. بتضل mask، وإذا المرشّح قريب منها: `"near_transient_pixels"` بـ `quality_flags` |
-| **الحالة** | `pending_validation` / `known_object` / `artifact` / `rejected`. **ما في "discovered"** |
-| **المصدر** | `engine_version` = نسخة المحرك. `is_mock: false` |
+| `object_id`، `name` | مثلاً `3i-atlas` |
+| `ra_deg`، `dec_deg` | الموقع المتوقع |
+| `epoch_utc` | الوقت اللي الموقع صحيح فيه (منتصف التعريض) |
+| `source` | `JPL_HORIZONS` (أجسام النظام الشمسي) · `GAIA_DR3` (نجوم ضمن نطاقه) · `LITERATURE` (مثل WISE 0855) |
+| `uncertainty_arcsec` | إذا متوفرة |
 
-حقول جديدة للمحرك (موجودة بالـ schema وفاضية هلّق):
+التطابق مع جسم معروف **لحاله مش دليل كافي** على صحة الـ detection.
 
-| الحقل | النوع | مثال |
-|---|---|---|
-| `snr` | float \| null | `12.4` |
-| `quality_flags` | list[str] | `["near_transient_pixels", "saturated", "mixed_pipeline"]` |
-| `evidence` | dict | `{"aperture_px": 2.5, "chi2": 1.1, "n_frames": 3}`، شكله حر ويزان بيحدده |
+## 3. المخرجات: `Candidate`
 
-## 4. أخطاء وأداء
+### Detection لكل صورة
+كل مرشّح فيه قائمة `detections`، **وحدة لكل observation**:
+`observation_id`، `observation_time`، `band`، `wavelength_um`، `bandwidth_um`، `ra_deg`، `dec_deg`،
+`snr`، `flux`، `flux_error`، `flux_unit`، `quality_flags`.
 
-- إذا ما لقى شي: بيرجّع `[]`، مش exception.
-- إذا في exception: الـ backend بيرجّع `INTERNAL_ERROR` (500) للواجهة.
-- لحد ما يجهز المحرك: وضع mock بيرجّع مرشحين تجريبيين (`is_mock: true`)، والوضع الحقيقي بيرجّع 501.
+### SNR
+- **لكل detection** (لأن قوة الجسم بتختلف من صورة لصورة).
+- **ملخص على مستوى المرشّح:** `median_snr` و `min_snr`. ممنوع متوسط لحاله يخبّي detection ضعيف.
+  الكود بيرفض `min_snr > median_snr`.
+- إذا مش موثوق: `null`.
 
-## 5. أسئلة ليزان (لازم نتفق عليها)
+### Quality flags (قائمة ثابتة، الكود بيرفض أي قيمة غيرها)
 
-1. **`snr`:** لكل مرشّح بس، ولا كمان لكل `Detection` (لكل صورة)؟
-2. **`quality_flags`:** شو القائمة الثابتة للقيم؟ بنقترح: `near_transient_pixels`، `saturated`، `edge_of_image`، `mixed_pipeline`، `extended_source`.
-3. **`score`:** شو مداه (0–1؟) وشو بيعني؟
-4. **الأجسام المعروفة:** بتحتاج `known_objects` بالمدخلات، ولا المحرك بيسأل Horizons لحاله؟
-5. **الوقت:** قديش مسموح ياخد المحرك لكل طلب؟ (الصور الحقيقية بتاخد 5–30 ثانية لكل وحدة)
-6. **نطاق الطول الموجي:** بتقارن صور من نطاقات مختلفة، ولا بس اللي بتتداخل نطاقاتها؟
+| Flag | متى |
+|---|---|
+| `near_transient_pixels` | المصدر أو منطقة قياسه قريبة من بكسلات TRANSIENT |
+| `saturated` | بكسلات مشبّعة بمنطقة القياس |
+| `edge_of_image` | قريب من حافة الصورة أو منطقة ناقصة |
+| `mixed_pipeline` | البيانات من نسخ معالجة ممكن ما تكون متوافقة |
+| `extended_source` | مصدر ممتد مش نقطي (مثل 3I/ATLAS) |
+| `low_snr` | الـ SNR تحت حد الجودة المعتمد |
+| `poor_wcs` | الـ WCS مش موثوق كفاية |
+| `high_background` | الخلفية مأثّرة على القياس بشكل واضح |
+| `insufficient_epochs` | التعريضات المستقلة مش كفاية للاستنتاج |
+| `photometry_failed` | قياس السطوع فشل أو مش موثوق |
+
+- الـ flag **تحذير، مش رفض تلقائي**. منحتفظ فيه ومنوضّح تأثيره.
+- ما منستعمل `cosmic_ray` بدل `near_transient_pixels`: مش كل TRANSIENT سببه أشعة كونية.
+- **`mixed_pipeline`:** إذا البيانات فعلاً مش متوافقة، **ما منقارنها كمياً أصلاً**. الـ backend بيبعت للمحرك
+  صور من pipeline وحدة بكل طلب، والـ flag لحاله مش كفاية.
+
+### الأطوال الموجية
+- **سلسلة السطوع الزمنية بـ band وحدة بس** (D6 مع D6، ممنوع D4 مع D6). الكود بيرفض `brightness` إذا الـ detections
+  اللي إلها flux من أكثر من band، و `brightness.band` بيقول أي band.
+- تحليل متعدد النطاقات (لون، خصائص طيفية) بيكون منفصل، وكل قياس محفوظ مع `band` و `wavelength_um` و `bandwidth_um`.
+- التداخل بين النطاقات **لحاله مش كافي** للدمج. لازم نتأكد من الاستجابة الطيفية والمعايرة.
+
+### Score
+- **هلّق `null`** لحد ما نوثّق المنهجية.
+- لاحقاً: من 0 لـ 1 (الكود بيرفض غير هيك). بيرتّب المرشّحين حسب قوة الأدلة اللي بتستاهل مراجعة.
+- **0.9 ما بتعني احتمال 90%**، ولا بتعني اكتشاف. ممنوع تنحسب من الـ SNR لحاله، ولازم العوامل تكون واضحة.
+
+### الوحدات والـ photometry
+- البكسلات MJy/sr. `flux` و `flux_error` **µJy** (`flux_unit: "uJy"`) بعد التحويل بخريطة الـ solid angle.
+- PSF photometry (أداة SPHEREx المبنية على Tractor) للمصادر النقطية. الـ aperture (2 / 2.5 / 3 px + annulus) تجربة بس.
+  الأجسام الممتدة بدها تحليل خاص.
+
+### قواعد عامة
+- الوقت UTC، منتصف التعريض. `delta_ra_arcsec` على السما (× cos Dec).
+- القيم الناقصة `null`، ممنوع نخترع.
+- `status`: `pending_validation` / `known_object` / `artifact` / `rejected`. **ما في "discovered"**.
+
+## 4. الأداء (أرقام أولية للتجربة، مش حدود علمية)
+
+| الحالة | السلوك |
+|---|---|
+| طلب لحد 3 صور، متوقع يخلص بـ 60 ثانية | تنفيذ مباشر |
+| أكثر من 3 صور، أو أطول | Background job: الـ API بيرجّع `job_id` والواجهة بتتابع الحالة |
+| حد الـ worker | 180 ثانية |
+
+الثوابت بـ `engine.py`: `DIRECT_MAX_FRAMES`، `DIRECT_TARGET_SECONDS`، `WORKER_MAX_SECONDS`.
+تحميل الصور مسؤولية الـ backend. لازم نقيس على صور حقيقية قبل ما نثبّت الأرقام.
+
+## 5. شو ضل قبل `1.0`
+
+- [x] تحديث `candidate.py` و `candidate.schema.json` (2026-11-13)
+- [x] مثال JSON من بيانات حقيقية + اختبارات validation
+- [ ] **مراجعة مشتركة** يزان + جنى للنسخة `0.2-draft`
+- [ ] الـ background jobs و `job_id` بالـ API (لسّا مش مبنية، بنبنيها لما يجهز المحرك)
+- [ ] الـ backend يبعت صور من pipeline وحدة بكل طلب (القاعدة موثّقة، والتطبيق لما نربط المحرك)
+- [ ] حد الـ `low_snr` (يزان بيحدده)

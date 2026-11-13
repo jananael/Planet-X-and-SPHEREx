@@ -3,21 +3,50 @@
 Rules: measured values only (null when not measured, never invented); RA offsets are on-sky
 (multiplied by cos Dec); times are UTC mid-exposure; every number carries its unit in its name.
 A candidate is never a discovery: status says whether it is pending, a known object, an artifact...
+
+Contract version 0.2-draft (Yazan's answers, 2026-11-13; see docs/measurement-contract.md):
+- SNR per detection (one per observation) + a candidate summary (median_snr, min_snr).
+- quality_flags from a fixed list (QualityFlag). A flag is a warning, not an automatic rejection.
+- Brightness time series only within ONE band (D6 with D6, never D4 with D6).
+- score stays null until its method is documented; it is a ranking, never a probability.
 """
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+CONTRACT_VERSION = "0.2-draft"
+
+QualityFlag = Literal[
+    "near_transient_pixels",  # source or its measurement area is close to TRANSIENT-flagged pixels
+    "saturated",              # saturated pixels inside the measurement area
+    "edge_of_image",          # near the image edge or an incomplete area
+    "mixed_pipeline",         # compared data come from processing versions that may not be compatible
+    "extended_source",        # not point-like (e.g. 3I/ATLAS coma)
+    "low_snr",                # below the agreed SNR quality threshold
+    "poor_wcs",               # WCS quality / reliability not sufficient
+    "high_background",        # background noticeably affects the measurement
+    "insufficient_epochs",    # not enough independent exposures for the conclusion
+    "photometry_failed",      # no reliable flux measurement
+]
+Band = Literal["D1", "D2", "D3", "D4", "D5", "D6"]
 
 
 class Detection(BaseModel):
+    """The object measured in ONE observation (one detector image of one exposure)."""
+
     observation_id: str
     observation_time: datetime = Field(description="UTC, mid-exposure")
+    band: Band | None = None
+    wavelength_um: float | None = Field(default=None, description="At the source position")
+    bandwidth_um: float | None = None
     ra_deg: float | None
     dec_deg: float | None
+    snr: float | None = Field(default=None, description="Signal-to-noise in this observation; null if not reliable")
     flux: float | None = None
     flux_error: float | None = None
     flux_unit: str | None = Field(default=None, description='Real engine: "uJy" (integrated flux). Never MJy/sr')
+    quality_flags: list[QualityFlag] = Field(default_factory=list)
 
 
 class Motion(BaseModel):
@@ -30,6 +59,7 @@ class Motion(BaseModel):
 
 
 class Brightness(BaseModel):
+    band: Band | None = Field(default=None, description="The single band this time series uses")
     delta_flux: float | None
     delta_mag: float | None = None
     variability_status: Literal["variable", "not_variable", "inconclusive"] = "inconclusive"
@@ -37,7 +67,9 @@ class Brightness(BaseModel):
 
 class Classification(BaseModel):
     candidate_type: Literal["possible_moving_object", "possible_variable", "sub_pixel_motion", "unclassified"]
-    score: float | None = Field(default=None, description="Stays null until a documented method defines it")
+    score: float | None = Field(default=None, ge=0, le=1,
+                                description="Ranking of how strongly the evidence deserves review (0-1). NOT a probability "
+                                            "and NOT a discovery claim. Null until the method is documented")
     method: str
 
 
@@ -58,12 +90,25 @@ class Candidate(BaseModel):
     known_match: str | None = Field(default=None, description="Known object this matches (catalogue / ephemeris)")
     data_release: str | None = None
     engine_version: str = Field(description="What produced this candidate, e.g. 'mock' or the engine's version")
-    # Filled by the science team's detection engine (null / empty until it defines them).
-    snr: float | None = Field(default=None, description="Signal-to-noise of the detection, as defined by the engine")
-    quality_flags: list[str] = Field(default_factory=list,
-                                     description="e.g. 'near_transient_pixels', 'saturated', 'mixed_pipeline'")
+    # Summary of the per-detection SNR. Never hide a weak detection behind an average.
+    median_snr: float | None = None
+    min_snr: float | None = None
+    quality_flags: list[QualityFlag] = Field(default_factory=list,
+                                             description="Candidate-level flags; per-observation flags live on each detection")
     evidence: dict[str, Any] = Field(default_factory=dict, description="Engine-specific measurements behind the result")
     is_mock: bool
+
+    @model_validator(mode="after")
+    def _consistent(self):
+        if self.min_snr is not None and self.median_snr is not None and self.min_snr > self.median_snr:
+            raise ValueError("min_snr cannot exceed median_snr")
+        if self.brightness is not None and self.brightness.delta_flux is not None:
+            bands = {d.band for d in self.detections if d.flux is not None}
+            if len(bands) > 1:
+                raise ValueError(f"a brightness time series must use one band, got {sorted(map(str, bands))}")
+            if self.brightness.band is not None and bands and bands != {self.brightness.band}:
+                raise ValueError("brightness.band does not match the detections' band")
+        return self
 
 
 class CandidateList(BaseModel):

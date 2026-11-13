@@ -13,17 +13,24 @@ Contract rules (docs/measurement-contract.md):
   pixel solid-angle map. Never sum MJy/sr as a flux.
 - Unmeasured values are None. `score` stays None until the method that defines it is documented.
 - Status is never "discovered": pending_validation | known_object | artifact | rejected.
+- The engine never calls Horizons / Gaia / IRSA itself: the backend downloads the FITS and sends
+  `known_objects`, so a run is reproducible from its inputs alone (Yazan, 2026-11-13).
+- Brightness time series only within one band. Frames from incompatible pipelines are not compared
+  quantitatively (the backend sends one pipeline per request; the flag alone is not enough).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
-from app.schemas.candidate import Candidate
+from app.schemas.candidate import CONTRACT_VERSION, Candidate  # noqa: F401  (re-exported)
 
-CONTRACT_VERSION = "0.1-draft"
+# Initial operational limits (Yazan, 2026-11-13). Not scientific limits: to re-measure on real data.
+DIRECT_MAX_FRAMES = 3          # more frames -> background job (API returns a job_id)
+DIRECT_TARGET_SECONDS = 60     # target for a direct (synchronous) request
+WORKER_MAX_SECONDS = 180       # hard limit for one engine run in a worker
 
 
 @dataclass(frozen=True)
@@ -42,12 +49,25 @@ class EngineFrame:
 
 
 @dataclass(frozen=True)
+class KnownObject:
+    """Predicted position of a known object at one time, prepared by the backend."""
+
+    object_id: str                     # e.g. "3i-atlas", "barnards-star"
+    name: str
+    ra_deg: float
+    dec_deg: float
+    epoch_utc: datetime                # time the position is valid for (an exposure mid-time)
+    source: Literal["JPL_HORIZONS", "GAIA_DR3", "LITERATURE"]  # solar-system bodies: JPL_HORIZONS
+    uncertainty_arcsec: float | None = None
+
+
+@dataclass(frozen=True)
 class EngineRequest:
     ra_deg: float                      # ICRS, the point the user asked about
     dec_deg: float
     radius_deg: float
     frames: list[EngineFrame]          # sorted by obs_time; may mix DR1 and QR3 when pipelines match
-    known_objects: list[dict] = field(default_factory=list)  # optional: {"name", "ra_deg", "dec_deg", "obs_time"} predictions (Horizons/Gaia)
+    known_objects: list[KnownObject] = field(default_factory=list)  # a match alone does not validate a detection
 
 
 class DetectionEngine(Protocol):
