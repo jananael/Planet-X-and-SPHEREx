@@ -72,10 +72,6 @@ reducedMotion.addEventListener('change', event => { paused = event.matches; sync
 document.addEventListener('visibilitychange', syncMotion);
 window.addEventListener('resize', resize);
 window.addEventListener('load', resize);
-const dialog = document.querySelector('dialog');
-document.querySelectorAll('a[href="#explorer"]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); dialog.showModal(); }));
-document.querySelectorAll('.close-dialog, .close-action').forEach(button => button.addEventListener('click', () => dialog.close()));
-dialog.addEventListener('click', event => { if (event.target === dialog) { const box = dialog.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) dialog.close(); } });
 resize(); syncMotion();
 // Random telescope flight stays in the right-hand corridor, clear of Earth and text.
 const scout = document.querySelector('.small-telescope');
