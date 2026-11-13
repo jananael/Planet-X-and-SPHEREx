@@ -21,9 +21,9 @@ Writes docs/inventory/<target>.csv (one row per image) and docs/observation-inve
 from __future__ import annotations
 
 import csv
-import hashlib
 import json
 import sys
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -32,6 +32,9 @@ from astropy.time import Time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from app.services import irsa  # noqa: E402
+from app.services.real_source import SEARCH_TTL_S, RealSource  # noqa: E402
+
+TARGETS_FILE = ROOT / "app" / "mock_data" / "targets.v0.json"
 
 DOCS = ROOT.parent / "docs"
 OUT_CSV = DOCS / "inventory"
@@ -48,22 +51,37 @@ def utc(mjd: float) -> str:
     return Time(mjd, format="mjd").isot[:19] + "Z"
 
 
-def cached_search(ra: float, dec: float) -> list[dict] | None:
-    for f in (ROOT / ".cache" / "search").glob("*.json"):
-        d = json.loads(f.read_text(encoding="utf-8"))
-        q = d.get("query") or []
-        if len(q) >= 2 and abs(q[0] - ra) < 1e-5 and abs(q[1] - dec) < 1e-5:
-            return d["records"]
-    return None
+def cached_search(ra: float, dec: float) -> tuple[list[dict], str] | None:
+    """The backend's own search cache entry for exactly this query, if still fresh.
+
+    Same key as RealSource (collections + ra + dec + radius), so a cache written for another set of
+    collections is never reused; RealSource only writes it when EVERY collection answered (complete
+    results); and entries older than SEARCH_TTL_S (24 h) are ignored, like the API does.
+    (Taqwa's review, 2026-11-13: the previous version matched coordinates only.)
+    """
+    src = RealSource(targets_file=TARGETS_FILE, cache_dir=ROOT / ".cache")
+    path = src._search_cache_path(ra, dec, 0)
+    if not path.exists():
+        return None
+    age = time.time() - path.stat().st_mtime
+    if age >= SEARCH_TTL_S:
+        return None
+    recs = json.loads(path.read_text(encoding="utf-8"))["records"]
+    if {r["collection"] for r in recs} - set(irsa.COLLECTIONS):
+        return None
+    return recs, f"backend search cache, {age / 3600:.1f} h old"
 
 
-def fixed_rows(ra: float, dec: float) -> list[dict]:
-    recs = cached_search(ra, dec)
-    if recs is None:
-        print(f"   no cache for {ra}, {dec}: searching IRSA live", flush=True)
+def fixed_rows(ra: float, dec: float) -> tuple[list[dict], str]:
+    hit = cached_search(ra, dec)
+    if hit is not None:
+        recs, origin = hit
+    else:
+        print(f"   no fresh cache for {ra}, {dec}: searching IRSA live", flush=True)
         recs = []
-        for coll in COLLECTIONS:
+        for coll in irsa.COLLECTIONS:  # raises UpstreamError if any collection fails: no partial inventory
             recs += [r.__dict__ for r in irsa.sia_search(ra, dec, 0, coll)]
+        origin = f"live IRSA search, {Time.now().isot[:16]} UTC"
     rows = []
     for r in recs:
         rec = irsa.SiaRecord(**{k: r[k] for k in irsa.SiaRecord.__dataclass_fields__ if k in r})
@@ -74,7 +92,7 @@ def fixed_rows(ra: float, dec: float) -> list[dict]:
         rows.append({"image_id": rec.id, "obs_id": rec.id[:-2], "band": rec.band, "release": rec.release,
                      "processing_version": rec.processing_version or "", "mjd_mid": round(rec.mjd_mid, 5),
                      "utc_mid": utc(rec.mjd_mid), "ra": ra, "dec": dec, "vmag": ""})
-    return rows
+    return rows, origin
 
 
 def moving_rows(report_name: str) -> list[dict] | None:
@@ -114,6 +132,22 @@ def summarise(rows: list[dict]) -> dict:
     }
 
 
+# External review against IRSA (science team). Keep in sync when a target is re-checked.
+REVIEW = [
+    "## Review status",
+    "",
+    "| Target | Reviewed by | Result |",
+    "|---|---|---|",
+    "| WISE 0855-0714 | Taqwa, 2026-11-13 | ✅ 258 DR1 images / 129 exposures; image ids identical to IRSA, none missing or extra |",
+    "| Mira (o Ceti) | Taqwa, 2026-11-13 | ✅ DR1: IRSA returns 273 rows, 6 do not cover Mira (`s_region`), so 267 kept; "
+    "QR3: all 124 identical. Total 391 images / 199 exposures |",
+    "| (4) Vesta | Yazan, 2026-11-13 | ✅ demo day 2026-07-13 only (9 exposures): "
+    "[science/vesta-epoch-inventory-2026-07-13.md](science/vesta-epoch-inventory-2026-07-13.md) |",
+    "| 12P, 3I/ATLAS, Barnard's Star | — | ⏳ not reviewed yet: the six-target inventory is **not** approved as a whole |",
+    "",
+]
+
+
 def main():
     OUT_CSV.mkdir(exist_ok=True)
     results = []
@@ -123,7 +157,9 @@ def main():
             print(f"!! {name}: run scripts/check_moving_targets.py first"); continue
         results.append((tid, name, "moving (Horizons + footprint)", rows))
     for tid, name, ra, dec in FIXED:
-        results.append((tid, name, "fixed (SIA2 point search)", fixed_rows(ra, dec)))
+        rows, origin = fixed_rows(ra, dec)
+        print(f"   {name}: {origin}", flush=True)
+        results.append((tid, name, f"fixed (SIA2 point search; {origin.split(',')[0]})", rows))
 
     lines = ["# S2-T2: Observation inventory (SPHEREx DR1 + QR3)", "",
              f"Generated by `backend/scripts/observation_inventory.py` on {Time.now().isot[:10]}. "
@@ -153,7 +189,7 @@ def main():
             detail.append(f"| {i} | {v['from']} → {v['to']} | {v['exposures']} | "
                           + ", ".join(f"{b}: {n}" for b, n in v["bands"].items()) + " |")
         print(f"{name}: {s['images']} images, {s['exposures']} exposures, {s['visits']} visits", flush=True)
-    (DOCS / "observation-inventory.md").write_text("\n".join(lines + detail) + "\n", encoding="utf-8")
+    (DOCS / "observation-inventory.md").write_text("\n".join(lines + [""] + REVIEW + detail) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
