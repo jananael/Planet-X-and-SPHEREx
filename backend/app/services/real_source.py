@@ -6,8 +6,10 @@ Cutout FITS files are cached on disk (IRSA cutouts take 8-30 s).
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import math
+import time
 from dataclasses import asdict
 from pathlib import Path
 
@@ -21,6 +23,7 @@ from app.services.data_source import Cutout, DataSource, angular_separation_deg
 
 REAL_EPOCH = 2026.0  # middle of the SPHEREx DR1 + QR3 coverage (mid-2025 to late 2026)
 SOLAR_SYSTEM = {"asteroid", "comet"}
+SEARCH_TTL_S = 24 * 3600
 
 
 def propagate(target: Target, epoch: float) -> Target:
@@ -44,6 +47,8 @@ class RealSource(DataSource):
         self._collections = collections
         self._obs_dir = cache_dir / "obs"
         self._cutout_dir = cache_dir / "cutouts"
+        self._search_dir = cache_dir / "search"
+        self._search_dir.mkdir(parents=True, exist_ok=True)
         self._obs_dir.mkdir(parents=True, exist_ok=True)
         self._cutout_dir.mkdir(parents=True, exist_ok=True)
         self._records: dict[str, tuple[irsa.SiaRecord, float, float]] = {}
@@ -88,7 +93,8 @@ class RealSource(DataSource):
             archive_id=rec.publisher_did or None,
             source_file=rec.source_file,
             image_url=f"/api/observations/{rec.id}/image",
-            footprint=Footprint(ra=rec.s_ra, dec=rec.s_dec, radius_deg=round(rec.s_fov / math.sqrt(2), 4)),
+            footprint=Footprint(ra=rec.s_ra, dec=rec.s_dec, radius_deg=round(rec.s_fov / math.sqrt(2), 4),
+                                polygon=[(round(a, 6), round(d, 6)) for a, d in irsa.parse_polygon(rec.s_region)] or None),
         )
 
     # ---------- DataSource ----------
@@ -106,15 +112,28 @@ class RealSource(DataSource):
     def get_observation(self, observation_id: str) -> Observation:
         return self._to_observation(self._lookup(observation_id)[0])
 
+    def _search_cache_path(self, ra: float, dec: float, radius: float) -> Path:
+        key = f"{'+'.join(self._collections)}_{ra:.5f}_{dec:.5f}_{radius:.5f}"
+        return self._search_dir / f"{hashlib.sha1(key.encode()).hexdigest()[:20]}.json"
+
     def search(self, ra: float, dec: float, radius: float) -> list[Observation]:
-        records, failures = [], []
-        for coll in self._collections:
-            try:
-                records += irsa.sia_search(ra, dec, radius, coll)
-            except UpstreamError as e:
-                failures.append(e)
-        if failures and not records:
-            raise failures[0]
+        # Search results are cached on disk for SEARCH_TTL_S: an IRSA search takes 5-15 s and the
+        # archive changes rarely. Only complete answers (every collection succeeded) are cached.
+        cache = self._search_cache_path(ra, dec, radius)
+        records: list[irsa.SiaRecord] = []
+        if cache.exists() and time.time() - cache.stat().st_mtime < SEARCH_TTL_S:
+            records = [irsa.SiaRecord(**r) for r in json.loads(cache.read_text(encoding="utf-8"))["records"]]
+        else:
+            failures = []
+            for coll in self._collections:
+                try:
+                    records += irsa.sia_search(ra, dec, radius, coll)
+                except UpstreamError as e:
+                    failures.append(e)
+            if failures and not records:
+                raise failures[0]
+            if not failures:
+                cache.write_text(json.dumps({"query": [ra, dec, radius], "records": [asdict(r) for r in records]}), encoding="utf-8")
         for rec in records:
             self._remember(rec, ra, dec)
         return sorted((self._to_observation(r) for r in records), key=lambda o: o.obs_time)
@@ -123,7 +142,9 @@ class RealSource(DataSource):
         rec, query_ra, query_dec = self._lookup(observation_id)
         if ra is None or dec is None:
             ra, dec = query_ra, query_dec  # default: the point the user searched for
-        if angular_separation_deg(ra, dec, rec.s_ra, rec.s_dec) > rec.s_fov / math.sqrt(2):
+        poly = irsa.parse_polygon(rec.s_region)
+        outside = (not irsa.point_in_polygon(poly, ra, dec)) if poly else             angular_separation_deg(ra, dec, rec.s_ra, rec.s_dec) > rec.s_fov / math.sqrt(2)
+        if outside:  # real footprint when known, circle otherwise
             raise NoCoverage(f"Observation '{observation_id}' does not cover ra={ra}, dec={dec}")
 
         request_size = size_arcsec * irsa.ROTATION_MARGIN

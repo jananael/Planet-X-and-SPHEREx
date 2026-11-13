@@ -13,6 +13,8 @@ Mock data: [`backend/app/mock_data/`](../backend/app/mock_data/). The JSON shape
 | GET | `/api/search?ra=&dec=&radius=` | SPHEREx observations covering the point, oldest first |
 | GET | `/api/observations/{id}` | one observation's metadata |
 | GET | `/api/observations/{id}/image?ra=&dec=&size=&stretch=&vmin=&vmax=` | PNG cutout |
+| GET | `/api/candidates?ra=&dec=&radius=` | Candidates from the science engine near a point (**mock data** until the engine is connected; real mode → 501) |
+| GET | `/api/candidates/{id}` | One candidate |
 | GET | `/api/hips/allwise/{file}` | Sky-map tiles for the Explorer's map picker (AllWISE colour from IRSA, relayed because IRSA sends no CORS headers; only HiPS file names accepted, cached on disk) |
 
 ---
@@ -209,3 +211,33 @@ non-breaking; clients ignore unknown fields.
 
 **Comparing wavelengths (science team rule):** frames are comparable when their spectral bands
 overlap (`wavelength ± bandwidth/2` for every frame share a common range), not by a fixed ±0.05 µm.
+
+---
+
+## Candidates (science engine) — shape agreed with the science team
+
+```json
+{
+  "candidate_id": "cand-vesta",
+  "observation_ids": ["vesta-20250814-d3-1", "vesta-20250814-d3-2", "vesta-20250814-d3-3"],
+  "detections": [{ "observation_id": "...", "observation_time": "2025-08-14T02:10:00Z",
+                   "ra_deg": 210.4, "dec_deg": -11.85, "flux": 1.0, "flux_error": null, "flux_unit": "..." }],
+  "motion": { "delta_ra_arcsec": 0.0, "delta_dec_arcsec": 0.0, "angular_displacement_arcsec": 0.0,
+              "angular_speed_arcsec_per_day": 0.0, "position_angle_deg": 0.0, "uncertainty_arcsec": null },
+  "brightness": { "delta_flux": 0.0, "delta_mag": null, "variability_status": "inconclusive" },
+  "classification": { "candidate_type": "possible_moving_object", "score": null, "method": "..." },
+  "quality": { "data_quality": "valid", "insufficient_evidence": false },
+  "status": "known_object", "known_match": "(4) Vesta", "data_release": "QR2",
+  "engine_version": "mock", "is_mock": true
+}
+```
+- `delta_ra_arcsec` is on-sky (× cos Dec). Times are UTC mid-exposure with `Z`. Units are in the field names.
+- Missing measurements are `null`, never invented. `score` stays `null` until a documented method defines it.
+- `candidate_type`: `possible_moving_object` | `possible_variable` | `sub_pixel_motion` | `unclassified`.
+- `status`: `pending_validation` | `known_object` | `artifact` | `rejected` (there is no "discovered").
+- Mock candidates are built from the demo targets' synthetic positions and are labelled `is_mock: true`.
+
+## Real-mode caching
+Search results are cached on disk for 24 h (only when every collection answered). Cutouts are cached
+per observation id + **processing version** + centre + size. Observation footprints include the real
+`polygon` (from `s_region`), and `NO_COVERAGE` uses it when available.

@@ -4,11 +4,13 @@ from pydantic import BaseModel, Field
 
 
 class Footprint(BaseModel):
-    """Approximate sky coverage of the image (circle). v0 simplification of the real polygon."""
+    """Sky coverage of the image. `polygon` is the real footprint (from the archive's s_region) when
+    known; the circle (centre + radius) is only an approximation kept for compatibility."""
 
     ra: float
     dec: float
     radius_deg: float
+    polygon: list[tuple[float, float]] | None = Field(default=None, description="[[ra, dec], ...] in degrees, ICRS")
 
 
 class PixelRef(BaseModel):

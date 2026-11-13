@@ -214,3 +214,51 @@ def test_real_observation_has_release_version_archive_id_and_bandwidth(real, mon
     assert r.headers["x-processing-version"] == "l2b-v27-2026-228"
     # the processing version is part of the cutout cache key
     assert any("l2b-v27-2026-228" in p.name for p in (cache / "cutouts").iterdir())
+
+
+def test_search_results_are_cached(real):
+    client, calls, _, cache = real
+    first = client.get("/api/search", params={"ra": RA, "dec": DEC}).json()
+    second = client.get("/api/search", params={"ra": RA, "dec": DEC}).json()
+    assert first == second
+    assert calls["search"] == 2  # two collections queried once; the repeat came from the cache
+    assert len(list((cache / "search").iterdir())) == 1
+
+
+def test_partial_search_failures_are_not_cached(real, monkeypatch):
+    client, _, _, cache = real
+
+    def half_down(ra, dec, radius, coll):
+        if coll == "spherex_qr3":
+            raise UpstreamError("QR3 down")
+        return [fake_record(0, rotated=False)]
+
+    monkeypatch.setattr(irsa, "sia_search", half_down)
+    assert client.get("/api/search", params={"ra": RA, "dec": DEC}).json()["count"] == 1
+    assert list((cache / "search").iterdir()) == []
+
+
+def test_polygon_helpers():
+    poly = irsa.parse_polygon("POLYGON ICRS 133.959 -7.753 130.569 -6.869 131.578 -3.533 134.968 -4.417")
+    assert len(poly) == 4
+    assert irsa.point_in_polygon(poly, 132.77, -5.66)
+    assert not irsa.point_in_polygon(poly, 140.0, -5.6)
+    assert irsa.parse_polygon("CIRCLE ICRS 10 10 1") == []
+
+
+def test_real_footprint_polygon_is_returned_and_used_for_coverage(real, monkeypatch):
+    client, _, _, _ = real
+    rec = fake_record(0, rotated=False)
+    # a thin footprint just east of the target: the circle around (s_ra, s_dec) would include RA, DEC
+    rec.s_region = f"POLYGON ICRS {RA + 0.10} {DEC - 1} {RA + 0.30} {DEC - 1} {RA + 0.30} {DEC + 1} {RA + 0.10} {DEC + 1}"
+    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: [rec] if coll == "spherex_dr1" else [])
+    o = client.get("/api/search", params={"ra": RA, "dec": DEC}).json()["observations"][0]
+    assert len(o["footprint"]["polygon"]) == 4
+    r = client.get(f"/api/observations/{o['id']}/image")
+    assert r.status_code == 404 and r.json()["error"]["code"] == "NO_COVERAGE"
+
+
+def test_candidates_are_not_implemented_for_real_data_yet(real):
+    client, _, _, _ = real
+    r = client.get("/api/candidates", params={"ra": RA, "dec": DEC})
+    assert r.status_code == 501 and r.json()["error"]["code"] == "NOT_IMPLEMENTED"

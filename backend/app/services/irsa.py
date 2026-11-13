@@ -49,6 +49,7 @@ class SiaRecord:
     s_dec: float
     s_fov: float            # deg, side of the (square) detector field
     publisher_did: str = ""  # archive identifier (obs_publisher_did)
+    s_region: str = ""       # real footprint, e.g. "POLYGON ICRS ra1 dec1 ra2 dec2 ..."
 
     @property
     def release(self) -> str:
@@ -73,6 +74,42 @@ class SiaRecord:
         return (MJD0 + timedelta(days=self.mjd_mid)).replace(microsecond=0)
 
 
+def parse_polygon(s_region: str) -> list[tuple[float, float]]:
+    """'POLYGON ICRS ra1 dec1 ra2 dec2 ...' -> [(ra, dec), ...] (empty if not a polygon)."""
+    if "POLYGON" not in s_region.upper():
+        return []
+    nums = [float(v) for v in re.findall(r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?", s_region)]
+    return list(zip(nums[0::2], nums[1::2]))
+
+
+def point_in_polygon(poly: list[tuple[float, float]], ra: float, dec: float) -> bool:
+    """Ray casting in the tangent plane at the polygon centre (fine for ~3.5 deg footprints)."""
+    if len(poly) < 3:
+        return False
+    cra = math.degrees(math.atan2(sum(math.sin(math.radians(p[0])) for p in poly),
+                                  sum(math.cos(math.radians(p[0])) for p in poly)))
+    cdec = sum(p[1] for p in poly) / len(poly)
+
+    def proj(a, d):
+        a, d, a0, d0 = map(math.radians, (a, d, cra, cdec))
+        c = math.sin(d0) * math.sin(d) + math.cos(d0) * math.cos(d) * math.cos(a - a0)
+        if c <= 0:  # other hemisphere: certainly outside
+            return None
+        return (math.cos(d) * math.sin(a - a0) / c,
+                (math.cos(d0) * math.sin(d) - math.sin(d0) * math.cos(d) * math.cos(a - a0)) / c)
+
+    pts = [proj(*p) for p in poly]
+    pt = proj(ra, dec)
+    if pt is None or any(p is None for p in pts):
+        return False
+    x, y = pt
+    hit = False
+    for (x1, y1), (x2, y2) in zip(pts, pts[1:] + pts[:1]):
+        if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1:
+            hit = not hit
+    return hit
+
+
 def _s(v) -> str:
     return v.decode() if isinstance(v, bytes) else str(v)
 
@@ -92,6 +129,7 @@ def row_to_record(row, collection: str) -> SiaRecord:
         s_dec=float(row["s_dec"]),
         s_fov=float(row["s_fov"]),
         publisher_did=_s(row["obs_publisher_did"]) if "obs_publisher_did" in row.colnames else "",
+        s_region=_s(row["s_region"]) if "s_region" in row.colnames else "",
     )
 
 

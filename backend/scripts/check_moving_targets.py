@@ -83,15 +83,33 @@ def inside(poly, ra, dec) -> bool:
     return hit
 
 
+_service = None
+
+
+def service():
+    """One SIA2 service object (its capabilities are fetched once), created with retries."""
+    global _service
+    for attempt in range(5):
+        if _service is not None:
+            return _service
+        try:
+            _service = SIA2Service(SIA)
+        except Exception as e:
+            print(f"   ! SIA2 service not reachable ({type(e).__name__}), retrying", flush=True)
+            time.sleep(3 + 3 * attempt)
+    raise RuntimeError("IRSA SIA2 service unreachable")
+
+
 def search_window(args):
     coll, t0, t1, ra, dec, radius = args
-    svc = SIA2Service(SIA)
-    for attempt in range(3):
+    svc = service()
+    err = None
+    for attempt in range(4):
         try:
             tab = svc.search(pos=(ra, dec, radius), time=(Time(t0, format="mjd"), Time(t1, format="mjd")), collection=coll).to_table()
             return coll, tab
         except Exception as e:  # transient IRSA errors
-            err = e; time.sleep(2 + 2 * attempt)
+            err = e; time.sleep(3 + 3 * attempt)
     print(f"   ! {coll} window {t0:.0f}-{t1:.0f} failed: {type(err).__name__}", flush=True)
     return coll, None
 
@@ -108,7 +126,8 @@ def check(name, hkw, ekw):
         radius = min(ang(a0, d0, a1, d1) / 2 + 2.6, 15)  # half the path + a detector's half-diagonal
         jobs += [(c, t0, t1, amid, dmid, radius) for c in COLLECTIONS]
     hits, seen = [], set()
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    service()  # connect once before fanning out
+    with ThreadPoolExecutor(max_workers=4) as pool:
         for coll, tab in pool.map(search_window, jobs):
             if tab is None:
                 continue

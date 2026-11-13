@@ -195,3 +195,36 @@ def test_observation_and_image_carry_bandwidth_and_wavelength_source():
     assert r.headers["x-wavelength-source"] == "mock"
     r = client.get(f"/api/observations/{VESTA_1}/image", headers={"Origin": "http://localhost:3000"})
     assert "x-bandwidth-um" in r.headers["access-control-expose-headers"].lower()
+
+
+# ---------- candidates (mock until the science engine is connected) ----------
+
+def candidate_at(target_id):
+    t = next(t for t in client.get("/api/targets").json()["targets"] if t["id"] == target_id)
+    body = client.get("/api/candidates", params={"ra": t["ra"], "dec": t["dec"]}).json()
+    return next(c for c in body["candidates"] if c["candidate_id"] == f"cand-{target_id}")
+
+
+def test_mock_candidates_follow_the_contract_and_physics():
+    vesta = candidate_at("vesta")
+    assert vesta["classification"]["candidate_type"] == "possible_moving_object"
+    assert vesta["motion"]["angular_displacement_arcsec"] > 6.15            # more than a pixel in ~3 h
+    assert 0 <= vesta["motion"]["position_angle_deg"] < 360
+    mira = candidate_at("mira")
+    assert mira["classification"]["candidate_type"] == "possible_variable"
+    assert mira["motion"]["angular_displacement_arcsec"] == 0 and mira["brightness"]["delta_flux"] < 0
+    barnard = candidate_at("barnards-star")
+    assert barnard["classification"]["candidate_type"] == "sub_pixel_motion"
+    assert 0 < barnard["motion"]["angular_displacement_arcsec"] < 6.15
+    assert barnard["motion"]["delta_dec_arcsec"] > 0                         # moves north
+    for c in (vesta, mira, barnard):
+        assert c["is_mock"] and c["engine_version"] == "mock"
+        assert c["status"] == "known_object" and c["known_match"]           # known objects, no discovery claim
+        assert c["classification"]["score"] is None                          # undefined until documented
+        assert c["detections"][0]["observation_time"].endswith("Z")
+
+
+def test_candidate_by_id_and_errors():
+    assert client.get("/api/candidates/cand-vesta").json()["known_match"] == "(4) Vesta"
+    assert_error(client.get("/api/candidates/nope"), 404, "NOT_FOUND")
+    assert_error(client.get("/api/candidates", params={"ra": 400, "dec": 0}), 400, "BAD_REQUEST")
