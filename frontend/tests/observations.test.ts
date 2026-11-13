@@ -1,9 +1,26 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { bestBand, defaultSelection, groupVisits, parseCoordinates } from "../lib/observations.ts";
+import { bestBand, defaultSelection, groupVisits, observationDates, parseCoordinates, selectDate } from "../lib/observations.ts";
 import type { Observation } from "../lib/types.ts";
 
 const obs = (id: string, mjd: number, band = "D3"): Observation => ({ id, mjd, band, target_id: null, obs_time: new Date(mjd * 86400000).toISOString(), wavelength_um: null, release: "QR2", source_file: `${id}.fits`, image_url: `/api/observations/${id}/image` });
+
+test("date choices use actual UTC dates and only the selected detector", () => {
+  const a = { ...obs("a", 1), obs_time: "2026-11-13T01:00:00+02:00" };
+  const b = { ...obs("b", 2), obs_time: "2026-11-12T22:00:00Z" };
+  const c = { ...obs("c", 3), obs_time: "2026-11-15T00:00:00Z" };
+  const otherBand = { ...a, id: "other", band: "D1" };
+  assert.deepEqual(observationDates([c, a, otherBand, b], "D3").map(({ date, images }) => [date, images.map(o => o.id)]), [
+    ["2026-11-12", ["a", "b"]], ["2026-11-15", ["c"]],
+  ]);
+  assert.deepEqual(observationDates([], "D3"), []);
+});
+
+test("selecting a date handles partial selection without duplicates or losing other dates", () => {
+  const images = [obs("a", 1), obs("b", 1.1)];
+  assert.deepEqual(selectDate(["other-date", "a"], images, true), ["other-date", "a", "b"]);
+  assert.deepEqual(selectDate(["other-date", "a", "b"], images, false), ["other-date"]);
+});
 
 test("coordinate validation rejects blanks, nonfinite values and out-of-range boundaries", () => {
   assert.deepEqual(parseCoordinates("0", "-90"), { ra: 0, dec: -90 });

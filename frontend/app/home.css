@@ -69,27 +69,39 @@ html { scroll-behavior: smooth; }
   height: auto;
   pointer-events: none;
 }
-/* Small, still telescope beside the Earth (where Batool's animation started:
-   ~78% across, ~19% down the hero, 14% of the large size). */
+/* Positioning and floating use separate elements to keep transforms independent. */
 .sky-home .hero-telescope {
   position: absolute;
   z-index: 1;
-  top: calc(19% - 24px);
-  left: calc(78% - 35px);
+  top: calc(min(23.8vw, 289px) + 36px);
+  left: calc(90% - 35px);
   width: clamp(45px, 4.9vw, 70px);
-  height: auto;
+  aspect-ratio: 1000 / 681;
   pointer-events: none;
   filter: drop-shadow(0 0 12px rgba(114,89,255,.3));
 }
-/* Large telescope that fades/slides in with Section 2 (her animation's end state). */
-.sky-home .story-telescope {
+.sky-home .story-telescope-reveal {
   display: block;
   width: clamp(320px, 35vw, 500px);
   max-width: 100%;
-  height: auto;
+  aspect-ratio: 1000 / 681;
   margin: 0 auto;
   pointer-events: none;
+}
+.sky-home .hero-telescope-float,
+.sky-home .story-telescope-float {
+  display: block;
+  width: 100%;
+  height: auto;
+  will-change: transform;
+}
+.sky-home .story-telescope-float {
   filter: drop-shadow(0 0 22px rgba(114,89,255,.22));
+  animation: story-telescope-hover 6s ease-in-out infinite alternate;
+}
+@keyframes story-telescope-hover {
+  from { transform: translateY(-10px) rotate(-.8deg); }
+  to { transform: translateY(10px) rotate(.8deg); }
 }
 .sky-home .hero-copy { position: relative; z-index: 2; margin-top: 5px; }
 .sky-home .hero h1 {
@@ -231,8 +243,8 @@ html { scroll-behavior: smooth; }
   .sky-home .home-nav { gap: 18px; }
   .sky-home .hero { min-height: 760px; min-height: 100svh; padding: 178px 22px 132px; }
   .sky-home .earth-art { top: 38px; right: -12%; width: 95vw; }
-  .sky-home .hero-telescope { top: calc(22% - 16px); left: calc(76% - 24px); width: 48px; }
-  .sky-home .story-telescope { width: min(54vw, 280px); }
+  .sky-home .hero-telescope { top: 120px; left: 12%; width: 48px; }
+  .sky-home .story-telescope-reveal { width: min(54vw, 280px); }
   .sky-home .hero h1 { font-size: clamp(48px, 13vw, 70px); }
   .sky-home .hero p { max-width: 440px; margin-top: 17px; font-size: 13px; }
   .sky-home .story { min-height: auto; grid-template-columns: 1fr; gap: 7px; padding: 30px 26px 76px; }
@@ -245,5 +257,9 @@ html { scroll-behavior: smooth; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .sky-home .chevron-arrow { animation: none; }
+  .sky-home .chevron-arrow,
+  .sky-home .hero-telescope-float,
+  .sky-home .story-telescope-float { animation: none; will-change: auto; }
+  .sky-home .hero-telescope-float { transform: none !important; }
+  .sky-home .story-telescope-reveal { opacity: 1 !important; transform: none !important; }
 }

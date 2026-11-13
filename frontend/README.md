@@ -21,6 +21,20 @@ origin allowed by the backend. The default API base is `http://localhost:8000`.
 To override it, copy `.env.example` to `.env.local` and change `NEXT_PUBLIC_API_BASE_URL`.
 Restart the frontend after changing environment variables.
 
+## Preview without Python
+
+Run `npm run mock:api` in `frontend/` alongside `npm run dev`, then open
+`http://localhost:3000/explore`. Retry the connection or refresh if the page was already open.
+Use the suggested target Vesta (`RA 210.4`, `Dec -11.85`), start exploring, and choose
+**Use all D3 images**. Switch to **Video** to watch its synthetic motion. Mira demonstrates
+brightness changes across dates. Guided stories work too.
+
+This local Node preview reads the existing `backend/app/mock_data` JSON and serves the
+frontend's API contract on port 8000. It is separate from the production FastAPI backend.
+Images are synthetic, and its display stretching approximates the Python renderer
+(`zscale` uses percentile limits here). The optional sky map still needs internet access.
+Stop this process before starting FastAPI on the same port. The homepage is unaffected.
+
 ## Where things live
 
 - `app/explore/page.tsx`: Explorer route.

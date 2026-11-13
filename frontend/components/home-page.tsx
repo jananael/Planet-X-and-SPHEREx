@@ -1,12 +1,12 @@
 "use client";
 
 // Batool's SKYTRACE home page, ported from her Vite/React version into Next.js.
-// Design, copy and assets are hers. Telescope behaviour (team decision): a small, still
-// telescope beside the Earth in the hero, and a large one that fades and slides in once
-// when the "See What Time Reveals" section scrolls into view.
+// Design, copy and assets are hers. Two independent telescopes hover in their own sections.
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useRef } from "react";
+import { motion, useAnimationControls, useReducedMotion } from "framer-motion";
 import { Brand } from "./brand";
+import { StarryBackground } from "./starry-background";
 
 function HomeHeader() {
   return (
@@ -33,21 +33,70 @@ function HomeFooter() {
   );
 }
 
-const reveal = { duration: 1.1, ease: [0.22, 1, 0.36, 1] as const };
+function HeroTelescope() {
+  const anchor = useRef<HTMLDivElement>(null);
+  const controls = useAnimationControls();
+
+  useEffect(() => {
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let generation = 0;
+    const random = (range: number) => (Math.random() * 2 - 1) * range;
+
+    async function drift() {
+      const current = ++generation;
+      controls.stop();
+      if (preference.matches) {
+        controls.set({ x: 0, y: 0, rotate: 0 });
+        return;
+      }
+      while (current === generation && anchor.current) {
+        // Measure the stationary wrapper, never the animated image. Reserve room
+        // for rotation and shrink the envelope near the copy or viewport edge.
+        const base = anchor.current.getBoundingClientRect();
+        const hero = anchor.current.closest(".hero")!;
+        const section = hero.getBoundingClientRect();
+        const copy = hero.querySelector(".hero-copy")!.getBoundingClientRect();
+        const horizontal = Math.max(0, Math.min(24, base.left - section.left - 8, section.right - base.right - 8));
+        const crossesCopy = base.right + horizontal + 8 > copy.left && base.left - horizontal - 8 < copy.right;
+        const vertical = Math.max(0, Math.min(16, base.top - section.top - 8,
+          crossesCopy ? copy.top - base.bottom - 12 : 16));
+
+        // Sample exactly once per completed leg; Motion interpolates the frames.
+        await controls.start({
+          x: random(horizontal),
+          y: random(vertical),
+          rotate: random(2.5),
+          transition: { duration: 3 + Math.random() * 3, ease: "easeInOut" },
+        });
+      }
+    }
+    void drift();
+    preference.addEventListener("change", drift);
+    return () => {
+      generation++;
+      controls.stop();
+      preference.removeEventListener("change", drift);
+    };
+  }, [controls]);
+
+  return (
+    <div ref={anchor} className="hero-telescope" aria-hidden="true">
+      <motion.img animate={controls} className="hero-telescope-float" src="/skytrace/telescope.webp" alt="" width="1000" height="681" />
+    </div>
+  );
+}
 
 export function HomePage() {
   const reduceMotion = useReducedMotion();
-  // With reduced motion everything simply renders in its final state.
-  const enter = (from: { opacity: number; x?: number; y?: number }) =>
-    reduceMotion ? {} : { initial: from, whileInView: { opacity: 1, x: 0, y: 0 }, viewport: { once: true, amount: 0.35 } };
 
   return (
     <main className="site-shell sky-home">
       <div className="space-backdrop" aria-hidden="true" />
+      <StarryBackground />
       <HomeHeader />
       <section className="hero" aria-labelledby="hero-title">
         <img className="earth-art" src="/skytrace/earth.webp" alt="" />
-        <img className="hero-telescope" src="/skytrace/telescope.webp" alt="" aria-hidden="true" />
+        <HeroTelescope />
         <div className="hero-copy">
           <h1 id="hero-title">
             <span className="headline-first">The Sky Is</span>
@@ -63,20 +112,22 @@ export function HomePage() {
         </a>
       </section>
       <section className="story" id="powered" aria-labelledby="story-title">
-        <div className="story-visual">
-          <motion.img
-            className="story-telescope"
-            src="/skytrace/telescope.webp"
-            alt="NASA SPHEREx space telescope"
-            {...enter({ opacity: 0, x: 70 })}
-            transition={reveal}
-          />
+        <div className="story-visual" aria-hidden="true">
+          <motion.div
+            className="story-telescope-reveal"
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.97 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: reduceMotion ? 0 : 1.2, ease: "easeInOut" }}
+          >
+            <img className="story-telescope-float" src="/skytrace/telescope.webp" alt="" width="1000" height="681" />
+          </motion.div>
         </div>
-        <motion.div className="story-copy" {...enter({ opacity: 0, y: 18 })} transition={{ ...reveal, delay: 0.25 }}>
+        <div className="story-copy">
           <div className="home-eyebrow">POWERED BY SPHEREx</div>
           <h2 id="story-title">See What Time<br /><span>Reveals.</span></h2>
           <p>NASA&apos;s SPHEREx observes the sky in infrared light, revealing what our eyes cannot see. SKYTRACE brings these observations together across time, helping you spot changes, investigate moving-object candidates, and uncover the stories hidden between them.</p>
-        </motion.div>
+        </div>
       </section>
       <HomeFooter />
     </main>
