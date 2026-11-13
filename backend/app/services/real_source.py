@@ -17,6 +17,7 @@ import numpy as np
 
 from app.errors import NoCoverage, NotFound, UpstreamError
 from app.schemas import Footprint, Observation, Target
+from app.schemas.candidate import Candidate
 from app.services import irsa
 from app.services.data_source import Cutout, DataSource, angular_separation_deg
 
@@ -49,6 +50,7 @@ class RealSource(DataSource):
         self._cutout_dir = cache_dir / "cutouts"
         self._search_dir = cache_dir / "search"
         self._cal_dir = cache_dir / "cal"  # spectral-WCS calibration files (scripts/download_spectral_wcs.py)
+        self._candidate_results: dict[str, Candidate] = {}
         self._search_dir.mkdir(parents=True, exist_ok=True)
         self._obs_dir.mkdir(parents=True, exist_ok=True)
         self._cutout_dir.mkdir(parents=True, exist_ok=True)
@@ -196,3 +198,63 @@ class RealSource(DataSource):
         return Cutout(data=data, ra=ra, dec=dec, pixel_scale_arcsec=irsa.PIXEL_ARCSEC, observation=obs,
                       repaired_pixels=repaired, repaired_flags=repaired_planes,
                       transient_pixels=transient_pixels)
+
+    def candidates(self, ra: float, dec: float, radius: float) -> list[Candidate]:
+        """Run the science engine on up to three compatible real FITS epochs.
+
+        The search radius selects archive observations. For predictable archive requests this
+        first implementation uses the existing 1800-arcsec cutout ceiling around the query.
+        """
+        from app.services.engine import EngineFrame, EngineRequest, pipeline_of
+        from app.services.source_detection import SourceDetectionEngine
+
+        observations = self.search(ra, dec, radius)
+        if not observations:
+            return []
+        groups: dict[tuple[str, str | None], dict[str, irsa.SiaRecord]] = {}
+        for observation in observations:
+            record, _, _ = self._lookup(observation.id)
+            pipeline = pipeline_of(record.processing_version) or record.processing_version
+            # SIA can expose the same exposure through overlapping releases; do not count it twice.
+            groups.setdefault((record.band, pipeline), {})[record.id] = record
+        # Keep one band and one compatible processing pipeline; choose its broadest time coverage.
+        record_groups = [list(group.values()) for group in groups.values()]
+        records = max(record_groups, key=lambda group: (len(group),
+                       max(record.mjd_mid for record in group) - min(record.mjd_mid for record in group)))
+        records = sorted(records, key=lambda record: record.mjd_mid)
+        if len(records) > 3:
+            indexes = sorted({0, (len(records) - 1) // 2, len(records) - 1})
+            records = [records[index] for index in indexes]
+
+        cutout_arcsec = 1800.0
+        request_size = cutout_arcsec * irsa.ROTATION_MARGIN
+        frames = []
+        for record in records:
+            cache = self._cutout_dir / (
+                f"{record.id}_{record.processing_version or 'unknown'}_{ra:.5f}_{dec:.5f}_{request_size:.0f}.fits"
+            )
+            if not cache.exists():
+                cache.write_bytes(irsa.fetch_cutout(record.access_url, ra, dec, request_size))
+            with irsa.open_fits(cache.read_bytes()) as hdul:
+                wavelength = irsa.wavelength_at(hdul, ra, dec, cal_dir=self._cal_dir)
+            frames.append(EngineFrame(
+                observation_id=record.id,
+                fits_path=cache,
+                obs_time=record.obs_time,
+                band=record.band,
+                release=record.release,
+                processing_version=record.processing_version,
+                wavelength_um=wavelength["wavelength_um"] if wavelength else None,
+                bandwidth_um=wavelength["bandwidth_um"] if wavelength else None,
+            ))
+
+        request = EngineRequest(ra_deg=ra, dec_deg=dec, radius_deg=radius, frames=frames)
+        result = SourceDetectionEngine().detect(request)
+        self._candidate_results.update({candidate.candidate_id: candidate for candidate in result})
+        return result
+
+    def get_candidate(self, candidate_id: str) -> Candidate:
+        candidate = self._candidate_results.get(candidate_id)
+        if candidate is None:
+            raise NotFound(f"No candidate with id '{candidate_id}'. Run /api/candidates first.")
+        return candidate

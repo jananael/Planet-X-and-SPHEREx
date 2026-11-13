@@ -16,7 +16,7 @@ def list_candidates(
     radius: Annotated[float, Query(gt=0, le=5, description="Search radius, degrees")] = 0.5,
     ds: DataSource = Depends(get_data_source),
 ) -> CandidateList:
-    """Candidates from the science engine near (ra, dec). Mock data until the engine is connected."""
+    """Candidates near (ra, dec), from mock fixtures or the real FITS detection engine."""
     found = ds.candidates(ra, dec, radius)
     return CandidateList(query={"ra": ra, "dec": dec, "radius": radius}, candidates=found, count=len(found))
 

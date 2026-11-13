@@ -1,0 +1,7 @@
+# Source detection MVP (S2-Y2)
+
+`DATA_SOURCE=real` now serves `/api/candidates` from cached SPHEREx FITS files through a first-pass engine. The engine groups detections from up to three observations that share a detector band and processing pipeline, then associates sky positions within 12.3 arcsec (two nominal pixels).
+
+For each frame it subtracts `ZODI` when present, masks the detector-defect and `TRANSIENT` planes without repairing science pixels, and finds 3×3 local maxima at SNR ≥ 5. SNR uses the FITS `VARIANCE` plane when it is finite and positive; otherwise it uses a robust MAD noise estimate. Positions come from the image celestial WCS, and measurements outside the requested radius are discarded. Observation timestamps and wavelength metadata are carried through from IRSA/FITS.
+
+This is a candidate finder, not a validated survey pipeline. Its SNR is peak-pixel SNR, not PSF-fit SNR. Flux and flux error remain `null`; calibrated PSF photometry and pixel solid-angle integration are not implemented. Cross-matches are positional associations between supplied frames; the public API does not yet fetch Gaia or JPL Horizons catalogs. A match does not change `pending_validation`. Crowded-field deblending, moving-object orbit association, and extended-source analysis are out of scope for this first pass. The current real endpoint uses at most three compatible frames and the archive cutout ceiling of 1800 arcsec.
