@@ -37,7 +37,7 @@ def fake_record(i: int, rotated: bool, collection="spherex_dr1") -> irsa.SiaReco
     )
 
 
-def fake_cutout_fits(rotated: bool, n: int = 80, nan_centre: bool = False) -> bytes:
+def fake_cutout_fits(rotated: bool, n: int = 80, nan_centre: bool = False, blank: bool = False) -> bytes:
     """Detector-frame cutout around (RA, DEC); rotated=True mimics the ~180 deg flip between visits."""
     w = WCS(naxis=2)
     w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
@@ -48,14 +48,18 @@ def fake_cutout_fits(rotated: bool, n: int = 80, nan_centre: bool = False) -> by
         w.wcs.pc = [[-1, 0], [0, -1]]
     x, y = w.all_world2pix([[*STAR]], 0)[0]
     yy, xx = np.mgrid[0:n, 0:n]
-    img = 0.5 + 10 * np.exp(-((xx - x) ** 2 + (yy - y) ** 2) / (2 * 1.0**2))
+    img = np.full((n, n), 0.5) if blank else 0.5 + 10 * np.exp(-((xx - x) ** 2 + (yy - y) ** 2) / (2 * 1.0**2))
     if nan_centre:  # like a saturated bright star at the target: SPHEREx delivers NaN there
         c = (n - 1) // 2
         img[c - 1:c + 3, c - 1:c + 3] = np.nan
+    image_header = w.to_header()
+    image_header["BUNIT"] = "MJy / sr"
+    variance_header = fits.Header({"BUNIT": "(MJy/sr)^2"})
     hdul = fits.HDUList([
         fits.PrimaryHDU(),
-        fits.ImageHDU(img.astype("float32"), header=w.to_header(), name="IMAGE"),
+        fits.ImageHDU(img.astype("float32"), header=image_header, name="IMAGE"),
         fits.ImageHDU(np.full((n, n), 0.5, dtype="float32"), name="ZODI"),
+        fits.ImageHDU(np.full((n, n), 0.25, dtype="float32"), header=variance_header, name="VARIANCE"),
     ])
     buf = io.BytesIO()
     hdul.writeto(buf)
@@ -284,10 +288,84 @@ def test_real_footprint_polygon_is_returned_and_used_for_coverage(real, monkeypa
     assert r.status_code == 404 and r.json()["error"]["code"] == "NO_COVERAGE"
 
 
-def test_candidates_are_not_implemented_for_real_data_yet(real):
+def _versioned_records():
+    records = [fake_record(0, rotated=False), fake_record(1, rotated=True)]
+    for i, record in enumerate(records):
+        record.access_url = f"https://irsa.example/l2b-v27-2026-228/level2_x_{i}D3_spx_l2b-v27-2026-228.fits"
+    return records
+
+
+def test_candidates_real_fits_and_multiple_requests(real, monkeypatch):
+    client, _, src, _ = real
+    records = _versioned_records()
+    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: records if coll == "spherex_dr1" else [])
+    params = {"ra": RA, "dec": DEC, "radius": 0.1, "band": "D3", "pipeline": "v27"}
+    first = client.get("/api/candidates", params=params)
+    assert first.status_code == 200, first.text
+    body = first.json()
+    assert body["count"] >= 1 and body["count"] == len(body["candidates"])
+    candidate = body["candidates"][0]
+    assert candidate["is_mock"] is False
+    assert all(d["flux"] is None and d["flux_error"] is None for d in candidate["detections"])
+    assert candidate["evidence"]["selected_band"] == "D3"
+    assert candidate["evidence"]["selected_pipeline"] == "v27"
+    assert client.get(f"/api/candidates/{candidate['candidate_id']}").json()["candidate_id"] == candidate["candidate_id"]
+    second = client.get("/api/candidates", params=params)
+    assert second.status_code == 200
+
+
+def test_candidates_empty_result_is_successful_empty_list(real, monkeypatch):
     client, _, _, _ = real
+    monkeypatch.setattr(irsa, "sia_search", lambda *args: [])
     r = client.get("/api/candidates", params={"ra": RA, "dec": DEC})
-    assert r.status_code == 501 and r.json()["error"]["code"] == "NOT_IMPLEMENTED"
+    assert r.status_code == 200 and r.json()["candidates"] == [] and r.json()["count"] == 0
+
+
+def test_candidates_require_supported_pipeline_metadata(real, monkeypatch):
+    client, _, _, _ = real
+    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: [fake_record(0, False)] if coll == "spherex_dr1" else [])
+    r = client.get("/api/candidates", params={"ra": RA, "dec": DEC})
+    assert r.status_code == 400 and "pipeline" in r.json()["error"]["message"]
+
+
+def test_candidates_do_not_choose_between_bands_silently(real, monkeypatch):
+    client, _, _, _ = real
+    records = _versioned_records()
+    second = _versioned_records()[0]
+    second.id = "2025W30_1B_0116_2D4"
+    second.band = "D4"
+    second.access_url = "https://irsa.example/l2b-v27-2026-228/level2_x_2D4_spx_l2b-v27-2026-228.fits"
+    records.append(second)
+    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: records if coll == "spherex_dr1" else [])
+    r = client.get("/api/candidates", params={"ra": RA, "dec": DEC})
+    assert r.status_code == 400 and "specify band and pipeline" in r.json()["error"]["message"]
+
+
+def test_candidates_empty_detection_result_is_200(real, monkeypatch):
+    client, _, _, _ = real
+    records = _versioned_records()[:1]
+    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: records if coll == "spherex_dr1" else [])
+    monkeypatch.setattr(irsa, "fetch_cutout", lambda url, ra, dec, size: fake_cutout_fits(False, blank=True))
+    r = client.get("/api/candidates", params={"ra": RA, "dec": DEC, "band": "D3", "pipeline": "v27"})
+    assert r.status_code == 200 and r.json()["count"] == 0 and r.json()["candidates"] == []
+
+
+def test_candidates_report_upstream_download_failure(real, monkeypatch):
+    client, _, _, _ = real
+    records = _versioned_records()[:1]
+    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: records if coll == "spherex_dr1" else [])
+    monkeypatch.setattr(irsa, "fetch_cutout", lambda *args, **kwargs: (_ for _ in ()).throw(UpstreamError("offline")))
+    r = client.get("/api/candidates", params={"ra": RA, "dec": DEC, "band": "D3", "pipeline": "v27"})
+    assert r.status_code == 502 and r.json()["error"]["code"] == "UPSTREAM_ERROR"
+
+
+def test_candidates_report_corrupt_fits_read(real, monkeypatch):
+    client, _, _, _ = real
+    records = _versioned_records()[:1]
+    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: records if coll == "spherex_dr1" else [])
+    monkeypatch.setattr(irsa, "fetch_cutout", lambda *args, **kwargs: b"not a FITS file")
+    r = client.get("/api/candidates", params={"ra": RA, "dec": DEC, "band": "D3", "pipeline": "v27"})
+    assert r.status_code == 502 and r.json()["error"]["code"] == "UPSTREAM_ERROR"
 
 
 def test_defects_repaired_for_display_but_transients_and_sources_are_not():

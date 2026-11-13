@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 
-from app.errors import NoCoverage, NotFound, UpstreamError
+from app.errors import BadRequest, NoCoverage, NotFound, UpstreamError
 from app.schemas import Footprint, Observation, Target
 from app.schemas.candidate import Candidate
 from app.services import irsa
@@ -199,7 +199,8 @@ class RealSource(DataSource):
                       repaired_pixels=repaired, repaired_flags=repaired_planes,
                       transient_pixels=transient_pixels)
 
-    def candidates(self, ra: float, dec: float, radius: float) -> list[Candidate]:
+    def candidates(self, ra: float, dec: float, radius: float, *, band: str | None = None,
+                   pipeline: str | None = None) -> list[Candidate]:
         """Run the science engine on up to three compatible real FITS epochs.
 
         The search radius selects archive observations. For predictable archive requests this
@@ -211,16 +212,29 @@ class RealSource(DataSource):
         observations = self.search(ra, dec, radius)
         if not observations:
             return []
-        groups: dict[tuple[str, str | None], dict[str, irsa.SiaRecord]] = {}
+        groups: dict[tuple[str, str], dict[str, irsa.SiaRecord]] = {}
+        unsupported = []
         for observation in observations:
             record, _, _ = self._lookup(observation.id)
-            pipeline = pipeline_of(record.processing_version) or record.processing_version
+            pipeline_id = pipeline_of(record.processing_version)
+            if pipeline_id is None:
+                unsupported.append(record.id)
+                continue
+            if band is not None and record.band != band:
+                continue
+            if pipeline is not None and pipeline_id != pipeline:
+                continue
             # SIA can expose the same exposure through overlapping releases; do not count it twice.
-            groups.setdefault((record.band, pipeline), {})[record.id] = record
-        # Keep one band and one compatible processing pipeline; choose its broadest time coverage.
-        record_groups = [list(group.values()) for group in groups.values()]
-        records = max(record_groups, key=lambda group: (len(group),
-                       max(record.mjd_mid for record in group) - min(record.mjd_mid for record in group)))
+            groups.setdefault((record.band, pipeline_id), {})[record.id] = record
+        if not groups:
+            detail = f"; pipeline metadata is missing or unsupported for {', '.join(unsupported[:3])}" if unsupported else ""
+            raise BadRequest("No SPHEREx observations with a supported processing pipeline match this request" + detail)
+        if len(groups) > 1:
+            available = ", ".join(f"{b}/{p}" for b, p in sorted(groups))
+            needs = "band and pipeline" if band is None and pipeline is None else (
+                "band" if band is None else "pipeline" if pipeline is None else "a narrower search")
+            raise BadRequest(f"Multiple compatible SPHEREx data groups are available ({available}); specify {needs}")
+        records = list(next(iter(groups.values())).values())
         records = sorted(records, key=lambda record: record.mjd_mid)
         if len(records) > 3:
             indexes = sorted({0, (len(records) - 1) // 2, len(records) - 1})
@@ -235,8 +249,11 @@ class RealSource(DataSource):
             )
             if not cache.exists():
                 cache.write_bytes(irsa.fetch_cutout(record.access_url, ra, dec, request_size))
-            with irsa.open_fits(cache.read_bytes()) as hdul:
-                wavelength = irsa.wavelength_at(hdul, ra, dec, cal_dir=self._cal_dir)
+            try:
+                with irsa.open_fits(cache.read_bytes()) as hdul:
+                    wavelength = irsa.wavelength_at(hdul, ra, dec, cal_dir=self._cal_dir)
+            except Exception as exc:
+                raise UpstreamError(f"Could not read SPHEREx FITS for observation {record.id}: {type(exc).__name__}") from exc
             frames.append(EngineFrame(
                 observation_id=record.id,
                 fits_path=cache,
@@ -248,8 +265,21 @@ class RealSource(DataSource):
                 bandwidth_um=wavelength["bandwidth_um"] if wavelength else None,
             ))
 
-        request = EngineRequest(ra_deg=ra, dec_deg=dec, radius_deg=radius, frames=frames)
-        result = SourceDetectionEngine().detect(request)
+        try:
+            request = EngineRequest(ra_deg=ra, dec_deg=dec, radius_deg=radius, frames=frames)
+        except ValueError as exc:
+            raise BadRequest(f"Selected SPHEREx frames cannot be compared: {exc}") from exc
+        try:
+            result = SourceDetectionEngine().detect(request)
+        except BadRequest:
+            raise
+        except Exception as exc:
+            raise UpstreamError(f"Source detection failed on cached SPHEREx FITS: {type(exc).__name__}") from exc
+        for candidate in result:
+            candidate.evidence["selected_band"] = records[0].band
+            candidate.evidence["selected_pipeline"] = pipeline_of(records[0].processing_version)
+            candidate.evidence["input_frame_count"] = len(records)
+            candidate.evidence["frame_sampling"] = "first, middle, last" if len(records) == 3 else "all available frames (up to 3)"
         self._candidate_results.update({candidate.candidate_id: candidate for candidate in result})
         return result
 

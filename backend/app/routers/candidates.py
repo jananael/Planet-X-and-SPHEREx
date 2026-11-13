@@ -14,11 +14,14 @@ def list_candidates(
     ra: Annotated[float, Query(ge=0, lt=360, description="Right ascension, degrees (ICRS)")],
     dec: Annotated[float, Query(ge=-90, le=90, description="Declination, degrees")],
     radius: Annotated[float, Query(gt=0, le=5, description="Search radius, degrees")] = 0.5,
+    band: Annotated[str | None, Query(pattern="^D[1-6]$", description="SPHEREx band to analyze")]=None,
+    pipeline: Annotated[str | None, Query(pattern="^v\\d+$", description="Processing pipeline, e.g. v27")]=None,
     ds: DataSource = Depends(get_data_source),
 ) -> CandidateList:
     """Candidates near (ra, dec), from mock fixtures or the real FITS detection engine."""
-    found = ds.candidates(ra, dec, radius)
-    return CandidateList(query={"ra": ra, "dec": dec, "radius": radius}, candidates=found, count=len(found))
+    found = ds.candidates(ra, dec, radius, band=band, pipeline=pipeline)
+    return CandidateList(query={"ra": ra, "dec": dec, "radius": radius,
+                                "band": band, "pipeline": pipeline}, candidates=found, count=len(found))
 
 
 @router.get("/candidates/{candidate_id}", response_model=Candidate, responses={404: {"model": ErrorResponse}})

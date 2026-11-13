@@ -13,7 +13,7 @@ Mock data: [`backend/app/mock_data/`](../backend/app/mock_data/). The JSON shape
 | GET | `/api/search?ra=&dec=&radius=` | SPHEREx observations covering the point, oldest first |
 | GET | `/api/observations/{id}` | one observation's metadata |
 | GET | `/api/observations/{id}/image?ra=&dec=&size=&stretch=&vmin=&vmax=` | PNG cutout |
-| GET | `/api/candidates?ra=&dec=&radius=` | Candidates from the science engine near a point (**mock data** until the engine is connected; real mode → 501) |
+| GET | `/api/candidates?ra=&dec=&radius=&band=&pipeline=` | Candidates near a point; real mode analyzes one explicit SPHEREx band and pipeline when multiple groups exist |
 | GET | `/api/candidates/{id}` | One candidate |
 | GET | `/api/hips/allwise/{file}` | Sky-map tiles for the Explorer's map picker (AllWISE colour from IRSA, relayed because IRSA sends no CORS headers; only HiPS file names accepted, cached on disk) |
 
@@ -241,6 +241,8 @@ Engine inputs, rules and open questions: [measurement-contract.md](measurement-c
 - `candidate_type`: `possible_moving_object` | `possible_variable` | `sub_pixel_motion` | `unclassified`.
 - `status`: `pending_validation` | `known_object` | `artifact` | `rejected` (there is no "discovered").
 - Mock candidates are built from the demo targets' synthetic positions and are labelled `is_mock: true`.
+- In real mode, `band` is `D1`..`D6` and `pipeline` is `vNN` (for example `v27`). If search results contain multiple band/pipeline groups, specify both so the endpoint does not select a group silently. Missing/unknown pipeline metadata is unsupported for candidate comparison and returns an actionable 400; invalid FITS downloads/read return 502. No observations found returns an empty candidate list with 200.
+- Real source detection is provisional and uses original FITS pixels. See `source-detection.md` for units, SNR limits, flags, association behavior, and the process-local candidate detail cache.
 - Contract 0.2-draft: each detection also has `band`, `wavelength_um`, `bandwidth_um`, `snr`, `quality_flags`;
   the candidate has `median_snr`, `min_snr`; flags come from a fixed list. Details: measurement-contract.md.
 - `median_snr`/`min_snr`, `quality_flags`, `evidence` are filled by the science team's detection engine (a Python library
