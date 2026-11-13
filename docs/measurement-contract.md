@@ -1,6 +1,6 @@
 # S2-T3: عقد بيانات القياس (محرك التحليل ↔ Backend ↔ Frontend)
 
-**المسؤولين:** يزان + جنى · **النسخة:** `0.2-draft` · **الحالة:** قرارات يزان (2026-11-13) + حد `low_snr` مطبّقة بالكود.
+**المسؤولين:** يزان + جنى · **النسخة:** `0.2-draft` · **الحالة:** قرارات يزان + حد `low_snr` + ملاحظات مراجعته الخمس (2026-11-13) مطبّقة بالكود. موافقة مشروطة، بانتظار المراجعة الأخيرة.
 بدها مراجعة مشتركة قبل `1.0`.
 
 يزان بيعرّف الخوارزمية والقياسات والـ scoring. جنى بتعرّف كيف بتوصل البيانات وكيف بترجع.
@@ -17,7 +17,7 @@ Frontend ──GET /api/candidates?ra&dec&radius──▶ Backend ──EngineRe
 |---|---|
 | [`backend/app/services/engine.py`](../backend/app/services/engine.py) | المدخلات (`EngineRequest`، `EngineFrame`، `KnownObject`) والحدود الزمنية |
 | [`backend/app/schemas/candidate.py`](../backend/app/schemas/candidate.py) | المخرجات (`Candidate`، `Detection`، `QualityFlag`) والقواعد كـ validation |
-| [`candidate.schema.json`](candidate.schema.json) | نفس المخرجات كـ JSON Schema (في اختبار بيتأكد إنه مطابق للكود) |
+| [`candidate.schema.json`](candidate.schema.json) | نفس المخرجات كـ JSON Schema. `test_json_schema_file_matches_pydantic_model` بيفشل إذا صار قديم |
 | [`examples/candidate.example.json`](examples/candidate.example.json) | مثال من بيانات حقيقية (فيستا، QR3، 2026-07-13) |
 | [`backend/tests/test_candidate_contract.py`](../backend/tests/test_candidate_contract.py) | اختبارات القواعد |
 
@@ -87,7 +87,7 @@ Frontend ──GET /api/candidates?ra&dec&radius──▶ Backend ──EngineRe
 - الـ flag **تحذير، مش رفض تلقائي**. منحتفظ فيه ومنوضّح تأثيره.
 - ما منستعمل `cosmic_ray` بدل `near_transient_pixels`: مش كل TRANSIENT سببه أشعة كونية.
 - **`mixed_pipeline`:** إذا البيانات فعلاً مش متوافقة، **ما منقارنها كمياً أصلاً**. `EngineRequest` **بيرفض**
-  صور من أكثر من pipeline (`l2b-vNN`، و `l2b_retry-v27` = `v27`)، فالـ backend لازم يقسم الطلب. الـ flag لحاله مش كفاية.
+  صور من أكثر من pipeline (`l2b-vNN`، و `l2b_retry-v27` = `v27`)، **وبيرفض أي صورة نسختها مش معروفة**، فالـ backend لازم يقسم الطلب. الـ flag لحاله مش كفاية.
 
 ### الأطوال الموجية
 - **سلسلة السطوع الزمنية بـ band وحدة بس** (D6 مع D6، ممنوع D4 مع D6). الكود بيرفض `brightness` إذا الـ detections
@@ -107,7 +107,12 @@ Frontend ──GET /api/candidates?ra&dec&radius──▶ Backend ──EngineRe
   الأجسام الممتدة بدها تحليل خاص.
 
 ### قواعد عامة
-- الوقت UTC، منتصف التعريض. `delta_ra_arcsec` على السما (× cos Dec).
+- **الوقت UTC، منتصف التعريض.** الكود بيفرضها على `observation_time` و `EngineFrame.obs_time` و `KnownObject.epoch_utc`:
+  وقت **بدون timezone بينرفض** (ما منفترض إنه UTC)، ووقت بـ offset تاني **بيتحوّل لـ UTC** بشكل صريح.
+- **`observation_ids` = معرّفات الـ detections بالضبط:** detection وحدة لكل observation، بدون تكرار. إذا انحذفت بتنشتق من الـ detections.
+- **`flux_error` بدون `flux` ممنوع.** وبمرشّح حقيقي، وجود `flux` أو `flux_error` بيفرض `flux_unit: "uJy"`.
+- **`is_mock`:** `true` يعني **القياسات** مش من المحرك (وضع mock أو مثال للعقد). الصور والـ observation ids ممكن يكونوا
+  حقيقيين، مثل مثال فيستا. `delta_ra_arcsec` على السما (× cos Dec).
 - القيم الناقصة `null`، ممنوع نخترع.
 - `status`: `pending_validation` / `known_object` / `artifact` / `rejected`. **ما في "discovered"**.
 
@@ -126,7 +131,8 @@ Frontend ──GET /api/candidates?ra&dec&radius──▶ Backend ──EngineRe
 
 - [x] تحديث `candidate.py` و `candidate.schema.json` (2026-11-13)
 - [x] مثال JSON من بيانات حقيقية + اختبارات validation
-- [ ] **مراجعة مشتركة** يزان + جنى للنسخة `0.2-draft`
+- [x] مراجعة يزان الأولى (موافقة مشروطة) + إصلاح النقاط الخمس: pipeline غير معروف، UTC، flux_error، observation_ids، اختبار الـ schema
+- [ ] **المراجعة الأخيرة** واعتماد `1.0`
 - [ ] الـ background jobs و `job_id` بالـ API (لسّا مش مبنية، بنبنيها لما يجهز المحرك)
 - [x] صور من pipeline وحدة بكل طلب: `EngineRequest` بيرفض الخلط (الـ backend بيقسم الطلب لما نربط المحرك)
 - [x] حد الـ `low_snr` = 5 (مبدئي، يزان 2026-11-13)

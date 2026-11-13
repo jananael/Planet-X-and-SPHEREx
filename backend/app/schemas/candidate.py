@@ -11,13 +11,16 @@ Contract version 0.2-draft (Yazan's answers, 2026-11-13; see docs/measurement-co
 - score stays null until its method is documented; it is a ranking, never a probability.
 - low_snr is added automatically to a detection with snr < LOW_SNR_THRESHOLD (a warning, never a rejection).
 - median_snr / min_snr are computed from the detections' non-null snr values (null if there are none).
-- A measured flux (not mock) must be in uJy.
+- A measured flux (not mock) must be in uJy; flux_error never comes without flux.
+- Times must carry a timezone. Naive times are rejected (never assumed UTC); other offsets are
+  converted to UTC explicitly.
+- observation_ids are the detections' ids: one detection per observation, no duplicates.
 """
 import statistics
-from datetime import datetime
-from typing import Any, Literal
+from datetime import timezone
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AfterValidator, AwareDatetime, BaseModel, Field, model_validator
 
 CONTRACT_VERSION = "0.2-draft"
 # Initial operational threshold (Yazan, 2026-11-13), to test on real SPHEREx data:
@@ -40,11 +43,21 @@ QualityFlag = Literal[
 Band = Literal["D1", "D2", "D3", "D4", "D5", "D6"]
 
 
+def to_utc(t):
+    """Reject naive times (never guess UTC); convert any explicit offset to UTC."""
+    if t.tzinfo is None or t.utcoffset() is None:
+        raise ValueError("time must carry a timezone (UTC expected), naive times are not accepted")
+    return t.astimezone(timezone.utc)
+
+
+UtcDatetime = Annotated[AwareDatetime, AfterValidator(to_utc)]
+
+
 class Detection(BaseModel):
     """The object measured in ONE observation (one detector image of one exposure)."""
 
     observation_id: str
-    observation_time: datetime = Field(description="UTC, mid-exposure")
+    observation_time: UtcDatetime = Field(description="UTC, mid-exposure (offsets are converted to UTC; naive rejected)")
     band: Band | None = None
     wavelength_um: float | None = Field(default=None, description="At the source position")
     bandwidth_um: float | None = None
@@ -94,7 +107,8 @@ class Quality(BaseModel):
 
 class Candidate(BaseModel):
     candidate_id: str
-    observation_ids: list[str]
+    observation_ids: list[str] = Field(default_factory=list,
+                                       description="Derived from detections when omitted; if given, must match them exactly")
     detections: list[Detection]
     motion: Motion | None = None
     brightness: Brightness | None = None
@@ -110,10 +124,21 @@ class Candidate(BaseModel):
     quality_flags: list[QualityFlag] = Field(default_factory=list,
                                              description="Candidate-level flags; per-observation flags live on each detection")
     evidence: dict[str, Any] = Field(default_factory=dict, description="Engine-specific measurements behind the result")
-    is_mock: bool
+    is_mock: bool = Field(description="True when the MEASUREMENTS were not produced by the science engine (mock mode "
+                                      "or a contract example). The observations/images it refers to may still be real")
 
     @model_validator(mode="after")
     def _consistent(self):
+        det_ids = [d.observation_id for d in self.detections]
+        if len(set(det_ids)) != len(det_ids):
+            raise ValueError("one detection per observation: duplicate observation_id in detections")
+        if not self.observation_ids:
+            self.observation_ids = det_ids
+        elif len(set(self.observation_ids)) != len(self.observation_ids) or set(self.observation_ids) != set(det_ids):
+            raise ValueError("observation_ids must list exactly the detections' observation ids, without duplicates")
+        for d in self.detections:
+            if d.flux_error is not None and d.flux is None:
+                raise ValueError(f"flux_error without flux (detection {d.observation_id})")
         snrs = [d.snr for d in self.detections if d.snr is not None]
         expected_median = round(statistics.median(snrs), 2) if snrs else None
         expected_min = round(min(snrs), 2) if snrs else None
@@ -125,7 +150,7 @@ class Candidate(BaseModel):
                              f"(expected {expected_median} / {expected_min}, or leave both null)")
         if not self.is_mock:
             for d in self.detections:
-                if d.flux is not None and d.flux_unit != "uJy":
+                if (d.flux is not None or d.flux_error is not None) and d.flux_unit != "uJy":
                     raise ValueError(f"measured flux must be in uJy (detection {d.observation_id}: {d.flux_unit!r})")
         if self.brightness is not None and self.brightness.delta_flux is not None:
             bands = {d.band for d in self.detections if d.flux is not None}

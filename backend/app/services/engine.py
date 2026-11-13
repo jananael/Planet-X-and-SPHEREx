@@ -26,7 +26,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal, Protocol
 
-from app.schemas.candidate import CONTRACT_VERSION, Candidate  # noqa: F401  (re-exported)
+from app.schemas.candidate import CONTRACT_VERSION, Candidate, to_utc  # noqa: F401  (re-exported)
 
 # Initial operational limits (Yazan, 2026-11-13). Not scientific limits: to re-measure on real data.
 DIRECT_MAX_FRAMES = 3          # more frames -> background job (API returns a job_id)
@@ -48,6 +48,9 @@ class EngineFrame:
     bandwidth_um: float | None
     pixel_scale_arcsec: float = 6.15
 
+    def __post_init__(self):
+        object.__setattr__(self, "obs_time", to_utc(self.obs_time))
+
 
 def pipeline_of(processing_version: str | None) -> str | None:
     """'l2b-v27-2026-228' and 'l2b_retry-v27-2026-214' -> 'v27' (same pipeline). Unknown -> None."""
@@ -67,6 +70,9 @@ class KnownObject:
     source: Literal["JPL_HORIZONS", "GAIA_DR3", "LITERATURE"]  # solar-system bodies: JPL_HORIZONS
     uncertainty_arcsec: float | None = None
 
+    def __post_init__(self):
+        object.__setattr__(self, "epoch_utc", to_utc(self.epoch_utc))
+
 
 @dataclass(frozen=True)
 class EngineRequest:
@@ -77,10 +83,14 @@ class EngineRequest:
     known_objects: list[KnownObject] = field(default_factory=list)  # a match alone does not validate a detection
 
     def __post_init__(self):
-        # Incompatible pipelines are never compared quantitatively: one pipeline (l2b-vNN) per request.
+        # Incompatible pipelines are never compared quantitatively: every frame needs a KNOWN pipeline
+        # (l2b-vNN), and all frames must share it. Unknown versions are refused, not assumed compatible.
+        unknown = [f.observation_id for f in self.frames if pipeline_of(f.processing_version) is None]
+        if unknown:
+            raise ValueError(f"unknown processing_version (pipeline cannot be checked) for {unknown}")
         pipes = {pipeline_of(f.processing_version) for f in self.frames}
         if len(pipes) > 1:
-            raise ValueError(f"frames mix pipeline versions {sorted(map(str, pipes))}; split the request")
+            raise ValueError(f"frames mix pipeline versions {sorted(pipes)}; split the request")
 
 
 class DetectionEngine(Protocol):

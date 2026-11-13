@@ -110,7 +110,7 @@
           "type": "string"
         },
         "observation_time": {
-          "description": "UTC, mid-exposure",
+          "description": "UTC, mid-exposure (offsets are converted to UTC; naive rejected)",
           "format": "date-time",
           "title": "Observation Time",
           "type": "string"
@@ -371,6 +371,7 @@
       "type": "string"
     },
     "observation_ids": {
+      "description": "Derived from detections when omitted; if given, must match them exactly",
       "items": {
         "type": "string"
       },
@@ -504,13 +505,13 @@
       "type": "object"
     },
     "is_mock": {
+      "description": "True when the MEASUREMENTS were not produced by the science engine (mock mode or a contract example). The observations/images it refers to may still be real",
       "title": "Is Mock",
       "type": "boolean"
     }
   },
   "required": [
     "candidate_id",
-    "observation_ids",
     "detections",
     "classification",
     "quality",

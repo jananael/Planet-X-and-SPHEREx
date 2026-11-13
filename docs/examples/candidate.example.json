@@ -63,7 +63,8 @@
   ],
   "evidence": {
     "note": "Real SPHEREx QR3 observation ids. Positions are JPL Horizons predictions at mid-exposure, NOT engine measurements; snr and flux are null because nothing was measured.",
-    "position_source": "JPL_HORIZONS"
+    "position_source": "JPL_HORIZONS",
+    "is_mock_meaning": "is_mock=true because no measurement here comes from the science engine. The observation ids and SPHEREx images are REAL (QR3), and the positions are REAL JPL Horizons predictions."
   },
   "is_mock": true
 }
