@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import math
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
@@ -38,6 +38,8 @@ class Cutout:
     dec: float
     pixel_scale_arcsec: float
     observation: Observation
+    repaired_pixels: int = 0          # flagged pixels replaced for display (real data)
+    repaired_flags: list[str] = field(default_factory=list)
 
 
 class DataSource(ABC):

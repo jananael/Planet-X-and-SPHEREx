@@ -1,0 +1,18 @@
+# Local run of the whole app: docker compose up --build  ->  http://localhost:3000
+services:
+  api:
+    build: ./backend
+    environment:
+      DATA_SOURCE: ${DATA_SOURCE:-mock}   # "real" = live SPHEREx data from IRSA
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+    ports: ["8000:8000"]
+    volumes: ["skytrace-cache:/app/.cache"]
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports: ["3000:3000"]
+    depends_on: [api]
+volumes:
+  skytrace-cache:

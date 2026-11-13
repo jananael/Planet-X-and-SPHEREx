@@ -68,7 +68,7 @@ Mock data: [`backend/app/mock_data/`](../backend/app/mock_data/). The JSON shape
 | `wavelength_um` | number \| null | At the **cutout centre**: SPHEREx wavelength varies across the image. **Real data: `null` in search results** (it needs the image header). The exact value comes with the image in `X-Wavelength-Um` |
 | `wavelength_range_um` | [min, max] \| null | Whole-detector range. Fine for "roughly which colour", **not** the value at the target |
 | `bandwidth_um` | number \| null | Spectral bandwidth at the target pixel (real: from the image header, like `wavelength_um`) |
-| `wavelength_source` | string \| null | `WCS-WAVE` (image lookup table), `mock`; `CWAVE` planned (calibration product) |
+| `wavelength_source` | string \| null | `CWAVE (<calibration file>)` when the spectral-WCS calibration is in the cache (`scripts/download_spectral_wcs.py`), else `WCS-WAVE` (image lookup table, agrees to ≤0.4 nm); `mock` in mock mode |
 | `wavelength_pixel` | {x, y, frame} \| null | Pixel where the wavelength was read (`frame: "cutout"`, 0-based) |
 | `band` | `D1`…`D6` | SPHEREx detector (D1 0.75–1.09 µm … D6 4.42–5.00 µm) |
 | `release` | string | Release of **this** observation: `DR1` (Surveys 1-2) or `QR3` (Surveys 3-4). Calibrations differ between releases |

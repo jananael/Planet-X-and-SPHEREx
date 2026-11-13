@@ -112,12 +112,14 @@ Error codes: BAD_REQUEST 400, NOT_FOUND 404, NO_COVERAGE 404, UPSTREAM_ERROR 502
 ---
 
 ## 5. Real SPHEREx data: facts we verified (don't re-learn these)
-- IRSA SIA2 collections `spherex_qr2` and `spherex_qr3` cover **different time ranges** → search both.
+- IRSA replaced QR2 with **DR1** (Surveys 1–2): search `spherex_dr1` + `spherex_qr3` (different time ranges). Searches are cached 24 h in `.cache/search`.
 - Cutouts: `access_url?center=ra,dec deg&size=N arcsec`. 300″ ≈ 49×49 px at 6.15″/px. ~5 MB (mostly PSF HDU), **5–33 s**, transient 503s/timeouts → retries + disk cache.
 - Cutouts are detector-frame and **rotate ~180° between visits** → reproject north-up (done in irsa.py).
-- **Wavelength varies across the detector**: same detector D3 gave 2.37 µm and 1.62 µm in different visits. Spectral WCS: `WCS(header, fobj=hdul, key="W")` (WAVE-TAB). Picking frames by wavelength is NOT done yet.
+- **Wavelength varies across the detector**: same detector D3 gave 2.37 µm and 1.62 µm in different visits. Target pixel → raw detector pixel via WCS key `A`; wavelength/bandwidth from CWAVE/CBAND calibration (`scripts/download_spectral_wcs.py`) or the image's WCS-WAVE (`key="W"`) when missing. They agree to ≤0.4 nm. The UI warns when frames' bands don't overlap or releases are mixed.
+- FLAGS bit meanings come from header cards `MSKN*`/`MSKM*`; flagged pixels are repaired **for display only** (3×3 median).
+- Moving targets: `scripts/check_moving_targets.py` (Horizons + `s_region` polygons). Vesta verified (2026-07-13 D2), 3I/ATLAS pending (2025-12-08 D1), 12P too faint. Details: `docs/science-findings.md`.
 - Saturated bright stars have **NaN cores** → treated as bright (white), not NO_COVERAGE.
-- High proper motion: Barnard's Star is ~4.5′ from its J2000 position by 2026. Real-mode `/api/targets` propagates stars to epoch 2026.0 and **hides asteroid/comet** (their mock positions are illustrative).
+- High proper motion: Barnard's Star (Gaia DR3 via IRSA TAP) is propagated to 2026.0 and lands within ~0.7″ of the images. Real-mode `/api/targets` shows asteroids/comets **only with a verified `real_view`** (position, time window, band).
 - Verified in real data: Barnard's Star difference image shows a north-light/south-dark pair growing with time (its proper motion, sub-pixel); Mira's glow grew then shrank across visits (core saturated). The story texts reflect this.
 - CDS servers (aladin.cds.unistra.fr, alasky) were **unreachable** from this network; IRSA hosts HiPS mirrors but sends **no CORS headers** → backend relay `/api/hips/allwise`.
 
@@ -147,21 +149,17 @@ real-data fixes (proper motion, retries, timeouts), guided stories, scale bar, s
 share image, NASA credit line, interactive sky map, GIF export.
 
 ### Left to do
-**Blocked on Yazan (ask him):**
-1. A **real asteroid/comet** with ≥2 SPHEREx images close in time (+ positions/ephemeris) → re-enable the "Something moved" story in real mode.
-2. Is the `WCS-WAVE` table fixed per detector? → then pick frames by wavelength (backend + UI).
-3. Scientific review of `frontend/lib/stories.ts`.
+**Needs Yazan:** see the end of `docs/questions-for-yazan.md` (final open questions).
 
 **Blocked on Batool:** image sources (Earth, Milky Way, telescope: AI or NASA?) → write
 `frontend/public/skytrace/CREDITS.md`; approve the code logo or provide an SVG.
 
 **Blocked on Sadeel:** review what was added to her Explorer.
 
-**Can be done now (suggested order):**
-1. **Deployment prep** (biggest risk): backend Dockerfile/host (needs Python+astropy), frontend on Vercel, `NEXT_PUBLIC_API_BASE_URL` / `NEXT_PUBLIC_SITE_URL`, CORS for the real domain, a short deploy guide. Accounts must be Jana's.
-2. **Prefetch** demo images in real mode (after Yazan's targets).
-3. Untested paths: "Search here" from the map → result; stories in real mode end-to-end via UI; new features on mobile; reduced-motion.
-4. Update `docs/frontend-tasks.md` (most items are done).
-5. Timeline (spacing frames by real time) · Arabic/English UI (RTL).
-6. Housekeeping: split `explorer.tsx` into components; delete old branches (`feat/brief-v0-contract`, `spike/irsa-sia2`, `feat/real-source`); move repo out of OneDrive.
-7. Demo video (1–2 min) once everything works.
+**Can be done now:**
+1. **Deploy** following `docs/deploy.md` (Dockerfiles + docker-compose written, not yet tested: Docker isn't installed here). Accounts must be Jana's.
+2. Look at 3I/ATLAS in real mode in the browser; if it's visible, mark it `verified` in `scripts/generate_mock.py`.
+3. Untested paths: "Search here" from the map → result; stories in real mode via UI; mobile; reduced-motion.
+4. Timeline (spacing frames by real time) · Arabic/English UI (RTL).
+5. Housekeeping: split `explorer.tsx`; delete old branches; move repo out of OneDrive.
+6. Demo video (1–2 min).

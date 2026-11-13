@@ -48,6 +48,7 @@ class RealSource(DataSource):
         self._obs_dir = cache_dir / "obs"
         self._cutout_dir = cache_dir / "cutouts"
         self._search_dir = cache_dir / "search"
+        self._cal_dir = cache_dir / "cal"  # spectral-WCS calibration files (scripts/download_spectral_wcs.py)
         self._search_dir.mkdir(parents=True, exist_ok=True)
         self._obs_dir.mkdir(parents=True, exist_ok=True)
         self._cutout_dir.mkdir(parents=True, exist_ok=True)
@@ -172,7 +173,9 @@ class RealSource(DataSource):
             img = hdul["IMAGE"].data.astype(float)
             if "ZODI" in hdul:
                 img = img - hdul["ZODI"].data.astype(float)  # zodiacal light dominates the IR background
-            wl = irsa.wavelength_at(hdul, ra, dec)
+            # Display only: cosmic-ray hits and detector defects would look like changes in a blink.
+            img, repaired, repaired_planes = irsa.repair_flagged(hdul, img)
+            wl = irsa.wavelength_at(hdul, ra, dec, cal_dir=self._cal_dir)
             data, inside = irsa.reproject_north_up(hdul, img, ra, dec, size_arcsec)
 
         c = data.shape[0] // 2
@@ -184,4 +187,5 @@ class RealSource(DataSource):
         if masked.any() and np.isfinite(data).any():
             data[masked] = np.nanmax(data)
         obs = self._to_observation(rec, wl)
-        return Cutout(data=data, ra=ra, dec=dec, pixel_scale_arcsec=irsa.PIXEL_ARCSEC, observation=obs)
+        return Cutout(data=data, ra=ra, dec=dec, pixel_scale_arcsec=irsa.PIXEL_ARCSEC, observation=obs,
+                      repaired_pixels=repaired, repaired_flags=repaired_planes)

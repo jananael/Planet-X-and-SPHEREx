@@ -37,6 +37,14 @@ export function defaultSelection(observations: Observation[], band: string): str
  * tolerance). Each frame covers wavelength ± bandwidth/2; they are comparable if all ranges overlap.
  * Falls back to a 0.05 um spread when a bandwidth is missing.
  */
+/**
+ * Releases mixed in one comparison (e.g. DR1 and QR3). Different pipeline versions can calibrate
+ * the same sky slightly differently, so differences may come from processing, not the sky.
+ */
+export function mixedReleases(frames: { obs: { release: string } }[]): string[] {
+  return [...new Set(frames.map(f => f.obs.release))].sort();
+}
+
 export function spectralMismatch(frames: { wavelengthUm: number | null; bandwidthUm: number | null }[]): boolean {
   const known = frames.filter((f): f is { wavelengthUm: number; bandwidthUm: number | null } => f.wavelengthUm !== null);
   if (known.length < 2) return false;

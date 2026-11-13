@@ -12,7 +12,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
 import numpy as np
@@ -191,7 +191,26 @@ def _quiet_wcs(header, **kw):
         return WCS(header, **kw)
 
 
-def wavelength_at(hdul, ra: float, dec: float) -> dict | None:
+_cal_cache: dict[str, tuple] = {}
+
+
+def _calibration(cal_dir, detector: str):
+    """(CWAVE, CBAND, product name) for a detector from CACHE_DIR/cal, or None if not downloaded."""
+    if cal_dir is None:
+        return None
+    path = Path(cal_dir) / f"spectral_wcs_{detector}.fits"
+    key = str(path)
+    if key not in _cal_cache:
+        if not path.exists():
+            return None
+        from astropy.io import fits
+        with fits.open(path) as h:
+            name = str(h[0].header.get("FILENAME", path.name))
+            _cal_cache[key] = (h["CWAVE"].data.copy(), h["CBAND"].data.copy(), name)
+    return _cal_cache[key]
+
+
+def wavelength_at(hdul, ra: float, dec: float, cal_dir=None) -> dict | None:
     """Wavelength and bandwidth (um) at sky position (ra, dec), from the alternate WCS 'W' (WAVE-TAB).
 
     SPHEREx is a linear-variable-filter instrument: wavelength depends on the detector pixel, so it
@@ -207,8 +226,69 @@ def wavelength_at(hdul, ra: float, dec: float) -> dict | None:
     lam, dlam = float(lam), float(dlam)
     if not math.isfinite(lam):
         return None
-    return {"wavelength_um": lam, "bandwidth_um": dlam if math.isfinite(dlam) else None,
-            "source": "WCS-WAVE", "pixel": {"x": round(x, 2), "y": round(y, 2), "frame": "cutout"}}
+    pixel = {"x": round(x, 2), "y": round(y, 2), "frame": "cutout"}
+    result = {"wavelength_um": lam, "bandwidth_um": dlam if math.isfinite(dlam) else None,
+              "source": "WCS-WAVE", "pixel": pixel}
+    if "CRPIX1A" in hdr:  # alternate WCS 'A': cutout pixel -> raw detector (FITS, 1-based) coordinates
+        dx, dy = _quiet_wcs(hdr, key="A").pixel_to_world_values(x, y)
+        dx, dy = float(dx), float(dy)
+        if math.isfinite(dx) and math.isfinite(dy):
+            result["pixel"] = {"x": round(dx, 2), "y": round(dy, 2), "frame": "detector"}
+            # Preferred (science team): CWAVE/CBAND from the spectral-WCS calibration product.
+            cal = _calibration(cal_dir, f"D{hdr.get('DETECTOR', '')}")
+            if cal is not None:
+                cw, cb, name = cal
+                xi, yi = int(round(dx)) - 1, int(round(dy)) - 1
+                if 0 <= yi < cw.shape[0] and 0 <= xi < cw.shape[1] and math.isfinite(float(cw[yi, xi])):
+                    result.update(wavelength_um=float(cw[yi, xi]), bandwidth_um=float(cb[yi, xi]),
+                                  source=f"CWAVE ({name})")
+    return result
+
+# FLAGS planes treated as bad pixels FOR DISPLAY: detector defects and cosmic-ray hits. They would
+# otherwise appear as dots that "change" between frames in a blink. Informational planes
+# (SOURCE, HALO, BLOOM, GHOST, PERSIST, ...) are left alone. Names come from the file's own
+# MSKNnnnn / MSKMnnnn header cards, so nothing is hard-coded by bit number.
+DISPLAY_BAD_FLAGS = ("TRANSIENT", "OVERFLOW", "SUR_ERROR", "NONFUNC", "MISSING_DATA", "HOT", "COLD")
+
+
+def flag_planes(hdul) -> dict[str, int]:
+    """{plane name: bitmask} as documented in the FLAGS extension header."""
+    if "FLAGS" not in hdul:
+        return {}
+    hdr = hdul["FLAGS"].header
+    return {str(hdr[k]): int(hdr.get("MSKM" + k[4:], 1 << int(k[4:]))) for k in hdr if k.startswith("MSKN")}
+
+
+def repair_flagged(hdul, img: np.ndarray, names=DISPLAY_BAD_FLAGS) -> tuple[np.ndarray, int, list[str]]:
+    """Replace pixels flagged with any of `names` by the median of their good 3x3 neighbours.
+    Display only; returns (image, number of pixels replaced, plane names actually present)."""
+    planes = flag_planes(hdul)
+    mask_bits = 0
+    used = [n for n in names if n in planes]
+    for n in used:
+        mask_bits |= planes[n]
+    if not mask_bits:
+        return img, 0, []
+    flags = hdul["FLAGS"].data.astype(np.int64)
+    bad = (flags & mask_bits) != 0
+    if not bad.any():
+        return img, 0, used
+    work = img.astype(float).copy()
+    work[bad] = np.nan
+    padded = np.pad(work, 1, mode="edge")
+    h, w = work.shape
+    neigh = np.stack([padded[1 + dy:1 + dy + h, 1 + dx:1 + dx + w]
+                      for dy in (-1, 0, 1) for dx in (-1, 0, 1) if dy or dx])
+    with np.errstate(all="ignore"):
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            fill = np.nanmedian(neigh, axis=0)
+    fixed = img.astype(float).copy()
+    ok = bad & np.isfinite(fill)
+    fixed[ok] = fill[ok]
+    return fixed, int(ok.sum()), used
+
 
 def reproject_north_up(hdul, data: np.ndarray, ra: float, dec: float, size_arcsec: float,
                        scale_arcsec: float = PIXEL_ARCSEC) -> tuple[np.ndarray, np.ndarray]:

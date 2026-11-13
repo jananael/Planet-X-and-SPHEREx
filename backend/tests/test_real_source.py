@@ -79,7 +79,7 @@ def real(tmp_path, monkeypatch):
 
     monkeypatch.setattr(irsa, "sia_search", fake_search)
     monkeypatch.setattr(irsa, "fetch_cutout", fake_fetch)
-    monkeypatch.setattr(irsa, "wavelength_at", lambda hdul, ra, dec: {
+    monkeypatch.setattr(irsa, "wavelength_at", lambda hdul, ra, dec, cal_dir=None: {
         "wavelength_um": 2.03, "bandwidth_um": 0.05, "source": "WCS-WAVE", "pixel": {"x": 39.5, "y": 39.5, "frame": "cutout"}})
     src = RealSource(TARGETS, tmp_path)
     app.dependency_overrides[get_data_source] = lambda: src
@@ -173,16 +173,20 @@ def test_live_targets_skip_illustrative_and_apply_proper_motion(real):
     """Live mode: no asteroid/comet with made-up positions; stars moved to the SPHEREx epoch."""
     client, _, _, _ = real
     targets = {t["id"]: t for t in client.get("/api/targets").json()["targets"]}
-    assert set(targets) == {"vesta", "wise-0855-0714", "barnards-star", "mira"}  # comet: no verified view yet
+    # 12P has no real view (too faint); 3I/ATLAS has one (status pending until seen in an image)
+    assert set(targets) == {"vesta", "3i-atlas", "wise-0855-0714", "barnards-star", "mira"}
+    assert targets["3i-atlas"]["validation_status"] == "pending" and targets["3i-atlas"]["preferred_band"] == "D1"
     vesta = targets["vesta"]
     assert vesta["validation_status"] == "verified" and vesta["preferred_band"] == "D2"
     assert vesta["ra"] == pytest.approx(22.555155) and vesta["search_start"].startswith("2026-07-13T15:50")
     barnard = targets["barnards-star"]
     assert barnard["position_epoch"] == 2026.0
-    assert barnard["catalog_motion"]["pm_dec_mas_yr"] == 10330.0  # catalogue value, kept apart from SPHEREx
-    # 26 years x 10.33"/yr north = ~268" = ~0.0746 deg (the position we verified against real images)
-    assert barnard["dec"] == pytest.approx(4.69339 + 10.33 * 26 / 3600, abs=1e-5)
-    assert barnard["ra"] == pytest.approx(269.4463, abs=2e-4)
+    assert barnard["catalog_motion"]["pm_dec_mas_yr"] == pytest.approx(10362.394)  # Gaia DR3, kept apart from SPHEREx
+    assert barnard["catalog_motion"]["source_catalog"].startswith("Gaia DR3")
+    # Gaia DR3 position (2016.0) + 10 yr of Gaia proper motion; within ~1" of the position that
+    # centred the star in the real SPHEREx images (269.44628, 4.76800)
+    assert barnard["dec"] == pytest.approx(4.7394201 + 10.362394 * 10 / 3600, abs=1e-6)
+    assert barnard["ra"] == pytest.approx(269.44628, abs=3e-4) and barnard["dec"] == pytest.approx(4.768, abs=3e-4)
     assert targets["mira"]["ra"] == pytest.approx(34.83663)  # no proper motion -> unchanged
 
 
@@ -265,3 +269,20 @@ def test_candidates_are_not_implemented_for_real_data_yet(real):
     client, _, _, _ = real
     r = client.get("/api/candidates", params={"ra": RA, "dec": DEC})
     assert r.status_code == 501 and r.json()["error"]["code"] == "NOT_IMPLEMENTED"
+
+
+def test_flagged_defects_are_repaired_for_display_but_sources_are_not():
+    img = np.full((7, 7), 1.0)
+    img[3, 3] = 500.0   # cosmic-ray hit flagged TRANSIENT
+    img[1, 1] = 50.0    # real star flagged SOURCE: must stay
+    flags = np.zeros((7, 7), dtype=np.int32)
+    flags[3, 3] = 1          # bit 0 TRANSIENT
+    flags[1, 1] = 1 << 21    # bit 21 SOURCE
+    fh = fits.Header()
+    for bit, name in [(0, "TRANSIENT"), (21, "SOURCE")]:
+        fh[f"MSKN{bit:04d}"] = name; fh[f"MSKM{bit:04d}"] = 1 << bit
+    hdul = fits.HDUList([fits.PrimaryHDU(), fits.ImageHDU(img, name="IMAGE"), fits.ImageHDU(flags, header=fh, name="FLAGS")])
+    assert irsa.flag_planes(hdul) == {"TRANSIENT": 1, "SOURCE": 1 << 21}
+    fixed, n, used = irsa.repair_flagged(hdul, img)
+    assert n == 1 and used == ["TRANSIENT"]
+    assert fixed[3, 3] == pytest.approx(1.0) and fixed[1, 1] == 50.0

@@ -32,9 +32,30 @@
       "description": "Periodic comet; diffuse coma, slower apparent motion than the asteroid. Mock positions are illustrative, not an ephemeris.",
       "position_epoch": null,
       "catalog_motion": null,
-      "validation_status": "pending",
-      "validation_note": "Needs an ephemeris-based coverage check; faint in 2025-26 (V ~18-24).",
+      "validation_status": "challenging",
+      "validation_note": "Ephemeris check: SPHEREx footprints cover it in 172 exposures, but it is V ~19.7-23.8 in 2025-26, probably too faint to see in single images.",
       "recommended_size_arcsec": 900
+    },
+    {
+      "id": "3i-atlas",
+      "name": "3I/ATLAS (C/2025 N1)",
+      "type": "comet",
+      "ra": 173.80864,
+      "dec": 2.82116,
+      "description": "Third known interstellar object, passing through the Solar System in 2025-26. Mock track uses its real position and rate on 2025-12-08 (JPL Horizons); images are synthetic in mock mode.",
+      "position_epoch": null,
+      "catalog_motion": null,
+      "validation_status": "pending",
+      "validation_note": "Ephemeris check: in 184 SPHEREx exposures (DR1); brightest V ~15.3 on 2025-12-08, moving ~265\" in 1.6 h. Still to confirm it is visible in the images.",
+      "recommended_size_arcsec": 900,
+      "real_view": {
+        "ra": 173.77394,
+        "dec": 2.83347,
+        "start": "2025-12-08T00:05:00Z",
+        "end": "2025-12-08T01:47:00Z",
+        "band": "D1",
+        "source": "JPL Horizons ephemeris + SPHEREx DR1 footprint check (exposures 2025W50_1A_0002_1..4 and 2025W50_1A_0021_1)"
+      }
     },
     {
       "id": "wise-0855-0714",
@@ -48,25 +69,26 @@
         "pm_ra_cosdec_mas_yr": -8100.0,
         "pm_dec_mas_yr": 700.0,
         "reference_epoch": 2010.5,
-        "source_catalog": "approximate literature values; to verify against Gaia DR3 (science team)"
+        "source_catalog": "approximate literature value; not in Gaia DR3 (too faint in the optical); to verify"
       },
       "validation_status": "challenging",
       "validation_note": "Real images exist; detection in a single frame is not guaranteed (very faint below ~3 um). Motion ~8\"/yr is about 1 pixel per year.",
-      "recommended_size_arcsec": 240
+      "recommended_size_arcsec": 240,
+      "preferred_band": "D6"
     },
     {
       "id": "barnards-star",
       "name": "Barnard's Star (GJ 699)",
       "type": "star",
-      "ra": 269.45208,
-      "dec": 4.69339,
+      "ra": 269.4485025,
+      "dec": 4.7394201,
       "description": "Highest proper-motion star (~10.4 arcsec/yr). Still under 1 SPHEREx pixel per 6 months.",
-      "position_epoch": 2000.0,
+      "position_epoch": 2016.0,
       "catalog_motion": {
-        "pm_ra_cosdec_mas_yr": -800.0,
-        "pm_dec_mas_yr": 10330.0,
-        "reference_epoch": 2000.0,
-        "source_catalog": "approximate literature values; to verify against Gaia DR3 (science team)"
+        "pm_ra_cosdec_mas_yr": -801.551,
+        "pm_dec_mas_yr": 10362.394,
+        "reference_epoch": 2016.0,
+        "source_catalog": "Gaia DR3 4472832130942575872 (queried via IRSA TAP); errors ~0.03 mas/yr"
       },
       "validation_status": "verified",
       "validation_note": "Centred in 4 real SPHEREx visits after proper-motion propagation; difference images show its northward sub-pixel shift.",
@@ -82,7 +104,7 @@
       "position_epoch": 2000.0,
       "catalog_motion": null,
       "validation_status": "verified",
-      "validation_note": "Seen in 3 real visits; the saturated core's glow grows and shrinks between them.",
+      "validation_note": "Seen in 3 real visits; the saturated core's glow grows and shrinks between them. Gaia DR3 has no proper motion for it (too bright), so none is applied.",
       "recommended_size_arcsec": 240
     }
   ]

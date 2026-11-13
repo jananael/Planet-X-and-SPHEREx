@@ -38,7 +38,7 @@ def test_health():
 
 def test_targets_shape_and_types():
     body = client.get("/api/targets").json()
-    assert body["count"] == len(body["targets"]) == 5
+    assert body["count"] == len(body["targets"]) == 6
     for t in body["targets"]:
         assert set(t) == {"id", "name", "type", "ra", "dec", "description", "position_epoch", "catalog_motion",
                           "validation_status", "validation_note", "recommended_size_arcsec",

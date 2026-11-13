@@ -147,6 +147,78 @@
       }
     },
     {
+      "id": "3i-atlas-20251208-d1-1",
+      "target_id": "3i-atlas",
+      "obs_time": "2025-12-08T00:07:26Z",
+      "mjd": 61017.00516,
+      "wavelength_um": 0.85,
+      "bandwidth_um": 0.0207,
+      "wavelength_source": "mock",
+      "band": "D1",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_3i-atlas-20251208-d1-1.fits",
+      "image_url": "/api/observations/3i-atlas-20251208-d1-1/image",
+      "footprint": {
+        "ra": 174.25864,
+        "dec": 2.52116,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 173.80864,
+        "dec": 2.82116,
+        "flux": 0.7,
+        "fwhm_px": 3.0
+      }
+    },
+    {
+      "id": "3i-atlas-20251208-d1-2",
+      "target_id": "3i-atlas",
+      "obs_time": "2025-12-08T01:45:53Z",
+      "mjd": 61017.07353,
+      "wavelength_um": 0.86,
+      "bandwidth_um": 0.021,
+      "wavelength_source": "mock",
+      "band": "D1",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_3i-atlas-20251208-d1-2.fits",
+      "image_url": "/api/observations/3i-atlas-20251208-d1-2/image",
+      "footprint": {
+        "ra": 174.25864,
+        "dec": 2.52116,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 173.7392054,
+        "dec": 2.845793,
+        "flux": 0.7,
+        "fwhm_px": 3.0
+      }
+    },
+    {
+      "id": "3i-atlas-20251208-d1-3",
+      "target_id": "3i-atlas",
+      "obs_time": "2025-12-08T03:23:21Z",
+      "mjd": 61017.14122,
+      "wavelength_um": 0.85,
+      "bandwidth_um": 0.0207,
+      "wavelength_source": "mock",
+      "band": "D1",
+      "release": "QR2",
+      "source_file": "MOCK_spherex_qr2_3i-atlas-20251208-d1-3.fits",
+      "image_url": "/api/observations/3i-atlas-20251208-d1-3/image",
+      "footprint": {
+        "ra": 174.25864,
+        "dec": 2.52116,
+        "radius_deg": 1.75
+      },
+      "mock_truth": {
+        "ra": 173.6704643,
+        "dec": 2.87018,
+        "flux": 0.7,
+        "fwhm_px": 3.0
+      }
+    },
+    {
       "id": "wise-0855-0714-20250521-d5-1",
       "target_id": "wise-0855-0714",
       "obs_time": "2025-05-21T08:00:00Z",
@@ -231,13 +303,13 @@
       "source_file": "MOCK_spherex_qr2_barnards-star-20250903-d2-1.fits",
       "image_url": "/api/observations/barnards-star-20250903-d2-1/image",
       "footprint": {
-        "ra": 269.90208,
-        "dec": 4.39339,
+        "ra": 269.8985,
+        "dec": 4.43942,
         "radius_deg": 1.75
       },
       "mock_truth": {
-        "ra": 269.45208,
-        "dec": 4.69339,
+        "ra": 269.4485025,
+        "dec": 4.7394201,
         "flux": 1.0,
         "fwhm_px": 1.4
       }
@@ -255,13 +327,13 @@
       "source_file": "MOCK_spherex_qr2_barnards-star-20260304-d2-2.fits",
       "image_url": "/api/observations/barnards-star-20260304-d2-2/image",
       "footprint": {
-        "ra": 269.90208,
-        "dec": 4.39339,
+        "ra": 269.8985,
+        "dec": 4.43942,
         "radius_deg": 1.75
       },
       "mock_truth": {
-        "ra": 269.4519689,
-        "dec": 4.6948197,
+        "ra": 269.4483912,
+        "dec": 4.7408543,
         "flux": 1.0,
         "fwhm_px": 1.4
       }

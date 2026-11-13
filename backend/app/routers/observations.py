@@ -14,7 +14,7 @@ router = APIRouter(tags=["observations"], responses={404: {"model": ErrorRespons
 IMAGE_HEADERS = (
     "X-Source-File", "X-Obs-Time", "X-Wavelength-Um", "X-Band", "X-Release",
     "X-Cutout-Ra", "X-Cutout-Dec", "X-Stretch-Vmin", "X-Stretch-Vmax",
-    "X-Bandwidth-Um", "X-Wavelength-Source", "X-Processing-Version",
+    "X-Bandwidth-Um", "X-Wavelength-Source", "X-Processing-Version", "X-Repaired-Pixels", "X-Repaired-Flags",
 )
 
 
@@ -59,7 +59,7 @@ def get_observation_image(
         "" if obs.wavelength_um is None else f"{obs.wavelength_um}", obs.band,
         obs.release, f"{cutout.ra:.6f}", f"{cutout.dec:.6f}", f"{used_min:.6g}", f"{used_max:.6g}",
         "" if obs.bandwidth_um is None else f"{obs.bandwidth_um}", obs.wavelength_source or "",
-        obs.processing_version or "",
+        obs.processing_version or "", str(cutout.repaired_pixels), ",".join(cutout.repaired_flags),
     )))
     headers["Cache-Control"] = "public, max-age=3600"
     return Response(content=png, media_type="image/png", headers=headers)
