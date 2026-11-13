@@ -1,0 +1,66 @@
+/* Isolated to the existing navigator: surrounding Explorer styling is unchanged. */
+.explorer-shell .explorer-flow .sky-map.sky-navigator { max-width: none; }
+.sky-navigator { border: 1px solid #3a506b; border-radius: 16px; overflow: hidden; background: #0b132b; color: #f4d6b0; }
+.sky-navigator .navigator-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 24px; }
+.sky-navigator .navigator-toolbar > div:first-child { flex: 1; max-width: 560px; min-width: 0; }
+.sky-navigator .navigator-toolbar .eyebrow { color: #5bc0de; font-size: 9px; letter-spacing: .16em; }
+.sky-navigator .navigator-toolbar h3 { margin: 5px 0 18px; color: #f4d6b0; font-size: 24px; }
+.sky-navigator .navigator-search { display: flex; gap: 10px; }
+.sky-navigator .navigator-search input { min-width: 0; padding: 12px 14px; background: #1c2541; color: #f4d6b0; border: 1px solid #3a506b; font-size: 13px; border-radius: 8px; }
+.sky-navigator .navigator-search button, .sky-navigator .navigator-actions > button { min-height: 42px; padding: 10px 16px; border: 1px solid #3a506b; border-radius: 8px; background: #1c2541; font-size: 13px; white-space: nowrap; }
+.sky-navigator .navigator-quick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.sky-navigator .navigator-quick button { min-height: 32px; padding: 4px 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #5bc0de; font-size: 12px; }
+.sky-navigator .navigator-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.sky-navigator .navigator-layers { position: relative; }
+.sky-navigator .navigator-layers summary { min-height: 42px; padding: 10px 16px; border: 1px solid #3a506b; border-radius: 8px; background: #1c2541; font-size: 13px; cursor: pointer; }
+.sky-navigator .navigator-layers > div { position: absolute; z-index: 20; top: calc(100% + 8px); right: 0; width: min(310px, 80vw); padding: 14px; border: 1px solid #5bc0de66; border-radius: 12px; background: #1c2541; box-shadow: 0 15px 40px #0008; }
+.sky-navigator .navigator-layers label { display: flex; align-items: center; gap: 12px; min-height: 40px; font-size: 13px; color: #d1dbe3; }
+.sky-navigator .navigator-layers label:has(input:disabled) { color: #a3b4c6; }
+.sky-navigator .navigator-layers small { display: block; margin: 8px 4px; color: #b5c7d5; font-size: 11px; line-height: 1.7; }
+.sky-navigator .navigator-layers input { width: 16px; height: 16px; accent-color: #5bc0de; }
+.sky-navigator .navigator-atlas-wrap { position: relative; min-height: 420px; background: #0b132b; }
+.explorer-shell .sky-navigator .sky-map-view { width: 100%; height: clamp(420px, 52vw, 620px); aspect-ratio: auto; border: 0; border-radius: 0; position: relative; }
+.sky-navigator .navigator-loading { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 14px; padding: 40px; text-align: center; background: #0b132be8; }
+.sky-navigator .navigator-loading p { max-width: 430px; font-size: 13px; line-height: 1.8; color: #b5c7d5; }
+.sky-navigator .navigator-loading button { min-height: 40px; border-radius: 8px; padding: 8px 18px; }
+.sky-navigator .navigator-selection { display: flex; justify-content: space-between; gap: 24px; align-items: center; padding: 24px; border-top: 1px solid #3a506b; background: #1c2541; }
+.sky-navigator .navigator-selection > div:first-child { flex: 1; min-width: 0; }
+.sky-navigator .navigator-kind { display: block; margin-bottom: 8px; font-size: 11px; color: #5bc0de; }
+.sky-navigator .navigator-selection strong { display: block; color: #f4d6b0; font-size: 16px; }
+.sky-navigator .navigator-selection dl { display: flex; flex-wrap: wrap; gap: 16px 28px; margin: 14px 0; }
+.sky-navigator .navigator-selection dt { font-size: 10px; color: #b5c7d5; letter-spacing: .04em; }
+.sky-navigator .navigator-selection dd { margin: 4px 0 0; font-size: 14px; font-variant-numeric: tabular-nums; color: #f4d6b0; }
+.sky-navigator .navigator-selection small, .sky-navigator .navigator-selection p { color: #b5c7d5; font-size: 12px; line-height: 1.8; }
+.sky-navigator .navigator-selection-actions { display: flex; flex-direction: column; gap: 10px; min-width: 190px; }
+.sky-navigator .navigator-selection-actions button { min-height: 40px; padding: 10px 16px; border: 1px solid #3a506b; border-radius: 8px; font-size: 12px; }
+.sky-navigator .navigator-selection-actions .primary-button { color: #0b132b; background: #d97706; border-color: #d97706; }
+.sky-navigator .navigator-message { padding: 16px 24px; border-block: 1px solid #3a506b; font-size: 13px; color: #f4d6b0; line-height: 1.7; }
+.sky-navigator .navigator-bookmarks { margin: 0 24px; border-top: 1px solid #3a506b; }
+.sky-navigator .navigator-bookmarks summary { min-height: 50px; font-size: 13px; cursor: pointer; }
+.sky-navigator .navigator-bookmarks summary span { margin-left: auto; color: #5bc0de; }
+.sky-navigator .navigator-bookmarks p { margin: 10px 0 18px; font-size: 12px; line-height: 1.7; color: #b5c7d5; }
+.sky-navigator .navigator-bookmarks ul { list-style: none; padding: 0; margin: 0 0 20px; max-height: 230px; overflow: auto; }
+.sky-navigator .navigator-bookmarks li { display: flex; gap: 12px; margin: 8px 0; }
+.sky-navigator .navigator-bookmarks li button { padding: 12px; border-radius: 8px; min-height: 44px; font-size: 12px; }
+.sky-navigator .navigator-bookmarks li button:first-child { flex: 1; text-align: left; min-width: 0; overflow-wrap: anywhere; }
+.sky-navigator .navigator-bookmarks li small { margin-top: 4px; color: #b5c7d5; }
+.sky-navigator .sky-map-credit { padding: 0 24px 20px; margin: 14px 0 0; color: #b5c7d5; font-size: 10px; line-height: 1.8; }
+.sky-navigator .sky-map-credit a { color: #5bc0de; }
+.sky-navigator :focus-visible { outline: 2px solid #5bc0de; outline-offset: 3px; }
+.sky-navigator .navigator-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; clip-path: inset(50%); overflow: hidden; white-space: nowrap; }
+.sky-navigator:fullscreen, .explorer-shell .explorer-flow .sky-map.navigator-expanded { display: flex; flex-direction: column; width: 100%; height: 100dvh; max-height: 100dvh; max-width: none; margin: 0; border-radius: 0; background: #0b132b; overflow: auto; }
+.explorer-shell .explorer-flow .sky-map.navigator-expanded { position: fixed; inset: 0; z-index: 100; }
+.sky-navigator:fullscreen .navigator-atlas-wrap, .sky-navigator.navigator-expanded .navigator-atlas-wrap { flex: 1; min-height: 300px; }
+.explorer-shell .sky-navigator:fullscreen .sky-map-view, .explorer-shell .sky-navigator.navigator-expanded .sky-map-view { height: 100%; min-height: 300px; }
+@media (max-width: 700px) {
+  .sky-navigator .navigator-toolbar { flex-direction: column; gap: 16px; padding: 18px; }
+  .sky-navigator .navigator-toolbar > div:first-child { width: 100%; max-width: none; }
+  .sky-navigator .navigator-actions { width: 100%; justify-content: flex-end; }
+  .sky-navigator .navigator-quick { gap: 4px; }
+  .sky-navigator .navigator-selection { flex-direction: column; align-items: stretch; padding: 20px; }
+  .sky-navigator .navigator-selection-actions { flex-direction: row; flex-wrap: wrap; min-width: 0; }
+  .sky-navigator .navigator-selection-actions button { flex: 1; }
+  .sky-navigator .navigator-selection-actions .primary-button { flex-basis: 100%; }
+  .sky-navigator .navigator-bookmarks { margin-inline: 20px; }
+  .sky-navigator .navigator-layers > div { right: -70px; }
+}

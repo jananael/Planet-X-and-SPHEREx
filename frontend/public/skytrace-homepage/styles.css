@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;600;700&display=swap');
+:root{color-scheme:dark;--night:#0b132b;--navy:#1c2541;--slate:#3a506b;--blue:#5bc0de;--cream:#f4d6b0;--amber:#d97706}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--night);color:#f6f7fa;font-family:'DM Sans',Arial,sans-serif;overflow-x:hidden}a{color:inherit;text-decoration:none}button{font:inherit}a:focus-visible,button:focus-visible{outline:2px solid var(--cream);outline-offset:7px}.cosmos{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:-1;background:#050c1b}.nebula{position:absolute;inset:-3%;background:linear-gradient(180deg,rgba(11,19,43,.12),rgba(11,19,43,.05) 70%,#081020),url('assets/nebula.png') center/100% 100% no-repeat;opacity:.85;animation:nebula-drift 40s ease-in-out infinite alternate}#stars{position:absolute;inset:0;width:100%;height:100%}.site-header{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:23px 6.4%}.brand{display:flex;align-items:center;gap:13px;font-size:25px;font-weight:700;letter-spacing:-.8px}.brand svg{width:53px;height:42px;stroke:currentColor;stroke-width:1.9}.brand>span>span{color:var(--blue)}nav{display:flex;gap:43px;font-size:18px}nav a{position:relative;padding:5px 0}nav a:hover{color:var(--blue)}nav .active:after{content:'';position:absolute;height:2px;background:var(--blue);bottom:-2px;left:0;right:0}.nav-arrow{font-size:15px;color:var(--blue);margin-left:5px}.hero{position:relative;min-height:960px;height:100vh;max-height:1120px;overflow:hidden;display:flex;align-items:flex-start;justify-content:center}.earth-orbit{position:absolute;width:1010px;height:1010px;top:-690px;right:-295px;transform:rotate(-19deg)}.earth{width:100%;height:100%;object-fit:contain;animation:earth-turn 160s linear infinite;filter:drop-shadow(0 0 16px #5bc0de30)}.small-telescope{position:absolute;width:91px;right:17.1%;top:32.3%;animation:orbit-float 6s ease-in-out infinite;filter:drop-shadow(0 0 9px #5bc0de25);transform:rotate(-12deg)}.hero-copy{position:relative;text-align:center;z-index:2;margin-top:355px;padding:0 25px}h1{font-size:clamp(64px,6.8vw,94px);font-weight:500;line-height:1.07;letter-spacing:-3.3px;margin:0 0 26px}h1 span{color:var(--blue);text-shadow:0 0 35px #5bc0de20}.hero-copy p{font-size:22px;line-height:1.55;color:#e5e9ef;margin:0}.explore-button{display:inline-flex;justify-content:center;align-items:center;gap:28px;min-width:260px;min-height:60px;padding:15px 30px;margin-top:37px;border:1.5px solid var(--blue);border-radius:40px;background:#0b132b65;color:#f5f7fa;font-size:18px;cursor:pointer;transition:background .25s,box-shadow .25s,transform .25s}.explore-button:hover{background:#5bc0de20;box-shadow:0 0 30px #5bc0de20;transform:translateY(-2px)}.explore-button span{color:var(--cream);font-size:24px}.scroll-cue{position:absolute;bottom:56px;left:calc(50% - 14px);display:flex;align-items:center;flex-direction:column;gap:12px}.mouse{width:25px;height:43px;border:1.5px solid #d7e8f1;border-radius:18px;display:flex;justify-content:center;padding-top:8px}.mouse i{width:3px;height:8px;border-radius:4px;background:var(--blue);animation:scroll 2.4s ease-in-out infinite}.chevron{width:14px;height:14px;border-bottom:1.5px solid white;border-right:1.5px solid white;transform:rotate(45deg)}.mission{position:relative;max-width:1290px;min-height:580px;margin:auto;display:grid;grid-template-columns:1fr 1fr;gap:45px;padding:52px 6.7% 120px;align-items:start}.eyebrow{display:flex;align-items:center;gap:22px;text-transform:uppercase;letter-spacing:4px;font-size:13px;font-weight:500;margin:0 0 22px}.eyebrow>span{height:2px;width:46px;background:var(--blue)}h2{font-size:52px;line-height:1.12;font-weight:500;letter-spacing:-1.5px;margin:0 0 23px}h2 span{color:var(--blue)}.description{font-size:18px;line-height:1.55;color:#e1e7ed;max-width:455px;margin:0}.telescope-stage{position:relative;padding-top:5px}.telescope-stage img{position:relative;width:115%;max-width:590px;margin-left:-10px;animation:instrument-float 6.5s ease-in-out infinite;filter:drop-shadow(0 0 14px #5bc0de22)}.instrument-glow{position:absolute;inset:5% 0;background:radial-gradient(ellipse,#5bc0de16,transparent 68%);filter:blur(30px)}footer{margin:0 4%;padding:28px 0 32px;border-top:1px solid #73859c55;display:flex;align-items:center;justify-content:space-between}footer .brand{font-size:20px}footer .brand svg{width:47px}footer nav{font-size:17px;gap:36px}.motion-toggle{position:fixed;right:19px;bottom:18px;border:1px solid #5bc0de50;color:#c9e9f2;background:#0b132baa;border-radius:50%;width:33px;height:33px;cursor:pointer;z-index:8;opacity:.7}dialog{max-width:540px;width:calc(100% - 40px);padding:44px;background:var(--night);color:#e5e9ef;border:1px solid var(--slate);border-radius:18px;box-shadow:0 20px 100px #0008}dialog::backdrop{background:#020711cc;backdrop-filter:blur(10px)}dialog h2{font-size:36px}dialog p{line-height:1.65}dialog .eyebrow{font-size:10px;letter-spacing:2px}.close-dialog{position:absolute;right:15px;top:10px;background:none;color:white;border:0;font-size:28px;cursor:pointer}dialog .explore-button{margin-top:15px;font-size:15px;min-width:0}.paused *{animation-play-state:paused!important}@keyframes nebula-drift{to{transform:translate3d(1%,-1%,0) scale(1.035)}}@keyframes earth-turn{to{transform:rotate(360deg)}}@keyframes orbit-float{0%,100%{transform:translate(0,0) rotate(-12deg)}50%{transform:translate(-28px,22px) rotate(-2deg)}}@keyframes instrument-float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-24px) rotate(2deg)}}@keyframes scroll{50%{transform:translateY(9px);opacity:.3}}@media(min-width:1450px){.earth-orbit{width:1190px;height:1190px;top:-805px;right:-290px}.hero-copy{margin-top:36vh}}@media(max-width:700px){.site-header{padding:20px 6%}.brand{font-size:19px;gap:8px}.brand svg{width:41px}nav{gap:24px;font-size:15px}.nav-arrow{display:none}.hero{height:880px;min-height:0}.earth-orbit{width:740px;height:740px;top:-510px;right:-355px}.small-telescope{width:70px;top:235px;right:14%}.hero-copy{margin-top:330px;padding:0 20px}h1{font-size:clamp(51px,10vw,70px);letter-spacing:-2px;margin-bottom:24px}.hero-copy p{font-size:17px;max-width:480px}.desktop-break{display:none}.explore-button{font-size:16px;min-width:235px;min-height:55px;margin-top:30px}.scroll-cue{bottom:48px}.mission{grid-template-columns:1fr;gap:32px;padding:35px 7% 85px}.eyebrow{font-size:11px;letter-spacing:3px;gap:15px}h2{font-size:43px}.description{font-size:17px;max-width:100%}.telescope-stage{max-width:420px;width:100%;justify-self:center}.telescope-stage img{width:100%;margin:0}footer{margin:0 6%;padding:25px 0}footer .brand{font-size:16px;gap:7px}footer .brand svg{width:35px}footer nav{font-size:14px;gap:24px}.nebula{background-size:auto 100%}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important}}
+/* Reference composition: centered hero, cropped upper-right Earth, split mission. */
+body{position:relative;isolation:isolate}
+.cosmos{z-index:-1}
+.hero{height:960px;min-height:960px;max-height:none}
+.hero-copy{margin-top:355px}
+h1{font-size:clamp(70px,8.8vw,100px);line-height:1.04;font-weight:450;margin-bottom:27px}
+.mission{min-height:574px;padding-top:35px;padding-bottom:140px;gap:45px}
+.telescope-stage img{width:110%;margin-left:0}
+.hero-copy p{line-height:1.5}
+.explore-button:hover{border-color:var(--cream);box-shadow:0 0 30px #5bc0de25}
+.earth{animation:earth-turn 240s linear infinite}
+@media(min-width:1450px){.hero-copy{margin-top:355px}}
+@media(max-width:700px){.hero{height:850px;min-height:850px}.hero-copy{margin-top:320px}h1{font-size:clamp(49px,10vw,70px);line-height:1.08}.mission{min-height:0;padding:35px 7% 85px;gap:32px}.telescope-stage img{width:100%}}
+@media(min-width:701px) and (max-width:1449px){.earth-orbit{width:105vw;height:105vw;top:-71.65vw;right:-30.63vw}.small-telescope{top:310px}.hero-copy{width:100%}}
+/* Crop the supplied logo's empty margins while retaining its original artwork. */
+.brand-image{position:relative;display:block;width:125px;height:68px;flex-shrink:0;overflow:hidden;mix-blend-mode:screen}
+.brand-image img{position:absolute;width:131%;height:auto;max-width:none;left:-14%;top:-7%}
+footer .brand-image{width:100px;height:54px}
+@media(max-width:700px){.brand-image{width:96px;height:52px}footer .brand-image{width:85px;height:46px}}
+/* JavaScript steers the upper telescope between collision-checked random waypoints. */
+.small-telescope{animation:none;right:auto;will-change:left,top,transform}
+/* The mission telescope lights up on hover while continuing to float. */
+.telescope-stage img{transition:filter .4s ease}
+.telescope-stage img:hover{filter:brightness(1.18) drop-shadow(0 0 16px #5bc0deaa) drop-shadow(0 0 36px #5bc0de66)}
+.telescope-stage .instrument-glow{transition:opacity .4s ease;opacity:.5;pointer-events:none}
+.telescope-stage:has(img:hover) .instrument-glow{opacity:1;background:radial-gradient(ellipse,#5bc0de44,transparent 68%)}
+/* Small, staggered light blooms along the headline's letter edges. */
+#hero-title{position:relative;width:fit-content;max-width:100%;margin-left:auto;margin-right:auto;text-shadow:0 0 18px #5bc0de28}
+#hero-title>span:not(.headline-glints){text-shadow:0 0 20px #5bc0de38}
+.headline-glints{position:absolute;inset:0;pointer-events:none}
+.headline-glints i{position:absolute;width:5px;height:15px;border-radius:50%;background:#effcff;box-shadow:0 0 5px 2px #d5f5ff,0 0 12px 5px #5bc0de,0 0 24px 8px #269fe66b;opacity:0;transform:translate(-50%,-50%) scale(.5);animation:headline-glimmer 5.8s ease-in-out infinite}
+.headline-glints i::after{content:'';position:absolute;top:45%;left:50%;width:45px;height:2px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,#a8edffb0,transparent);filter:blur(1px)}
+.headline-glints i:nth-child(1){left:43%;top:7%;animation-delay:-1.2s}
+.headline-glints i:nth-child(2){left:83%;top:5%;animation-delay:-3.8s}
+.headline-glints i:nth-child(3){left:28%;top:45%;animation-delay:-2.9s}
+.headline-glints i:nth-child(4){left:3%;top:91%;animation-delay:-.5s}
+.headline-glints i:nth-child(5){left:37%;top:58%;animation-delay:-4.5s}
+.headline-glints i:nth-child(6){left:98%;top:91%;animation-delay:-2s}
+@keyframes headline-glimmer{0%,32%,68%,100%{opacity:0;transform:translate(-50%,-50%) scale(.45)}43%{opacity:.9;transform:translate(-50%,-50%) scale(1)}48%{opacity:.45}53%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}}
+@media(prefers-reduced-motion:reduce){.headline-glints i{animation:none;opacity:.35;transform:translate(-50%,-50%) scale(.6)}}
+/* Hairline glimmers: restrained points and faint light strokes between letters. */
+.headline-glints i{width:2px;height:7px;background:#e7faffaa;box-shadow:0 0 3px 1px #c9f2ff70,0 0 7px 2px #5bc0de50;animation-name:headline-glimmer-soft}
+.headline-glints i::after{width:25px;height:1px;background:linear-gradient(90deg,transparent,#b9eeff50,transparent);filter:blur(.4px)}
+.headline-streaks{position:absolute;inset:0;pointer-events:none}
+.headline-streaks i{position:absolute;width:22%;height:1px;opacity:0;background:linear-gradient(90deg,transparent,#5bc0de22 20%,#c2f2ff75 52%,#5bc0de28 80%,transparent);box-shadow:0 0 4px #5bc0de30;transform:rotate(-2deg);animation:headline-stroke 7s ease-in-out infinite}
+.headline-streaks i:nth-child(1){left:22%;top:12%;animation-delay:-1s}
+.headline-streaks i:nth-child(2){left:38%;top:43%;width:28%;transform:rotate(1deg);animation-delay:-3.7s}
+.headline-streaks i:nth-child(3){left:8%;top:80%;width:20%;transform:rotate(-5deg);animation-delay:-5.2s}
+.headline-streaks i:nth-child(4){left:64%;top:92%;width:23%;transform:rotate(2deg);animation-delay:-2.4s}
+@keyframes headline-glimmer-soft{0%,32%,68%,100%{opacity:0;transform:translate(-50%,-50%) scale(.6)}45%,54%{opacity:.4;transform:translate(-50%,-50%) scale(1)}49%{opacity:.2}}
+@keyframes headline-stroke{0%,25%,75%,100%{opacity:0}43%{opacity:.35}56%{opacity:.5}65%{opacity:.15}}
+@media(prefers-reduced-motion:reduce){.headline-streaks i{animation:none;opacity:.15}.headline-glints i{opacity:.15}}
+/* Only thin light strokes remain; no point-shaped sparkles. */
+.headline-streaks i{height:1px;background:linear-gradient(90deg,transparent,#5bc0de55 18%,#dbf8ffcc 50%,#5bc0de55 82%,transparent);box-shadow:0 0 5px #5bc0de65;animation-name:headline-stroke-visible}
+@keyframes headline-stroke-visible{0%,18%,85%,100%{opacity:0}35%{opacity:.55}51%{opacity:.85}68%{opacity:.45}}
+@media(prefers-reduced-motion:reduce){.headline-streaks i{animation:none;opacity:.4}}
+/* Repeat the mission fade when scrolling down, reset when returning above it. */
+.mission-reveal{opacity:0;transform:translateY(26px);transition:opacity .8s ease,transform .8s ease}
+.mission-reveal.is-visible{opacity:1;transform:translateY(0)}
+@media(prefers-reduced-motion:reduce){.mission-reveal{opacity:1;transform:none;transition:none}}
+/* Stronger, reversible fade driven by how far the section enters the viewport. */
+.mission-reveal{opacity:var(--mission-opacity,0);transform:none;transition:opacity .35s ease}
+.mission-reveal>.mission-copy,.mission-reveal>.telescope-stage{translate:0 var(--mission-offset,60px);transition:translate .35s ease}
+@media(prefers-reduced-motion:reduce){.mission-reveal{opacity:1;transition:none}.mission-reveal>.mission-copy,.mission-reveal>.telescope-stage{translate:none;transition:none}}
+/* Delay and deepen the entrance, with a soft blur that clears on approach. */
+.mission-reveal{filter:blur(var(--mission-blur,8px));transition:opacity .55s ease,filter .55s ease}
+.mission-reveal>.mission-copy,.mission-reveal>.telescope-stage{transition:translate .55s ease}
+@media(prefers-reduced-motion:reduce){.mission-reveal{filter:none;opacity:1;transition:none}.mission-reveal>.mission-copy,.mission-reveal>.telescope-stage{translate:none;transition:none}}
+/* Clean, moderate fade with no blur. */
+.mission-reveal{filter:none;transition:opacity .4s ease}
+.mission-reveal>.mission-copy,.mission-reveal>.telescope-stage{transition:translate .4s ease}
+@media(prefers-reduced-motion:reduce){.mission-reveal,.mission-reveal>.mission-copy,.mission-reveal>.telescope-stage{transition:none}}

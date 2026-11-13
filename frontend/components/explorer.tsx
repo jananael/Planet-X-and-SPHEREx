@@ -58,6 +58,9 @@ export function Explorer() {
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const selectedTarget = targets.find(t => t.id === targetId);
   const activeStory = story ? storyById(story.id) : undefined;
+  const mapCenter = useMemo(() => {
+    try { return parseCoordinates(ra, dec); } catch { return null; }
+  }, [ra, dec]);
 
   // opts: time window + preferred band, for moving objects that are only in a few images.
   const search = useCallback(async (position: Coordinates, id: string | null = null, opts: SearchOptions = {}, preview = false) => {
@@ -241,7 +244,7 @@ export function Explorer() {
   return <div className="explorer-page">
     <StarryBackground topOnly />
     <a className="skip-link" href="#explorer">Skip to Explorer</a>
-    <header className="site-header"><Link href="/" className="explorer-logo" aria-label="SKYTRACE home"><img src="/skytrace/satellite-logo.png" alt="SKYTRACE satellite logo" width="1774" height="887" /></Link><nav aria-label="Main navigation"><Link href="/">Home</Link><Link href="/explore" aria-current="page">Explorer</Link></nav><div className={`source-badge ${source === "mock" ? "mock" : ""}`}><span />{source === "mock" ? "MOCK DATA" : source === "real" ? "LIVE ARCHIVE" : "API NOT CONNECTED"}</div></header>
+    <header className="site-header"><a href="/" className="explorer-logo" aria-label="SKYTRACE home"><img src="/skytrace/satellite-logo.png" alt="SKYTRACE satellite logo" width="1774" height="887" /></a><nav aria-label="Main navigation"><a href="/">Home</a><Link href="/explore" aria-current="page">Explorer</Link></nav><div className={`source-badge ${source === "mock" ? "mock" : ""}`}><span />{source === "mock" ? "MOCK DATA" : source === "real" ? "LIVE ARCHIVE" : "API NOT CONNECTED"}</div></header>
     <main id="explorer" className="explorer-shell">
       <section className="intro"><div><p className="eyebrow"><span />THE SKY, ACROSS TIME</p><h1>A new way to <span>look closer.</span></h1><p>Pick a patch of sky. Compare infrared observations.<br className="desktop-break" /> See what moves — and what changes.</p></div><ol className="explorer-guide" aria-label="How to explore">
         <li><span aria-hidden="true">01</span><div><strong>Choose a location</strong><p>Try a target, enter coordinates, or use the sky map.</p></div></li>
@@ -257,7 +260,7 @@ export function Explorer() {
             </div>
             {searchError && searchError !== startupError && <div className="notice error" role="alert">{searchError}{coordinates && <button onClick={() => void search(coordinates, targetId)}>Retry search</button>}</div>}
             <button type="button" className="map-toggle" aria-expanded={showMap} onClick={() => setShowMap(v => !v)}>{showMap ? "Hide sky map" : "Or pick a point on the sky map"} <span aria-hidden="true">{showMap ? "▴" : "▾"}</span></button>
-            {showMap && <SkyMap center={coordinates} markers={targets} onPick={point => { endStory(); void search(point); }} />}
+            {showMap && <SkyMap center={mapCenter} onSelect={point => { setRa(String(point.ra)); setDec(String(point.dec)); setSearchError(""); }} onPick={point => { endStory(); void search(point); }} />}
             <details className="starting-alternative"><summary>Or choose a suggested target</summary>
             <div className="target-list">{targets.map(target => <button key={target.id} className={`target-card ${targetId === target.id ? "selected" : ""}`} onClick={() => { endStory(); if (target.recommended_size_arcsec) setSize(target.recommended_size_arcsec); void search({ ra: target.ra, dec: target.dec }, target.id, targetSearch(target)); }}><span className="target-icon" aria-hidden="true">{targetIcons[target.type]}</span><span><strong>{target.name}</strong><small>{target.type.replace("_", " ")}</small></span><span className="target-arrow" aria-hidden="true">↗</span></button>)}{!targets.length && <p className="muted">{startupError ? "Connect the backend to load demo targets, or enter coordinates below." : "Loading demo targets…"}</p>}</div>
             {selectedTarget && <p className="target-description">{selectedTarget.description}{selectedTarget.validation_note && <><br /><span className="muted">SPHEREx check ({selectedTarget.validation_status?.replace("_", " ")}): {selectedTarget.validation_note}</span></>}</p>}
@@ -325,6 +328,6 @@ export function Explorer() {
       </div>
       <section className="explore-note"><span aria-hidden="true">✦</span><p><strong>Explore with curiosity. Compare with care.</strong> These observations help you investigate changes, not confirm discoveries. A quiet-looking sky can still tell a story.</p></section>
     </main>
-    <footer className="site-footer"><Link href="/" className="explorer-logo" aria-label="SKYTRACE home"><img src="/skytrace/satellite-logo.png" alt="SKYTRACE satellite logo" width="1774" height="887" /></Link><p>Data: NASA SPHEREx via NASA/IPAC IRSA · NASA Space Apps Challenge 2026 project, not an official NASA product.</p><nav aria-label="Footer navigation"><Link href="/">Home</Link><Link href="/explore" aria-current="page">Explorer</Link></nav></footer>
+    <footer className="site-footer"><a href="/" className="explorer-logo" aria-label="SKYTRACE home"><img src="/skytrace/satellite-logo.png" alt="SKYTRACE satellite logo" width="1774" height="887" /></a><p>Data: NASA SPHEREx via NASA/IPAC IRSA · NASA Space Apps Challenge 2026 project, not an official NASA product.</p><nav aria-label="Footer navigation"><a href="/">Home</a><Link href="/explore" aria-current="page">Explorer</Link></nav></footer>
   </div>;
 }
