@@ -102,12 +102,23 @@ class RealSource(DataSource):
     def list_targets(self) -> list[Target]:
         """Demo targets usable with live data.
 
-        - Asteroids/comets are left out: their mock positions are illustrative, not ephemerides,
-          so a live search there would show an unrelated patch of sky.
+        - Asteroids/comets: only those with a verified `real_view` (ephemeris + SPHEREx coverage
+          check), placed there with the time window and band to use. Others are left out.
         - Stars/brown dwarfs are moved by proper motion to REAL_EPOCH. Catalogue (J2000 / WISE-epoch)
           positions are off by minutes of arc for fast movers (Barnard's Star: ~4.5' by 2026).
         """
-        return [propagate(t, REAL_EPOCH) for t in self._targets if t.type not in SOLAR_SYSTEM]
+        out = []
+        for t in self._targets:
+            if t.type in SOLAR_SYSTEM:
+                # Moving objects only where a verified real view says when/where SPHEREx imaged them.
+                if t.real_view is None:
+                    continue
+                v = t.real_view
+                out.append(t.model_copy(update={"ra": v.ra, "dec": v.dec, "search_start": v.start,
+                                                "search_end": v.end, "preferred_band": v.band}))
+            else:
+                out.append(propagate(t, REAL_EPOCH))
+        return out
 
     def get_observation(self, observation_id: str) -> Observation:
         return self._to_observation(self._lookup(observation_id)[0])

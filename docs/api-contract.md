@@ -241,3 +241,10 @@ overlap (`wavelength ± bandwidth/2` for every frame share a common range), not 
 Search results are cached on disk for 24 h (only when every collection answered). Cutouts are cached
 per observation id + **processing version** + centre + size. Observation footprints include the real
 `polygon` (from `s_region`), and `NO_COVERAGE` uses it when available.
+
+## Moving objects in real mode (time windows)
+`/api/search` accepts optional `start` and `end` (ISO-8601 UTC) to keep only observations in that window.
+A moving target is listed in real mode only with a verified `real_view` (JPL Horizons ephemeris +
+SPHEREx footprint check, see `backend/scripts/check_moving_targets.py`); `/api/targets` then gives
+its `ra`/`dec` (midpoint of its path), `search_start`, `search_end` and `preferred_band`. The Explorer
+passes them on when the target card or story is used. Vesta: 2026-07-13 15:50–19:08 UTC, D2, ~124″ in 3.2 h.

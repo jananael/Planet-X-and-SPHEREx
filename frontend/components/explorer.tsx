@@ -10,8 +10,9 @@ const SkyMap = dynamic(() => import("./sky-map").then(m => m.SkyMap), { ssr: fal
 import { errorMessage, getJson, loadBlink } from "../lib/api";
 import { bestBand, defaultSelection, groupVisits, parseCoordinates, spectralMismatch } from "../lib/observations";
 import { PIXEL_ARCSEC, STORIES, storyById, type Story } from "../lib/stories";
-import type { BlinkFrame, Coordinates, FrameFailure, Observation, Stretch, Target } from "../lib/types";
+import type { BlinkFrame, Coordinates, FrameFailure, Observation, SearchOptions, Stretch, Target } from "../lib/types";
 
+const targetSearch = (t: Target): SearchOptions => ({ start: t.search_start, end: t.search_end, band: t.preferred_band });
 const targetIcons = { asteroid: "☄", comet: "✧", brown_dwarf: "◉", star: "✦", variable: "◈" };
 function utc(value: string) { return new Date(value).toISOString().replace("T", " ").replace(/\.\d+Z$|Z$/, " UTC"); }
 function month(value: string) { return new Date(value).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" }); }
@@ -56,18 +57,22 @@ export function Explorer() {
   const selectedTarget = targets.find(t => t.id === targetId);
   const activeStory = story ? storyById(story.id) : undefined;
 
-  const search = useCallback(async (position: Coordinates, id: string | null = null) => {
+  // opts: time window + preferred band, for moving objects that are only in a few images.
+  const search = useCallback(async (position: Coordinates, id: string | null = null, opts: SearchOptions = {}) => {
     searchController.current?.abort(); frameController.current?.abort();
     const controller = new AbortController(); searchController.current = controller;
     setRa(String(position.ra)); setDec(String(position.dec)); setCoordinates(position); setTargetId(id);
     setSearching(true); setSearchError(""); setObservations([]); setSelected([]); setFrames([]); setFailures([]); setPlaying(false); setSearched(false);
     const url = new URL(window.location.href); url.searchParams.set("ra", String(position.ra)); url.searchParams.set("dec", String(position.dec));
+    for (const key of ["start", "end", "band"] as const) { const v = opts[key]; if (v) url.searchParams.set(key, v); else url.searchParams.delete(key); }
     window.history.replaceState(null, "", url);
     try {
-      const data = await getJson<{ observations: Observation[] }>(`/api/search?ra=${position.ra}&dec=${position.dec}`, controller.signal);
+      const q = new URLSearchParams({ ra: String(position.ra), dec: String(position.dec) });
+      if (opts.start) q.set("start", opts.start); if (opts.end) q.set("end", opts.end);
+      const data = await getJson<{ observations: Observation[] }>(`/api/search?${q}`, controller.signal);
       if (controller.signal.aborted) return;
       const list = [...data.observations].sort((a, b) => a.mjd - b.mjd);
-      const nextBand = bestBand(list);
+      const nextBand = opts.band && list.some(o => o.band === opts.band) ? opts.band : bestBand(list);
       setObservations(list); setBand(nextBand); setSelected(defaultSelection(list, nextBand)); setSearched(true);
     } catch (error) { if (!controller.signal.aborted) setSearchError(errorMessage(error)); }
     finally { if (!controller.signal.aborted) setSearching(false); }
@@ -89,7 +94,7 @@ export function Explorer() {
       const params = new URLSearchParams(window.location.search);
       if (params.has("ra") || params.has("dec")) {
         const r = params.get("ra") ?? "", d = params.get("dec") ?? ""; setRa(r); setDec(d);
-        try { void search(parseCoordinates(r, d)); } catch (error) { setSearchError((error as Error).message); }
+        try { void search(parseCoordinates(r, d), null, { start: params.get("start"), end: params.get("end"), band: params.get("band") }); } catch (error) { setSearchError((error as Error).message); }
       }
     };
     readLocation(); window.addEventListener("popstate", readLocation);
@@ -193,7 +198,8 @@ export function Explorer() {
   function startStory(next: Story) {
     const target = targets.find(t => t.id === next.targetId); if (!target) return;
     storyAutoplayed.current = null; setDifference(false); setStory({ id: next.id, step: 0 });
-    void search({ ra: target.ra, dec: target.dec }, target.id);
+    if (target.recommended_size_arcsec) setSize(target.recommended_size_arcsec);
+    void search({ ra: target.ra, dec: target.dec }, target.id, targetSearch(target));
     document.getElementById("viewer-title")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   // Relative moves from the latest state, so quick repeated clicks never skip or repeat a step.
@@ -243,7 +249,7 @@ export function Explorer() {
         <aside className="sidebar">
           <section className="panel target-panel" aria-labelledby="choose-title"><div className="section-heading"><span className="step-number">01</span><div><p className="eyebrow">YOUR STARTING POINT</p><h2 id="choose-title">Choose a location</h2></div></div>
             <p className="section-hint">Start with a familiar explorer’s target.</p>
-            <div className="target-list">{targets.map(target => <button key={target.id} className={`target-card ${targetId === target.id ? "selected" : ""}`} onClick={() => { endStory(); if (target.recommended_size_arcsec) setSize(target.recommended_size_arcsec); void search({ ra: target.ra, dec: target.dec }, target.id); }}><span className="target-icon" aria-hidden="true">{targetIcons[target.type]}</span><span><strong>{target.name}</strong><small>{target.type.replace("_", " ")}{target.validation_status && target.validation_status !== "verified" ? ` · ${target.validation_status.replace("_", " ")}` : ""}</small></span><span className="target-arrow" aria-hidden="true">↗</span></button>)}{!targets.length && <p className="muted">{startupError ? "Connect the backend to load demo targets, or enter coordinates below." : "Loading demo targets…"}</p>}</div>
+            <div className="target-list">{targets.map(target => <button key={target.id} className={`target-card ${targetId === target.id ? "selected" : ""}`} onClick={() => { endStory(); if (target.recommended_size_arcsec) setSize(target.recommended_size_arcsec); void search({ ra: target.ra, dec: target.dec }, target.id, targetSearch(target)); }}><span className="target-icon" aria-hidden="true">{targetIcons[target.type]}</span><span><strong>{target.name}</strong><small>{target.type.replace("_", " ")}{target.validation_status && target.validation_status !== "verified" ? ` · ${target.validation_status.replace("_", " ")}` : ""}</small></span><span className="target-arrow" aria-hidden="true">↗</span></button>)}{!targets.length && <p className="muted">{startupError ? "Connect the backend to load demo targets, or enter coordinates below." : "Loading demo targets…"}</p>}</div>
             {selectedTarget && <p className="target-description">{selectedTarget.description}{selectedTarget.validation_note && <><br /><span className="muted">SPHEREx check ({selectedTarget.validation_status?.replace("_", " ")}): {selectedTarget.validation_note}</span></>}</p>}
             <div className="divider-label"><span />OR ENTER COORDINATES<span /></div>
             <form noValidate onSubmit={event => { event.preventDefault(); endStory(); try { void search(parseCoordinates(ra, dec)); } catch (error) { setSearchError((error as Error).message); } }}><div className="coordinate-grid"><label>Right ascension <span>RA · degrees</span><input aria-label="Right ascension in degrees" type="number" step="any" min="0" max="359.999999" placeholder="0 ≤ RA < 360" value={ra} onChange={event => setRa(event.target.value)} /></label><label>Declination <span>Dec · degrees</span><input aria-label="Declination in degrees" type="number" step="any" min="-90" max="90" placeholder="−90 to 90" value={dec} onChange={event => setDec(event.target.value)} /></label></div><button className="primary-button search-button" type="submit">{searching ? "Searching the sky…" : "Search observations"}<span aria-hidden="true">↗</span></button></form>

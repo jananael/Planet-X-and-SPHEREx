@@ -27,8 +27,8 @@ export const STORIES: Story[] = [
     title: "Something moved",
     summary: "An asteroid crossing the stars within a few hours.",
     steps: [
-      { text: "These are SPHEREx images of the same patch of sky, taken about 95 minutes apart. Every frame is aligned north-up and shown on the same brightness scale." },
-      { text: "Watch the bright dot at the crosshair. The background stars stay put, but this one jumps from frame to frame: it is (4) Vesta, an asteroid orbiting the Sun." },
+      { text: "These are SPHEREx images of the same patch of sky, taken a few hours apart on the same day. Every frame is aligned north-up and shown on the same brightness scale." },
+      { text: "Watch the bright dot near the crosshair. The background stars stay put, but this one jumps from frame to frame: it is (4) Vesta, an asteroid orbiting the Sun." },
       { text: "Difference mode subtracts the first frame. Everything that stayed still disappears; what moved shows up as a light and dark pair.", difference: true },
       { text: "Asteroids move across the sky in hours. That is the signature SPHEREx's repeated visits let anyone spot." },
     ],

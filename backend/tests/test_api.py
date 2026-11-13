@@ -41,7 +41,8 @@ def test_targets_shape_and_types():
     assert body["count"] == len(body["targets"]) == 5
     for t in body["targets"]:
         assert set(t) == {"id", "name", "type", "ra", "dec", "description", "position_epoch", "catalog_motion",
-                          "validation_status", "validation_note", "recommended_size_arcsec"}
+                          "validation_status", "validation_note", "recommended_size_arcsec",
+                          "real_view", "search_start", "search_end", "preferred_band"}
         assert t["validation_status"] in {"verified", "pending", "challenging", "not_supported"}
     assert {t["type"] for t in body["targets"]} == {"asteroid", "comet", "brown_dwarf", "star", "variable"}
 
@@ -228,3 +229,14 @@ def test_candidate_by_id_and_errors():
     assert client.get("/api/candidates/cand-vesta").json()["known_match"] == "(4) Vesta"
     assert_error(client.get("/api/candidates/nope"), 404, "NOT_FOUND")
     assert_error(client.get("/api/candidates", params={"ra": 400, "dec": 0}), 400, "BAD_REQUEST")
+
+
+def test_search_time_window():
+    base = {"ra": 210.4, "dec": -11.85}
+    assert client.get("/api/search", params=base).json()["count"] == 3
+    win = client.get("/api/search", params={**base, "start": "2025-08-14T03:00:00Z", "end": "2025-08-14T04:00:00Z"}).json()
+    assert [o["id"] for o in win["observations"]] == ["vesta-20250814-d3-2"]
+    naive = client.get("/api/search", params={**base, "start": "2025-08-14T03:00:00"}).json()  # no zone = UTC
+    assert naive["count"] == 2
+    assert_error(client.get("/api/search", params={**base, "start": "2025-08-15T00:00:00Z", "end": "2025-08-14T00:00:00Z"}),
+                 400, "BAD_REQUEST")

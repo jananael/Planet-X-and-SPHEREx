@@ -173,7 +173,10 @@ def test_live_targets_skip_illustrative_and_apply_proper_motion(real):
     """Live mode: no asteroid/comet with made-up positions; stars moved to the SPHEREx epoch."""
     client, _, _, _ = real
     targets = {t["id"]: t for t in client.get("/api/targets").json()["targets"]}
-    assert set(targets) == {"wise-0855-0714", "barnards-star", "mira"}
+    assert set(targets) == {"vesta", "wise-0855-0714", "barnards-star", "mira"}  # comet: no verified view yet
+    vesta = targets["vesta"]
+    assert vesta["validation_status"] == "verified" and vesta["preferred_band"] == "D2"
+    assert vesta["ra"] == pytest.approx(22.555155) and vesta["search_start"].startswith("2026-07-13T15:50")
     barnard = targets["barnards-star"]
     assert barnard["position_epoch"] == 2026.0
     assert barnard["catalog_motion"]["pm_dec_mas_yr"] == 10330.0  # catalogue value, kept apart from SPHEREx

@@ -11,9 +11,17 @@
       "description": "Bright main-belt asteroid. Moves visibly between SPHEREx exposures taken hours apart. Mock positions are illustrative, not an ephemeris.",
       "position_epoch": null,
       "catalog_motion": null,
-      "validation_status": "pending",
-      "validation_note": "Needs an ephemeris-based coverage check (JPL Horizons vs SPHEREx footprints).",
-      "recommended_size_arcsec": 450
+      "validation_status": "verified",
+      "validation_note": "Real SPHEREx images found with an ephemeris check (JPL Horizons vs footprints): 160 independent exposures; on 2026-07-13 it moves ~124\" (~20 px) in 3.2 h.",
+      "recommended_size_arcsec": 450,
+      "real_view": {
+        "ra": 22.555155,
+        "dec": 1.367605,
+        "start": "2026-07-13T15:50:00Z",
+        "end": "2026-07-13T19:08:00Z",
+        "band": "D2",
+        "source": "JPL Horizons ephemeris + SPHEREx QR3 footprint check (exposures 2026W29_1A_0138_4 and 2026W29_1A_0163_1)"
+      }
     },
     {
       "id": "12p-pons-brooks",

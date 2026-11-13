@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -22,6 +23,22 @@ class Target(BaseModel):
         default="pending", description="Is this target actually supported by SPHEREx data?")
     validation_note: str | None = None
     recommended_size_arcsec: int = Field(default=300, description="Starting cutout size for the UI (user can change it)")
+    real_view: "RealView | None" = Field(
+        default=None, description="Moving objects: a verified moment where SPHEREx imaged it (real-data mode)")
+    search_start: datetime | None = Field(default=None, description="Pass to /api/search as start (UTC)")
+    search_end: datetime | None = Field(default=None, description="Pass to /api/search as end (UTC)")
+    preferred_band: str | None = Field(default=None, description="Detector band to select first, e.g. 'D2'")
+
+
+class RealView(BaseModel):
+    """Where/when a moving object is actually in SPHEREx images (from an ephemeris + coverage check)."""
+
+    ra: float = Field(description="Centre between the object's positions in the chosen frames, degrees")
+    dec: float
+    start: datetime = Field(description="UTC; only images in [start, end] contain the object here")
+    end: datetime
+    band: str
+    source: str = Field(description="How it was established, e.g. JPL Horizons + SPHEREx footprint check")
 
 
 class CatalogMotion(BaseModel):

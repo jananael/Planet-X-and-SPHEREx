@@ -46,7 +46,8 @@ def default_selection(observations, band=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sizes", type=int, nargs="+", default=[240, 300], help="cutout sizes in arcsec")
+    ap.add_argument("--sizes", type=int, nargs="+", default=None,
+                    help="cutout sizes in arcsec (default: each target's recommended size + 300 for stories)")
     ap.add_argument("--all-bands", action="store_true", help="also prefetch one frame per visit for every band")
     a = ap.parse_args()
     s = get_settings()
@@ -54,12 +55,16 @@ def main():
     for t in src.list_targets():
         t0 = time.time()
         obs = src.search(t.ra, t.dec, 0)
-        bands = sorted({o.band for o in obs}) if a.all_bands else [None]
+        if t.search_start or t.search_end:  # moving object: only its time window
+            obs = [o for o in obs if (not t.search_start or o.obs_time >= t.search_start)
+                   and (not t.search_end or o.obs_time <= t.search_end)]
+        bands = sorted({o.band for o in obs}) if a.all_bands else [t.preferred_band if any(o.band == t.preferred_band for o in obs) else None]
+        sizes = a.sizes or sorted({t.recommended_size_arcsec, 300})
         print(f"== {t.name} ({t.validation_status}) at {t.ra:.5f}, {t.dec:.5f}: {len(obs)} images, "
               f"{len(visits(obs))} visits ({time.time() - t0:.1f}s)", flush=True)
         for b in bands:
             band, frames = default_selection(obs, b)
-            for size in a.sizes:
+            for size in sizes:
                 for o in frames:
                     t1 = time.time()
                     try:

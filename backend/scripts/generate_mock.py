@@ -66,13 +66,21 @@ PM_SOURCE = "approximate literature values; to verify against Gaia DR3 (science 
 SIZE = {"asteroid": 450, "comet": 900, "brown_dwarf": 240, "star": 240, "variable": 240}
 # Is each target actually supported by SPHEREx data? (science team's validation_status rule)
 VALIDATION = {
-    "vesta": ("pending", "Needs an ephemeris-based coverage check (JPL Horizons vs SPHEREx footprints)."),
+    "vesta": ("verified", "Real SPHEREx images found with an ephemeris check (JPL Horizons vs footprints): "
+                          "160 independent exposures; on 2026-07-13 it moves ~124\" (~20 px) in 3.2 h."),
     "12p-pons-brooks": ("pending", "Needs an ephemeris-based coverage check; faint in 2025-26 (V ~18-24)."),
     "wise-0855-0714": ("challenging", "Real images exist; detection in a single frame is not guaranteed "
                                        "(very faint below ~3 um). Motion ~8\"/yr is about 1 pixel per year."),
     "barnards-star": ("verified", "Centred in 4 real SPHEREx visits after proper-motion propagation; "
                                   "difference images show its northward sub-pixel shift."),
     "mira": ("verified", "Seen in 3 real visits; the saturated core's glow grows and shrinks between them."),
+}
+# Real-data views for moving objects (from scripts/check_moving_targets.py + JPL Horizons).
+REAL_VIEW = {
+    "vesta": {"ra": 22.555155, "dec": 1.367605,  # midpoint of its positions at 15:57 and 19:07 UTC
+              "start": "2026-07-13T15:50:00Z", "end": "2026-07-13T19:08:00Z", "band": "D2",
+              "source": "JPL Horizons ephemeris + SPHEREx QR3 footprint check (exposures "
+                        "2026W29_1A_0138_4 and 2026W29_1A_0163_1)"},
 }
 # SPHEREx spectral resolving power per detector (approx.): bandwidth ~ wavelength / R (mock only).
 RESOLVING_POWER = {"D1": 41, "D2": 41, "D3": 41, "D4": 41, "D5": 135, "D6": 130}
@@ -97,6 +105,8 @@ def main():
         if motion[0] == "pm" and (motion[1] or motion[2]):
             target["catalog_motion"] = {"pm_ra_cosdec_mas_yr": motion[1] * 1000, "pm_dec_mas_yr": motion[2] * 1000,
                                         "reference_epoch": CATALOG_EPOCH[tid], "source_catalog": PM_SOURCE}
+        if tid in REAL_VIEW:
+            target["real_view"] = REAL_VIEW[tid]
         targets.append(target)
         t0 = utc(obs[0][0])
         for n, (when, band, wl, flux) in enumerate(obs, 1):
