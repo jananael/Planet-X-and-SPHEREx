@@ -179,7 +179,7 @@ class RealSource(DataSource):
             data, inside = irsa.reproject_north_up(hdul, img, ra, dec, size_arcsec)
             # Cosmic-ray (TRANSIENT) pixels are left untouched; count those inside the displayed grid.
             transient = irsa.flag_mask(hdul, irsa.WARN_FLAGS)
-            transient_pixels = 0
+            transient_pixels = 0 if transient is not None else None
             if transient is not None and transient.any():
                 tmask, _ = irsa.reproject_north_up(hdul, transient.astype(float), ra, dec, size_arcsec)
                 transient_pixels = int(np.count_nonzero(np.nan_to_num(tmask) >= 0.5))

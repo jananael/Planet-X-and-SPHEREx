@@ -264,3 +264,24 @@ A moving target is listed in real mode only with a verified `real_view` (JPL Hor
 SPHEREx footprint check, see `backend/scripts/check_moving_targets.py`); `/api/targets` then gives
 its `ra`/`dec` (midpoint of its path), `search_start`, `search_end` and `preferred_band`. The Explorer
 passes them on when the target card or story is used. Vesta: 2026-07-13 15:50–19:08 UTC, D2, ~124″ in 3.2 h.
+
+
+## Scientific transparency UI (14 November 2026)
+
+Candidate lists now include optional execution metadata:
+
+```json
+{ "analysis": { "state": "completed", "data_source": "mock", "scope": "sky_region" } }
+```
+
+The synchronous candidate route emits this only after its data source succeeds.
+An empty result without this metadata does not establish that analysis completed.
+Execution completion does not validate measurements or confirm a detection.
+The real source's existing 501 remains authoritative until its engine is connected.
+No asynchronous queue or explicit verified-measurement field is implemented.
+
+An unavailable TRANSIENT mask now produces an empty X-Transient-Pixels header,
+not zero. Clients must treat missing/empty/invalid values as unknown. An explicit
+zero remains zero. The synthetic FastAPI renderer explicitly reports zero.
+See [scientific-transparency.md](scientific-transparency.md) for the UI rules,
+test coverage and current validation limitations.

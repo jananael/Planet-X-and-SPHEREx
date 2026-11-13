@@ -1,0 +1,128 @@
+{
+  "checked_at_utc": "2026-11-13T22:11:45.247Z",
+  "environment": "Local Node synthetic image preview; not a real SPHEREx analysis run",
+  "responses": [
+    {
+      "path": "/api/health",
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "data_source": "mock",
+        "version": "node-ui-preview"
+      }
+    },
+    {
+      "path": "/api/search?ra=210.4&dec=-11.85",
+      "status": 200,
+      "body": {
+        "query": {
+          "ra": 210.4,
+          "dec": -11.85,
+          "radius": 0
+        },
+        "observations": [
+          {
+            "id": "vesta-20250814-d3-1",
+            "target_id": "vesta",
+            "obs_time": "2025-08-14T02:10:00Z",
+            "mjd": 60901.09028,
+            "wavelength_um": 2.04,
+            "bandwidth_um": 0.0498,
+            "wavelength_source": "mock",
+            "band": "D3",
+            "release": "MOCK",
+            "source_file": "MOCK_spherex_vesta-20250814-d3-1.fits",
+            "image_url": "/api/observations/vesta-20250814-d3-1/image",
+            "footprint": {
+              "ra": 210.85,
+              "dec": -12.15,
+              "radius_deg": 1.75
+            }
+          },
+          {
+            "id": "vesta-20250814-d3-2",
+            "target_id": "vesta",
+            "obs_time": "2025-08-14T03:45:00Z",
+            "mjd": 60901.15625,
+            "wavelength_um": 2.06,
+            "bandwidth_um": 0.0502,
+            "wavelength_source": "mock",
+            "band": "D3",
+            "release": "MOCK",
+            "source_file": "MOCK_spherex_vesta-20250814-d3-2.fits",
+            "image_url": "/api/observations/vesta-20250814-d3-2/image",
+            "footprint": {
+              "ra": 210.85,
+              "dec": -12.15,
+              "radius_deg": 1.75
+            }
+          },
+          {
+            "id": "vesta-20250814-d3-3",
+            "target_id": "vesta",
+            "obs_time": "2025-08-14T05:20:00Z",
+            "mjd": 60901.22222,
+            "wavelength_um": 2.03,
+            "bandwidth_um": 0.0495,
+            "wavelength_source": "mock",
+            "band": "D3",
+            "release": "MOCK",
+            "source_file": "MOCK_spherex_vesta-20250814-d3-3.fits",
+            "image_url": "/api/observations/vesta-20250814-d3-3/image",
+            "footprint": {
+              "ra": 210.85,
+              "dec": -12.15,
+              "radius_deg": 1.75
+            }
+          }
+        ],
+        "count": 3
+      }
+    },
+    {
+      "path": "/api/observations/vesta-20250814-d3-1",
+      "status": 200,
+      "body": {
+        "id": "vesta-20250814-d3-1",
+        "target_id": "vesta",
+        "obs_time": "2025-08-14T02:10:00Z",
+        "mjd": 60901.09028,
+        "wavelength_um": 2.04,
+        "bandwidth_um": 0.0498,
+        "wavelength_source": "mock",
+        "band": "D3",
+        "release": "MOCK",
+        "source_file": "MOCK_spherex_vesta-20250814-d3-1.fits",
+        "image_url": "/api/observations/vesta-20250814-d3-1/image",
+        "footprint": {
+          "ra": 210.85,
+          "dec": -12.15,
+          "radius_deg": 1.75
+        }
+      }
+    },
+    {
+      "path": "/api/candidates?ra=210.4&dec=-11.85",
+      "status": 501,
+      "body": {
+        "error": {
+          "code": "NOT_IMPLEMENTED",
+          "message": "Scientific candidate analysis requires the FastAPI backend. The Node image preview does not calculate candidate measurements."
+        }
+      }
+    },
+    {
+      "path": "/api/observations/vesta-20250814-d3-1/image?ra=210.4&dec=-11.85",
+      "status": 200,
+      "headers": {
+        "content-type": "image/png",
+        "x-source-file": "MOCK_spherex_vesta-20250814-d3-1.fits",
+        "x-obs-time": "2025-08-14T02:10:00Z",
+        "x-wavelength-um": "2.04",
+        "x-transient-pixels": null,
+        "x-repaired-pixels": null
+      },
+      "bytes": 7495
+    }
+  ]
+}

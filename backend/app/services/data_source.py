@@ -40,7 +40,7 @@ class Cutout:
     observation: Observation
     repaired_pixels: int = 0          # flagged pixels replaced for display (real data)
     repaired_flags: list[str] = field(default_factory=list)
-    transient_pixels: int = 0         # TRANSIENT-flagged pixels left unrepaired in the cutout (real data)
+    transient_pixels: int | None = None  # None when flag data is unavailable; zero only after counting
 
 
 class DataSource(ABC):
@@ -185,7 +185,9 @@ class MockSource(DataSource):
             field_seed=obs.target_id or obs.id, field_ra=field_ra, field_dec=field_dec,
             noise_seed=obs.id, source=truth,
         )
-        return Cutout(data=data, ra=ra, dec=dec, pixel_scale_arcsec=SPHEREX_PIXEL_ARCSEC, observation=obs)
+        # The synthetic renderer does not generate flagged transient pixels.
+        return Cutout(data=data, ra=ra, dec=dec, pixel_scale_arcsec=SPHEREX_PIXEL_ARCSEC, observation=obs,
+                      transient_pixels=0)
 
 
 @lru_cache

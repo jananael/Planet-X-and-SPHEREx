@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from app.schemas import ErrorResponse
-from app.schemas.candidate import Candidate, CandidateList
+from app.schemas.candidate import Candidate, CandidateAnalysis, CandidateList
 from app.services.data_source import DataSource, get_data_source
 
 router = APIRouter(tags=["candidates"], responses={400: {"model": ErrorResponse}, 501: {"model": ErrorResponse}})
@@ -18,7 +18,10 @@ def list_candidates(
 ) -> CandidateList:
     """Candidates from the science engine near (ra, dec). Mock data until the engine is connected."""
     found = ds.candidates(ra, dec, radius)
-    return CandidateList(query={"ra": ra, "dec": dec, "radius": radius}, candidates=found, count=len(found))
+    # Completion is reported only after the synchronous source call succeeds.
+    # An unsupported engine still raises its existing 501 response above.
+    return CandidateList(query={"ra": ra, "dec": dec, "radius": radius}, candidates=found, count=len(found),
+                         analysis=CandidateAnalysis(state="completed", data_source=ds.name))
 
 
 @router.get("/candidates/{candidate_id}", response_model=Candidate, responses={404: {"model": ErrorResponse}})

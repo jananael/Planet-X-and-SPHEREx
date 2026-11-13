@@ -182,7 +182,15 @@ class Candidate(BaseModel):
         return self
 
 
+class CandidateAnalysis(BaseModel):
+    """Execution metadata, not a scientific-validity assertion. No async jobs exist yet."""
+    state: Literal["not_analyzed", "queued", "processing", "completed", "failed", "unavailable"]
+    data_source: Literal["mock", "real"]
+    scope: Literal["sky_region"] = "sky_region"
+
+
 class CandidateList(BaseModel):
     query: dict
     candidates: list[Candidate]
     count: int
+    analysis: CandidateAnalysis | None = None

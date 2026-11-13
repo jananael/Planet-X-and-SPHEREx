@@ -231,6 +231,23 @@ def test_candidate_by_id_and_errors():
     assert_error(client.get("/api/candidates", params={"ra": 400, "dec": 0}), 400, "BAD_REQUEST")
 
 
+def test_candidate_completion_metadata_is_explicit_even_when_empty():
+    result = client.get("/api/candidates", params={"ra": 0, "dec": -89}).json()
+    assert result["candidates"] == [] and result["count"] == 0
+    assert result["analysis"] == {"state": "completed", "data_source": "mock", "scope": "sky_region"}
+
+
+def test_unknown_transient_count_is_not_serialized_as_zero(monkeypatch):
+    from dataclasses import replace
+    from app.services.data_source import get_data_source
+
+    source = get_data_source()
+    original = source.get_cutout
+    assert client.get(f"/api/observations/{VESTA_1}/image").headers["x-transient-pixels"] == "0"
+    monkeypatch.setattr(source, "get_cutout", lambda *args, **kwargs: replace(original(*args, **kwargs), transient_pixels=None))
+    assert client.get(f"/api/observations/{VESTA_1}/image").headers["x-transient-pixels"] == ""
+
+
 def test_search_time_window():
     base = {"ra": 210.4, "dec": -11.85}
     assert client.get("/api/search", params=base).json()["count"] == 3

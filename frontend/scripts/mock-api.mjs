@@ -88,6 +88,10 @@ const server = createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost:8000");
     if (url.pathname === "/api/health") return json(200, { status: "ok", data_source: "mock", version: "node-ui-preview" });
     if (url.pathname === "/api/targets") return json(200, { targets });
+    // Do not invent a second scientific engine for this lightweight UI preview.
+    if (url.pathname === "/api/candidates" || url.pathname.startsWith("/api/candidates/")) {
+      fail(501, "NOT_IMPLEMENTED", "Scientific candidate analysis requires the FastAPI backend. The Node image preview does not calculate candidate measurements.");
+    }
     if (url.pathname === "/api/search") {
       const ra = number(url.searchParams, "ra", NaN, 0, 359.999999999);
       const dec = number(url.searchParams, "dec", NaN, -90, 90);

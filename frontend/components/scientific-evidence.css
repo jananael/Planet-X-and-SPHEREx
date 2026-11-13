@@ -1,0 +1,42 @@
+/* Scientific transparency additions only; existing Explorer and homepage stay intact. */
+.explorer-shell .scientific-panel { padding: clamp(22px, 3vw, 34px); }
+.explorer-shell .scientific-card-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 18px; }
+.explorer-shell .scientific-card-heading h2 { font-size: 23px; margin-top: 8px; }
+.explorer-shell .scientific-card-heading h3 { font-size: 20px; line-height: 1.4; }
+.explorer-shell .scientific-card-heading h4 { font-size: 16px; line-height: 1.6; overflow-wrap: anywhere; }
+.explorer-shell .scientific-status { display: inline-block; max-width: 100%; padding: 7px 12px; border: 1px solid #5bc0de66; border-radius: 8px; background: #5bc0de0c; color: #f4d6b0; font-size: 12px; line-height: 1.6; }
+.explorer-shell .scientific-metadata { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 18px 28px; margin: 22px 0; }
+.explorer-shell .scientific-metadata > div { min-width: 0; }
+.explorer-shell .scientific-metadata dt { color: #b5c7d5; font-size: 11px; line-height: 1.6; }
+.explorer-shell .scientific-metadata dd { margin: 5px 0 0; color: #f4d6b0; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.explorer-shell .scientific-panel p, .explorer-shell .scientific-provenance p { line-height: 1.8; font-size: 13px; }
+.explorer-shell .scientific-panel .scientific-limitation, .explorer-shell .scientific-limitation { color: #b5c7d5; font-size: 12px; margin: 12px 0; line-height: 1.8; }
+.explorer-shell .scientific-id { margin: 14px 0; color: #d1dbe3; overflow-wrap: anywhere; }
+.explorer-shell .scientific-id strong { color: #f4d6b0; font-weight: 500; }
+.explorer-shell .scientific-details { margin-top: 18px; border-top: 1px solid #3a506b; }
+.explorer-shell .scientific-details summary { padding: 14px 0; min-height: 48px; font-size: 13px; line-height: 1.6; cursor: pointer; overflow-wrap: anywhere; }
+.explorer-shell .scientific-details summary:focus-visible { outline: 2px solid #5bc0de; outline-offset: 4px; }
+.explorer-shell .scientific-details pre { max-height: 320px; overflow: auto; padding: 16px; border-radius: 8px; background: #0b132b; color: #d1dbe3; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; }
+.explorer-shell .scientific-provenance .scientific-metadata { grid-template-columns: 1fr; }
+.explorer-shell .scientific-quality, .explorer-shell .scientific-findings { margin-top: 30px; padding-top: 26px; border-top: 1px solid #3a506b; }
+.explorer-shell .scientific-quality > h3 { margin-bottom: 14px; font-size: 20px; }
+.explorer-shell .scientific-warning, .explorer-shell .scientific-alert { padding: 16px 18px; margin: 16px 0; border: 1px solid #d9770670; border-radius: 10px; background: #d977060c; color: #f4d6b0; font-size: 13px; line-height: 1.8; }
+.explorer-shell .scientific-warning strong { font-weight: 500; }
+.explorer-shell .scientific-warning p { margin-top: 8px; color: #d1dbe3; }
+.explorer-shell .scientific-analysis-state { border-left: 3px solid #5bc0de; padding: 12px 18px; margin: 20px 0; background: #5bc0de08; }
+.explorer-shell .scientific-analysis-state p { margin-top: 8px; color: #d1dbe3; }
+.explorer-shell .scientific-candidate { margin-top: 24px; padding: 24px; border: 1px solid #3a506b; border-radius: 12px; background: #0b132b; }
+.explorer-shell .scientific-origin { color: #5bc0de; font-size: 11px !important; letter-spacing: .04em; }
+.explorer-shell .scientific-table-wrap { max-width: 100%; overflow-x: auto; margin: 20px 0; }
+.explorer-shell .scientific-table-wrap table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.explorer-shell .scientific-table-wrap caption { padding: 12px 0; text-align: left; color: #b5c7d5; font-size: 11px; }
+.explorer-shell .scientific-table-wrap th, .explorer-shell .scientific-table-wrap td { padding: 12px; border-bottom: 1px solid #3a506b; text-align: left; vertical-align: top; min-width: 100px; }
+.explorer-shell .scientific-table-wrap th { color: #b5c7d5; font-weight: 500; }
+.explorer-shell .scientific-table-wrap td { color: #f4d6b0; overflow-wrap: anywhere; }
+.explorer-shell .scientific-table-wrap small { margin-top: 8px; color: #b5c7d5; line-height: 1.6; }
+.explorer-shell .scientific-details h5 { font-size: 14px; margin: 24px 0 10px; font-weight: 500; }
+@media (max-width: 600px) {
+  .explorer-shell .scientific-metadata { grid-template-columns: 1fr; }
+  .explorer-shell .scientific-candidate { padding: 18px; }
+  .explorer-shell .scientific-findings .share-button { width: 100%; }
+}
