@@ -20,6 +20,7 @@ Contract rules (docs/measurement-contract.md):
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -48,6 +49,12 @@ class EngineFrame:
     pixel_scale_arcsec: float = 6.15
 
 
+def pipeline_of(processing_version: str | None) -> str | None:
+    """'l2b-v27-2026-228' and 'l2b_retry-v27-2026-214' -> 'v27' (same pipeline). Unknown -> None."""
+    m = re.search(r"l2b(?:_retry)?-(v\d+)", processing_version or "")
+    return m.group(1) if m else None
+
+
 @dataclass(frozen=True)
 class KnownObject:
     """Predicted position of a known object at one time, prepared by the backend."""
@@ -68,6 +75,12 @@ class EngineRequest:
     radius_deg: float
     frames: list[EngineFrame]          # sorted by obs_time; may mix DR1 and QR3 when pipelines match
     known_objects: list[KnownObject] = field(default_factory=list)  # a match alone does not validate a detection
+
+    def __post_init__(self):
+        # Incompatible pipelines are never compared quantitatively: one pipeline (l2b-vNN) per request.
+        pipes = {pipeline_of(f.processing_version) for f in self.frames}
+        if len(pipes) > 1:
+            raise ValueError(f"frames mix pipeline versions {sorted(map(str, pipes))}; split the request")
 
 
 class DetectionEngine(Protocol):

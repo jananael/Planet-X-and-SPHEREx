@@ -9,13 +9,21 @@ Contract version 0.2-draft (Yazan's answers, 2026-11-13; see docs/measurement-co
 - quality_flags from a fixed list (QualityFlag). A flag is a warning, not an automatic rejection.
 - Brightness time series only within ONE band (D6 with D6, never D4 with D6).
 - score stays null until its method is documented; it is a ranking, never a probability.
+- low_snr is added automatically to a detection with snr < LOW_SNR_THRESHOLD (a warning, never a rejection).
+- median_snr / min_snr are computed from the detections' non-null snr values (null if there are none).
+- A measured flux (not mock) must be in uJy.
 """
+import statistics
 from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 CONTRACT_VERSION = "0.2-draft"
+# Initial operational threshold (Yazan, 2026-11-13), to test on real SPHEREx data:
+# < 3 very weak (not a reliable detection alone) · 3-5 marginal (needs more evidence) · >= 5 strong signal
+# (still not proof the source is real). Only the < 5 flag is applied automatically.
+LOW_SNR_THRESHOLD = 5.0
 
 QualityFlag = Literal[
     "near_transient_pixels",  # source or its measurement area is close to TRANSIENT-flagged pixels
@@ -47,6 +55,12 @@ class Detection(BaseModel):
     flux_error: float | None = None
     flux_unit: str | None = Field(default=None, description='Real engine: "uJy" (integrated flux). Never MJy/sr')
     quality_flags: list[QualityFlag] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _flag_low_snr(self):
+        if self.snr is not None and self.snr < LOW_SNR_THRESHOLD and "low_snr" not in self.quality_flags:
+            self.quality_flags.append("low_snr")  # the numeric snr is kept as measured
+        return self
 
 
 class Motion(BaseModel):
@@ -100,8 +114,19 @@ class Candidate(BaseModel):
 
     @model_validator(mode="after")
     def _consistent(self):
-        if self.min_snr is not None and self.median_snr is not None and self.min_snr > self.median_snr:
-            raise ValueError("min_snr cannot exceed median_snr")
+        snrs = [d.snr for d in self.detections if d.snr is not None]
+        expected_median = round(statistics.median(snrs), 2) if snrs else None
+        expected_min = round(min(snrs), 2) if snrs else None
+        if self.median_snr is None and self.min_snr is None:
+            self.median_snr, self.min_snr = expected_median, expected_min  # filled from the detections
+        elif (self.median_snr is None or expected_median is None
+              or abs(self.median_snr - expected_median) > 0.01 or abs((self.min_snr or 0) - expected_min) > 0.01):
+            raise ValueError(f"median_snr/min_snr must summarise the detections' snr values "
+                             f"(expected {expected_median} / {expected_min}, or leave both null)")
+        if not self.is_mock:
+            for d in self.detections:
+                if d.flux is not None and d.flux_unit != "uJy":
+                    raise ValueError(f"measured flux must be in uJy (detection {d.observation_id}: {d.flux_unit!r})")
         if self.brightness is not None and self.brightness.delta_flux is not None:
             bands = {d.band for d in self.detections if d.flux is not None}
             if len(bands) > 1:
