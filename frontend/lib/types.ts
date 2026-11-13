@@ -11,6 +11,7 @@ export interface Observation {
   id: string; target_id: string | null; obs_time: string; mjd: number;
   wavelength_um: number | null; wavelength_range_um?: [number, number] | null;
   band: string; release: string; source_file: string; image_url: string;
+  processing_version?: string | null; archive_id?: string | null;
   footprint?: { ra: number; dec: number; radius_deg: number } | null;
 }
 export interface Coordinates { ra: number; dec: number }

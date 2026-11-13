@@ -5,7 +5,7 @@
 > The user (Jana, backend developer on the team) writes in **Palestinian Arabic**. Reply in Arabic,
 > keep code/identifiers in English. She prefers short, direct answers.
 
-Last updated: 2026-11-12 · `main` = `cde02e4` (pushed, in sync with GitHub)
+Last updated: 2026-11-13 · local `main` is **4 commits ahead of GitHub** (4a78984, cfcdafc, b41dacc, 08e0688) + uncommitted work below. **Push only when Jana says.**
 
 ---
 
@@ -145,21 +145,53 @@ Error codes: BAD_REQUEST 400, NOT_FOUND 404, NO_COVERAGE 404, UPSTREAM_ERROR 502
 ## 8. Status
 ### Done ✅
 Backend (mock + real), contract, spike findings, Explorer (Sadeel + additions), Home (Batool's design),
-real-data fixes (proper motion, retries, timeouts), guided stories, scale bar, swipe compare, favicon,
-share image, NASA credit line, interactive sky map, GIF export.
+real-data fixes, guided stories, scale bar, swipe compare, favicon, share image, credit line, sky map, GIF export.
+Since 2026-11-12: DR1+QR3 search (cached), real footprints (polygons), candidate endpoints (mock),
+target metadata (validation status, catalog motion, real_view, time window, preferred band), Vesta on real
+data (verified), 3I/ATLAS target (pending), Barnard from Gaia DR3, CWAVE/CBAND wavelengths (all 6 calibration
+files downloaded to `backend/.cache/cal`), FLAGS repair for display, Dockerfiles + `docs/deploy.md`,
+`docs/science-findings.md`. Hint: the "Something moved" story works on real data (Vesta 2026-07-13 D2).
 
-### Left to do
-**Needs Yazan:** see the end of `docs/questions-for-yazan.md` (final open questions).
+### Yazan's answers (2026-11-13) → what to do
+Yazan answered the 7 final questions (end of `docs/questions-for-yazan.md`). Decisions:
+1. **DR1 + QR3:** DR1 reprocessed Surveys 1–2 with the same pipeline/calibration as QR3 → mixing is OK.
+   Check pipeline/calibration compatibility, not the release name. ✅ DONE (uncommitted): frontend
+   `mixedPipelines()` in `lib/observations.ts` warns only when `l2b-vNN` differs (all cached DR1 and QR3 = `l2b-v27`).
+   Needs: backend already returns `processing_version`; tests updated (13 pass, tsc ok).
+2. **Stories:** Yazan wants the texts of the 3 stories (Vesta, Mira, Barnard) from `frontend/lib/stories.ts`
+   to review sentence by sentence → give Jana the texts (plain, copyable) to send him.
+3. **WISE 0855:** D6 default is fine, user can change band. Proper motion from published IR astrometry:
+   **pmRA = −8.119″/yr, pmDec = +0.680″/yr** (total ~8.15″/yr). TODO: update `("pm", -8.1, 0.7)` and
+   `PM_SOURCE` in `backend/scripts/generate_mock.py`, regenerate mock JSON. Note: exact position needs
+   parallax too (~0.4″, below the 6.15″ pixel) → mention, don't implement.
+4. **TRANSIENT pixels:** never change science data; repair only a display copy; in the difference image
+   and analysis do NOT replace flagged pixels; keep them as a mask; warn if a candidate is near them.
+   TODO: remove "TRANSIENT" from `DISPLAY_BAD_FLAGS` in `backend/app/services/irsa.py` (difference is computed
+   from the display PNGs in the frontend), add header `X-Transient-Pixels` (count) + expose in CORS, show a
+   small note in the Explorer metadata. Update the FLAGS test in `tests/test_real_source.py`.
+5. **3I/ATLAS:** adopt as a **Known Moving Object Demo** (never a discovery). Show real frames + expected
+   position per exposure vs measured. Our 265″ in 1.64 h (00:07→01:45 UTC 2025-12-08) must be checked
+   against IRSA's official 3I/ATLAS page (schedule + predicted coords) or Horizons. It has a coma (extended)
+   → no point-source photometry. TODO: look at it in real mode; if visible → `verified` + note "known object demo".
+6. **Detection engine:** a Python library inside the project, called by the backend, returning Candidate
+   objects per an agreed contract (Yazan defines algorithm/measurements/scoring, then agrees the contract with Jana).
+   TODO: add optional `snr`, `quality_flags: list[str]`, `evidence: dict` to `app/schemas/candidate.py`
+   (+ frontend type if any, + `docs/api-contract.md`).
+7. **Photometry/units:** PSF photometry (official SPHEREx Tractor-based spectrophotometry tool) for point
+   sources; aperture only as a test (try 2/2.5/3 px + background annulus, not final); extended sources
+   (3I) need extended-source analysis. Units: image pixels **MJy/sr**; integrated flux and flux_error **µJy**
+   (convert with the pixel solid-angle map; never sum MJy/sr as flux). TODO: document in contract
+   (`flux_unit` = "uJy").
 
-**Blocked on Batool:** image sources (Earth, Milky Way, telescope: AI or NASA?) → write
-`frontend/public/skytrace/CREDITS.md`; approve the code logo or provide an SVG.
+Then: record decisions in `docs/science-findings.md` + `docs/questions-for-yazan.md` (mark answered),
+run tests (`backend`: 47 passed 1 skipped; `frontend`: npm test 13 pass, `npx tsc --noEmit`), commit, ask Jana to push.
 
+### Left to do (other)
+**Blocked on Batool:** image sources → `frontend/public/skytrace/CREDITS.md`; approve the code logo.
 **Blocked on Sadeel:** review what was added to her Explorer.
-
 **Can be done now:**
-1. **Deploy** following `docs/deploy.md` (Dockerfiles + docker-compose written, not yet tested: Docker isn't installed here). Accounts must be Jana's.
-2. Look at 3I/ATLAS in real mode in the browser; if it's visible, mark it `verified` in `scripts/generate_mock.py`.
-3. Untested paths: "Search here" from the map → result; stories in real mode via UI; mobile; reduced-motion.
-4. Timeline (spacing frames by real time) · Arabic/English UI (RTL).
-5. Housekeeping: split `explorer.tsx`; delete old branches; move repo out of OneDrive.
-6. Demo video (1–2 min).
+1. **Deploy** following `docs/deploy.md` (Docker files not tested: Docker isn't installed). Accounts must be Jana's.
+2. Untested paths: "Search here" from the map; stories in real mode via UI; mobile; reduced-motion.
+3. Timeline · Arabic/English UI (RTL).
+4. Housekeeping: split `explorer.tsx`; delete old branches; move repo out of OneDrive.
+5. Demo video (1–2 min).

@@ -38,11 +38,18 @@ export function defaultSelection(observations: Observation[], band: string): str
  * Falls back to a 0.05 um spread when a bandwidth is missing.
  */
 /**
- * Releases mixed in one comparison (e.g. DR1 and QR3). Different pipeline versions can calibrate
- * the same sky slightly differently, so differences may come from processing, not the sky.
+ * Pipelines mixed in one comparison. Science team (Nov 2026): DR1 reprocessed Surveys 1-2 with the
+ * same processing and calibration as QR3, so DR1 + QR3 together is fine; what matters is the
+ * pipeline version (l2b-vNN in processing_version), not the release name. Returns the distinct
+ * pipelines when they differ; when a version is unknown, falls back to comparing release names.
  */
-export function mixedReleases(frames: { obs: { release: string } }[]): string[] {
-  return [...new Set(frames.map(f => f.obs.release))].sort();
+export function mixedPipelines(frames: { obs: { release: string; processing_version?: string | null } }[]): string[] {
+  const pipeline = (o: { release: string; processing_version?: string | null }) =>
+    o.processing_version?.match(/l2b-v\d+/)?.[0] ?? null;
+  const known = frames.map(f => pipeline(f.obs));
+  const values = known.every(Boolean) ? known as string[] : frames.map(f => f.obs.release);
+  const distinct = [...new Set(values)].sort();
+  return distinct.length > 1 ? distinct : [];
 }
 
 export function spectralMismatch(frames: { wavelengthUm: number | null; bandwidthUm: number | null }[]): boolean {
