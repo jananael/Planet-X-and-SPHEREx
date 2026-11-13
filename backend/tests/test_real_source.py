@@ -17,7 +17,7 @@ from astropy.wcs import WCS  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.config import APP_DIR  # noqa: E402
-from app.errors import UpstreamError  # noqa: E402
+from app.errors import NotFound, UpstreamError  # noqa: E402
 from app.main import app  # noqa: E402
 from app.services import irsa  # noqa: E402
 from app.services.data_source import get_data_source  # noqa: E402
@@ -397,3 +397,43 @@ def test_processing_version_includes_retry_files():
                          t_max=61055.27, em_min_um=4.41, em_max_um=5.01, access_url=url,
                          s_ra=33.75, s_dec=-1.61, s_fov=3.485)
     assert rec.processing_version == "l2b_retry-v27-2026-214"
+
+
+def test_candidate_results_survive_a_restart_and_are_shared_by_workers(real, monkeypatch, tmp_path):
+    """Results are stored on disk: a new RealSource on the same cache (restart, other worker) finds them."""
+    client, _, src, cache = real
+    records = _versioned_records()
+    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: records if coll == "spherex_dr1" else [])
+    params = {"ra": RA, "dec": DEC, "radius": 0.1, "band": "D3", "pipeline": "v27"}
+    cid = client.get("/api/candidates", params=params).json()["candidates"][0]["candidate_id"]
+    restarted = RealSource(TARGETS, cache)
+    again = restarted.get_candidate(cid)
+    assert again.candidate_id == cid and again.detections[0].release == "DR1"
+    with pytest.raises(NotFound):
+        restarted.get_candidate("../../etc/passwd")      # never read outside the candidate folder
+
+
+def test_candidate_radius_beyond_the_analysed_cutout_is_refused(real, monkeypatch):
+    client, _, _, _ = real
+    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: _versioned_records() if coll == "spherex_dr1" else [])
+    r = client.get("/api/candidates", params={"ra": RA, "dec": DEC, "radius": 1.0, "band": "D3", "pipeline": "v27"})
+    assert r.status_code == 400 and "0.25" in r.json()["error"]["message"]
+    ok = client.get("/api/candidates", params={"ra": RA, "dec": DEC, "band": "D3", "pipeline": "v27"})  # default 0.25
+    assert ok.status_code == 200, ok.text
+
+
+def test_candidates_api_passes_known_objects_to_the_engine(real, monkeypatch):
+    """The test field is centred on WISE 0855: the backend must send its predicted position to the engine."""
+    from app.services import source_detection
+    client, _, _, _ = real
+    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: _versioned_records() if coll == "spherex_dr1" else [])
+    seen = {}
+    real_detect = source_detection.SourceDetectionEngine.detect
+    def spy(self, request):
+        seen["known"] = request.known_objects
+        return real_detect(self, request)
+    monkeypatch.setattr(source_detection.SourceDetectionEngine, "detect", spy)
+    body = client.get("/api/candidates", params={"ra": RA, "dec": DEC, "radius": 0.1, "band": "D3", "pipeline": "v27"}).json()
+    names = {k.object_id for k in seen["known"]}
+    assert "wise-0855-0714" in names and all(k.epoch_utc.tzinfo for k in seen["known"])
+    assert "WISE J085510.83-071442.5" in body["candidates"][0]["evidence"]["known_objects_checked"]
