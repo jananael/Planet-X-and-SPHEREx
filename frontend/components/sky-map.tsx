@@ -22,7 +22,7 @@ function loadAladin(): Promise<any> {
   // The npm build is an ES module (export default), so load it through a module script
   // that hands the library to the page.
   loader ??= new Promise((resolve, reject) => {
-    const timer = setTimeout(() => fail(new Error("Sky map timed out")), 30_000);
+    const timer = setTimeout(() => fail(new Error("Sky map timed out")), 60_000);  // the CDN can be slow on some networks
     const fail = (error: Error) => { clearTimeout(timer); window.removeEventListener("aladin-ready", ready); loader = null; reject(error); };
     const ready = () => { clearTimeout(timer); w.A.init.then(() => resolve(w.A), fail); };
     window.addEventListener("aladin-ready", ready, { once: true });
@@ -45,12 +45,15 @@ export function SkyMap({ center, markers, onPick }: { center: Point | null; mark
   const A = useRef<any>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [picked, setPicked] = useState<Point | null>(null);
+  const [attempt, setAttempt] = useState(0);  // "Try again" after a failed load
 
-  // Create the map once.
+  // Create the map once (again only after a failed load and "Try again").
   useEffect(() => {
     let cancelled = false;
+    if (aladin.current) return;
+    setStatus("loading");
     loadAladin().then(lib => {
-      if (cancelled || !box.current) return;
+      if (cancelled || !box.current || aladin.current) return;
       A.current = lib;
       const start = center ?? { ra: 266.4, dec: -29.0 }; // galactic centre as a default view
       const view = lib.aladin(box.current, {
@@ -82,7 +85,7 @@ export function SkyMap({ center, markers, onPick }: { center: Point | null; mark
     }).catch(() => { if (!cancelled) setStatus("error"); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [attempt]);
 
   // Follow searches made elsewhere (target cards, typed coordinates, stories).
   useEffect(() => {
@@ -95,7 +98,7 @@ export function SkyMap({ center, markers, onPick }: { center: Point | null; mark
     <div className="sky-map">
       <div className="sky-map-view" ref={box} aria-label="Interactive infrared sky map. Click to pick a position." role="application" />
       {status === "loading" && <p className="sky-map-status">Loading the sky…</p>}
-      {status === "error" && <p className="sky-map-status error">The sky map could not load. You can still enter coordinates.</p>}
+      {status === "error" && <p className="sky-map-status error">The sky map could not load. You can still enter coordinates. <button type="button" onClick={() => setAttempt(n => n + 1)}>Try again</button></p>}
       {status === "ready" && <div className="sky-map-pick">
         {picked ? <span>RA {fmt(picked.ra)}° · Dec {fmt(picked.dec)}°</span> : <span className="muted">Click the sky to pick a point. Purple circles are demo targets.</span>}
         <button type="button" className="primary-button" disabled={!picked} onClick={() => picked && onPick(picked)}>Search here <span aria-hidden="true">↗</span></button>
