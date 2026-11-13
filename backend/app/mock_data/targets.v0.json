@@ -66,10 +66,10 @@
       "description": "Coldest known brown dwarf (~250 K). Proper motion ~8 arcsec/yr, i.e. about 1 SPHEREx pixel per year: barely visible between 6-month visits.",
       "position_epoch": 2010.5,
       "catalog_motion": {
-        "pm_ra_cosdec_mas_yr": -8100.0,
-        "pm_dec_mas_yr": 700.0,
+        "pm_ra_cosdec_mas_yr": -8119.0,
+        "pm_dec_mas_yr": 680.0,
         "reference_epoch": 2010.5,
-        "source_catalog": "approximate literature value; not in Gaia DR3 (too faint in the optical); to verify"
+        "source_catalog": "published infrared astrometry (pmRA -8.119, pmDec +0.680 arcsec/yr); not in Gaia DR3. Parallax (~0.4 arcsec) not applied, below the 6.15 arcsec pixel"
       },
       "validation_status": "challenging",
       "validation_note": "Real images exist; detection in a single frame is not guaranteed (very faint below ~3 um). Motion ~8\"/yr is about 1 pixel per year.",

@@ -177,6 +177,12 @@ class RealSource(DataSource):
             img, repaired, repaired_planes = irsa.repair_flagged(hdul, img)
             wl = irsa.wavelength_at(hdul, ra, dec, cal_dir=self._cal_dir)
             data, inside = irsa.reproject_north_up(hdul, img, ra, dec, size_arcsec)
+            # Cosmic-ray (TRANSIENT) pixels are left untouched; count those inside the displayed grid.
+            transient = irsa.flag_mask(hdul, irsa.WARN_FLAGS)
+            transient_pixels = 0
+            if transient is not None and transient.any():
+                tmask, _ = irsa.reproject_north_up(hdul, transient.astype(float), ra, dec, size_arcsec)
+                transient_pixels = int(np.count_nonzero(np.nan_to_num(tmask) >= 0.5))
 
         c = data.shape[0] // 2
         if not inside[c, c]:
@@ -188,4 +194,5 @@ class RealSource(DataSource):
             data[masked] = np.nanmax(data)
         obs = self._to_observation(rec, wl)
         return Cutout(data=data, ra=ra, dec=dec, pixel_scale_arcsec=irsa.PIXEL_ARCSEC, observation=obs,
-                      repaired_pixels=repaired, repaired_flags=repaired_planes)
+                      repaired_pixels=repaired, repaired_flags=repaired_planes,
+                      transient_pixels=transient_pixels)

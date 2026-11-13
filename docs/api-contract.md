@@ -150,6 +150,8 @@ pixels stay visible. Response headers (exposed to the browser via CORS):
 | `X-Cutout-Ra` / `X-Cutout-Dec` | centre actually used |
 | `X-Stretch-Vmin` / `X-Stretch-Vmax` | limits actually used |
 | `X-Bandwidth-Um` / `X-Wavelength-Source` / `X-Processing-Version` | bandwidth at the target, where it came from, pipeline version |
+| `X-Repaired-Pixels` / `X-Repaired-Flags` | detector-defect pixels replaced **for display only** (3×3 median), and their FLAGS planes |
+| `X-Transient-Pixels` | cosmic-ray (TRANSIENT) pixels in the cutout, **left unrepaired** (UI warns). `0` in mock mode |
 
 Errors: `400 BAD_REQUEST`, `404 NOT_FOUND`, `404 NO_COVERAGE`, `502 UPSTREAM_ERROR`.
 
@@ -216,6 +218,8 @@ overlap (`wavelength ± bandwidth/2` for every frame share a common range), not 
 
 ## Candidates (science engine) — shape agreed with the science team
 
+Engine inputs, rules and open questions: [measurement-contract.md](measurement-contract.md) (S2-T3). JSON Schema: [candidate.schema.json](candidate.schema.json).
+
 ```json
 {
   "candidate_id": "cand-vesta",
@@ -228,7 +232,8 @@ overlap (`wavelength ± bandwidth/2` for every frame share a common range), not 
   "classification": { "candidate_type": "possible_moving_object", "score": null, "method": "..." },
   "quality": { "data_quality": "valid", "insufficient_evidence": false },
   "status": "known_object", "known_match": "(4) Vesta", "data_release": "QR2",
-  "engine_version": "mock", "is_mock": true
+  "engine_version": "mock", "is_mock": true,
+  "snr": null, "quality_flags": [], "evidence": {}
 }
 ```
 - `delta_ra_arcsec` is on-sky (× cos Dec). Times are UTC mid-exposure with `Z`. Units are in the field names.
@@ -236,6 +241,15 @@ overlap (`wavelength ± bandwidth/2` for every frame share a common range), not 
 - `candidate_type`: `possible_moving_object` | `possible_variable` | `sub_pixel_motion` | `unclassified`.
 - `status`: `pending_validation` | `known_object` | `artifact` | `rejected` (there is no "discovered").
 - Mock candidates are built from the demo targets' synthetic positions and are labelled `is_mock: true`.
+- `snr`, `quality_flags`, `evidence` are filled by the science team's detection engine (a Python library
+  called by the backend). Until then: `null`, `[]`, `{}`. A candidate near cosmic-ray (TRANSIENT) pixels
+  should carry `"near_transient_pixels"` in `quality_flags`.
+- **Units (science team, 2026-11-13):** image pixels are **MJy/sr**. `flux` and `flux_error` are integrated
+  fluxes in **µJy** (`flux_unit: "uJy"`), converted with the pixel solid-angle map; never sum MJy/sr as a flux.
+  Mock candidates use `flux_unit: "arbitrary (synthetic)"`.
+- **Photometry:** PSF photometry (SPHEREx Tractor-based spectrophotometry) for point sources; aperture
+  photometry only as a test (2 / 2.5 / 3 px + background annulus). Extended sources (e.g. 3I/ATLAS, coma)
+  need extended-source analysis, not point-source photometry.
 
 ## Real-mode caching
 Search results are cached on disk for 24 h (only when every collection answered). Cutouts are cached

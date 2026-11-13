@@ -50,7 +50,7 @@ TARGETS = [
     ("wise-0855-0714", "WISE J085510.83-071442.5", "brown_dwarf", 133.79513, -7.24514,
      "Coldest known brown dwarf (~250 K). Proper motion ~8 arcsec/yr, i.e. about 1 SPHEREx "
      "pixel per year: barely visible between 6-month visits.",
-     ("pm", -8.1, 0.7),
+     ("pm", -8.119, 0.680),  # published IR astrometry (science team, 2026-11-13)
      [("2025-05-21T08:00:00Z", "D5", 4.10, 0.5), ("2025-11-19T08:30:00Z", "D5", 4.12, 0.5),
       ("2026-05-18T07:45:00Z", "D5", 4.09, 0.5)]),
     ("barnards-star", "Barnard's Star (GJ 699)", "star", 269.4485025, 4.7394201,  # Gaia DR3, epoch 2016.0
@@ -69,7 +69,7 @@ TARGETS = [
 CATALOG_EPOCH = {"wise-0855-0714": 2010.5, "barnards-star": 2016.0, "mira": 2000.0}
 PM_SOURCE = {
     "barnards-star": "Gaia DR3 4472832130942575872 (queried via IRSA TAP); errors ~0.03 mas/yr",
-    "wise-0855-0714": "approximate literature value; not in Gaia DR3 (too faint in the optical); to verify",
+    "wise-0855-0714": "published infrared astrometry (pmRA -8.119, pmDec +0.680 arcsec/yr); not in Gaia DR3. Parallax (~0.4 arcsec) not applied, below the 6.15 arcsec pixel",
 }
 # Starting cutout sizes per type (science team: asteroid 300-600", comet 600-1200", stars 180-300").
 SIZE = {"asteroid": 450, "comet": 900, "brown_dwarf": 240, "star": 240, "variable": 240}

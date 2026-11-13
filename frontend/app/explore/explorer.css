@@ -205,6 +205,7 @@
 .explorer-shell .metadata-tags { flex-wrap: wrap; gap: 8px; margin: 14px 0; }
 .explorer-shell .metadata-tags span { padding: 5px 10px; font-size: 11px; }
 .explorer-shell .source-file { font-size: 11px; }
+.explorer-shell .transient-note { font-size: 11px; color: #dbcaa0; margin: 0 0 8px; }
 .explorer-shell .data-credit { font-size: 10px; margin-top: 14px; }
 .explorer-shell .viewer-settings { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; padding-top: 24px; }
 .explorer-shell .adjustment-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }

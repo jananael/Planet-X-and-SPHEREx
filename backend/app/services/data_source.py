@@ -40,6 +40,7 @@ class Cutout:
     observation: Observation
     repaired_pixels: int = 0          # flagged pixels replaced for display (real data)
     repaired_flags: list[str] = field(default_factory=list)
+    transient_pixels: int = 0         # TRANSIENT-flagged pixels left unrepaired in the cutout (real data)
 
 
 class DataSource(ABC):

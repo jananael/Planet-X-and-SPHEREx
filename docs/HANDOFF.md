@@ -5,7 +5,7 @@
 > The user (Jana, backend developer on the team) writes in **Palestinian Arabic**. Reply in Arabic,
 > keep code/identifiers in English. She prefers short, direct answers.
 
-Last updated: 2026-11-13 · local `main` is **4 commits ahead of GitHub** (4a78984, cfcdafc, b41dacc, 08e0688) + uncommitted work below. **Push only when Jana says.**
+Last updated: 2026-11-13 (evening) · local `main` = GitHub + uncommitted work for Yazan's items 3, 4, 6, 7. **Push only when Jana says.**
 
 ---
 
@@ -161,12 +161,12 @@ Yazan answered the 7 final questions (end of `docs/questions-for-yazan.md`). Dec
 2. **Stories:** Yazan wants the texts of the 3 stories (Vesta, Mira, Barnard) from `frontend/lib/stories.ts`
    to review sentence by sentence → give Jana the texts (plain, copyable) to send him.
 3. **WISE 0855:** D6 default is fine, user can change band. Proper motion from published IR astrometry:
-   **pmRA = −8.119″/yr, pmDec = +0.680″/yr** (total ~8.15″/yr). TODO: update `("pm", -8.1, 0.7)` and
+   **pmRA = −8.119″/yr, pmDec = +0.680″/yr** (total ~8.15″/yr). ✅ DONE (uncommitted). Was: update `("pm", -8.1, 0.7)` and
    `PM_SOURCE` in `backend/scripts/generate_mock.py`, regenerate mock JSON. Note: exact position needs
    parallax too (~0.4″, below the 6.15″ pixel) → mention, don't implement.
 4. **TRANSIENT pixels:** never change science data; repair only a display copy; in the difference image
    and analysis do NOT replace flagged pixels; keep them as a mask; warn if a candidate is near them.
-   TODO: remove "TRANSIENT" from `DISPLAY_BAD_FLAGS` in `backend/app/services/irsa.py` (difference is computed
+   ✅ DONE (uncommitted). Was: remove "TRANSIENT" from `DISPLAY_BAD_FLAGS` in `backend/app/services/irsa.py` (difference is computed
    from the display PNGs in the frontend), add header `X-Transient-Pixels` (count) + expose in CORS, show a
    small note in the Explorer metadata. Update the FLAGS test in `tests/test_real_source.py`.
 5. **3I/ATLAS:** adopt as a **Known Moving Object Demo** (never a discovery). Show real frames + expected
@@ -175,12 +175,12 @@ Yazan answered the 7 final questions (end of `docs/questions-for-yazan.md`). Dec
    → no point-source photometry. TODO: look at it in real mode; if visible → `verified` + note "known object demo".
 6. **Detection engine:** a Python library inside the project, called by the backend, returning Candidate
    objects per an agreed contract (Yazan defines algorithm/measurements/scoring, then agrees the contract with Jana).
-   TODO: add optional `snr`, `quality_flags: list[str]`, `evidence: dict` to `app/schemas/candidate.py`
+   ✅ DONE (uncommitted). Was: add optional `snr`, `quality_flags: list[str]`, `evidence: dict` to `app/schemas/candidate.py`
    (+ frontend type if any, + `docs/api-contract.md`).
 7. **Photometry/units:** PSF photometry (official SPHEREx Tractor-based spectrophotometry tool) for point
    sources; aperture only as a test (try 2/2.5/3 px + background annulus, not final); extended sources
    (3I) need extended-source analysis. Units: image pixels **MJy/sr**; integrated flux and flux_error **µJy**
-   (convert with the pixel solid-angle map; never sum MJy/sr as flux). TODO: document in contract
+   (convert with the pixel solid-angle map; never sum MJy/sr as flux). ✅ DONE (uncommitted). Was: document in contract
    (`flux_unit` = "uJy").
 
 Then: record decisions in `docs/science-findings.md` + `docs/questions-for-yazan.md` (mark answered),

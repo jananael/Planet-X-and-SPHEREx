@@ -17,5 +17,5 @@ export interface Observation {
 export interface Coordinates { ra: number; dec: number }
 export type Stretch = "asinh" | "zscale" | "linear";
 export interface ImageSettings extends Coordinates { size: number; stretch: Stretch }
-export interface BlinkFrame { obs: Observation; url: string; wavelengthUm: number | null; bandwidthUm: number | null; vmin: number; vmax: number }
+export interface BlinkFrame { obs: Observation; url: string; wavelengthUm: number | null; bandwidthUm: number | null; vmin: number; vmax: number; transientPixels: number }
 export interface FrameFailure { observation: Observation; message: string; code: string }

@@ -48,9 +48,22 @@
 
 - معاني الـ bits منقراها من الـ header نفسه (`MSKNnnnn` = الاسم، `MSKMnnnn` = الـ bitmask)، مش من جدول ثابت.
 - **للعرض بس** منصلّح الـ pixels اللي عليها:
-  `TRANSIENT, OVERFLOW, SUR_ERROR, NONFUNC, MISSING_DATA, HOT, COLD`
-  بوسيط الـ 3×3 اللي حواليها. مثال حقيقي: 20 من 3,192 pixel.
+  `OVERFLOW, SUR_ERROR, NONFUNC, MISSING_DATA, HOT, COLD`
+  بوسيط الـ 3×3 اللي حواليها.
 - العدد والأسماء بيرجعوا بالـ headers `X-Repaired-Pixels` و `X-Repaired-Flags`. البيانات الأصلية ما بتتغير.
+- **TRANSIENT (قرار يزان 2026-11-13):** ما منصلّحها. الـ difference بينحسب من نفس الصور، فالتصليح ممكن يخبّي
+  أو يزيّف تغيير. منعدّها بس (`X-Transient-Pixels`) والواجهة بتكتب ملاحظة تحت الصورة.
+
+## 4ب. قرارات يزان (2026-11-13)
+
+1. **DR1 + QR3:** نفس الـ pipeline والمعايرة، فالخلط مسموح. منحذّر بس لما `l2b-vNN` يختلف.
+2. **القصص:** يزان بدّه نصوص القصص الثلاث يراجعها جملة جملة (لسا).
+3. **WISE 0855:** D6 تمام. proper motion من astrometry منشورة: pmRA = −8.119″/yr، pmDec = +0.680″/yr.
+   الـ parallax (~0.4″) أصغر من الـ pixel (6.15″) فما طبّقناه.
+4. **TRANSIENT:** فوق.
+5. **3I/ATLAS:** "Known Moving Object Demo" بس، مش اكتشاف. لازم نتأكد من الموقع من صفحة IRSA الرسمية أو Horizons (لسا).
+6. **محرك الكشف:** مكتبة Python جوّا المشروع بترجع Candidate. أضفنا `snr` و `quality_flags` و `evidence`.
+7. **الوحدات:** الصور MJy/sr، والـ flux و flux_error بـ µJy. PSF photometry للمصادر النقطية، والـ aperture تجربة بس.
 
 ## 5. الإصدارات
 

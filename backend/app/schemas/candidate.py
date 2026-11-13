@@ -5,7 +5,7 @@ Rules: measured values only (null when not measured, never invented); RA offsets
 A candidate is never a discovery: status says whether it is pending, a known object, an artifact...
 """
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -17,7 +17,7 @@ class Detection(BaseModel):
     dec_deg: float | None
     flux: float | None = None
     flux_error: float | None = None
-    flux_unit: str | None = None
+    flux_unit: str | None = Field(default=None, description='Real engine: "uJy" (integrated flux). Never MJy/sr')
 
 
 class Motion(BaseModel):
@@ -58,6 +58,11 @@ class Candidate(BaseModel):
     known_match: str | None = Field(default=None, description="Known object this matches (catalogue / ephemeris)")
     data_release: str | None = None
     engine_version: str = Field(description="What produced this candidate, e.g. 'mock' or the engine's version")
+    # Filled by the science team's detection engine (null / empty until it defines them).
+    snr: float | None = Field(default=None, description="Signal-to-noise of the detection, as defined by the engine")
+    quality_flags: list[str] = Field(default_factory=list,
+                                     description="e.g. 'near_transient_pixels', 'saturated', 'mixed_pipeline'")
+    evidence: dict[str, Any] = Field(default_factory=dict, description="Engine-specific measurements behind the result")
     is_mock: bool
 
 

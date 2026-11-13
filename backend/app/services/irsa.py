@@ -61,8 +61,9 @@ class SiaRecord:
 
     @property
     def processing_version(self) -> str | None:
-        """Pipeline tag from the file name, e.g. 'l2b-v27-2026-228' (changes when IRSA reprocesses)."""
-        m = re.search(r"(l2b-v\d+-\d{4}-\d{3})", self.source_file)
+        """Pipeline tag from the file name, e.g. 'l2b-v27-2026-228' (changes when IRSA reprocesses).
+        Some DR1 files were re-run and are tagged 'l2b_retry-v27-...': same pipeline version."""
+        m = re.search(r"(l2b(?:_retry)?-v\d+-\d{4}-\d{3})", self.source_file)
         return m.group(1) if m else None
 
     @property
@@ -244,11 +245,15 @@ def wavelength_at(hdul, ra: float, dec: float, cal_dir=None) -> dict | None:
                                   source=f"CWAVE ({name})")
     return result
 
-# FLAGS planes treated as bad pixels FOR DISPLAY: detector defects and cosmic-ray hits. They would
-# otherwise appear as dots that "change" between frames in a blink. Informational planes
-# (SOURCE, HALO, BLOOM, GHOST, PERSIST, ...) are left alone. Names come from the file's own
-# MSKNnnnn / MSKMnnnn header cards, so nothing is hard-coded by bit number.
-DISPLAY_BAD_FLAGS = ("TRANSIENT", "OVERFLOW", "SUR_ERROR", "NONFUNC", "MISSING_DATA", "HOT", "COLD")
+# FLAGS planes treated as bad pixels FOR DISPLAY: detector defects. They would otherwise appear as
+# dots that "change" between frames in a blink. Informational planes (SOURCE, HALO, BLOOM, GHOST,
+# PERSIST, ...) are left alone. Names come from the file's own MSKNnnnn / MSKMnnnn header cards,
+# so nothing is hard-coded by bit number.
+# TRANSIENT (cosmic rays) is deliberately NOT repaired (science team, 2026-11-13): the difference
+# image is computed from these PNGs, and replacing transient pixels there could hide or fake a
+# change. They are kept as-is and counted instead (X-Transient-Pixels) so the UI can warn.
+DISPLAY_BAD_FLAGS = ("OVERFLOW", "SUR_ERROR", "NONFUNC", "MISSING_DATA", "HOT", "COLD")
+WARN_FLAGS = ("TRANSIENT",)
 
 
 def flag_planes(hdul) -> dict[str, int]:
@@ -257,6 +262,17 @@ def flag_planes(hdul) -> dict[str, int]:
         return {}
     hdr = hdul["FLAGS"].header
     return {str(hdr[k]): int(hdr.get("MSKM" + k[4:], 1 << int(k[4:]))) for k in hdr if k.startswith("MSKN")}
+
+
+def flag_mask(hdul, names) -> np.ndarray | None:
+    """Boolean mask of pixels carrying any of the FLAGS planes `names`, or None if none apply."""
+    planes = flag_planes(hdul)
+    bits = 0
+    for n in names:
+        bits |= planes.get(n, 0)
+    if not bits:
+        return None
+    return (hdul["FLAGS"].data.astype(np.int64) & bits) != 0
 
 
 def repair_flagged(hdul, img: np.ndarray, names=DISPLAY_BAD_FLAGS) -> tuple[np.ndarray, int, list[str]]:

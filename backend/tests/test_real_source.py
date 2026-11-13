@@ -271,18 +271,32 @@ def test_candidates_are_not_implemented_for_real_data_yet(real):
     assert r.status_code == 501 and r.json()["error"]["code"] == "NOT_IMPLEMENTED"
 
 
-def test_flagged_defects_are_repaired_for_display_but_sources_are_not():
+def test_defects_repaired_for_display_but_transients_and_sources_are_not():
     img = np.full((7, 7), 1.0)
-    img[3, 3] = 500.0   # cosmic-ray hit flagged TRANSIENT
+    img[3, 3] = 500.0   # hot pixel flagged HOT: repaired for display
+    img[5, 5] = 300.0   # cosmic-ray hit flagged TRANSIENT: kept as-is (science team), only counted
     img[1, 1] = 50.0    # real star flagged SOURCE: must stay
     flags = np.zeros((7, 7), dtype=np.int32)
-    flags[3, 3] = 1          # bit 0 TRANSIENT
+    flags[5, 5] = 1          # bit 0 TRANSIENT
+    flags[3, 3] = 1 << 7     # bit 7 HOT
     flags[1, 1] = 1 << 21    # bit 21 SOURCE
     fh = fits.Header()
-    for bit, name in [(0, "TRANSIENT"), (21, "SOURCE")]:
+    for bit, name in [(0, "TRANSIENT"), (7, "HOT"), (21, "SOURCE")]:
         fh[f"MSKN{bit:04d}"] = name; fh[f"MSKM{bit:04d}"] = 1 << bit
     hdul = fits.HDUList([fits.PrimaryHDU(), fits.ImageHDU(img, name="IMAGE"), fits.ImageHDU(flags, header=fh, name="FLAGS")])
-    assert irsa.flag_planes(hdul) == {"TRANSIENT": 1, "SOURCE": 1 << 21}
+    assert irsa.flag_planes(hdul) == {"TRANSIENT": 1, "HOT": 1 << 7, "SOURCE": 1 << 21}
     fixed, n, used = irsa.repair_flagged(hdul, img)
-    assert n == 1 and used == ["TRANSIENT"]
-    assert fixed[3, 3] == pytest.approx(1.0) and fixed[1, 1] == 50.0
+    assert n == 1 and used == ["HOT"]
+    assert fixed[3, 3] == pytest.approx(1.0) and fixed[1, 1] == 50.0 and fixed[5, 5] == 300.0
+    mask = irsa.flag_mask(hdul, irsa.WARN_FLAGS)
+    assert mask is not None and mask.sum() == 1 and mask[5, 5]
+
+
+def test_processing_version_includes_retry_files():
+    # Real DR1 example: some files were re-run by IRSA and tagged 'l2b_retry-v27-...'.
+    url = ("https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2026W03_1A/l2b_retry-v27-2026-214/6/"
+           "level2_2026W03_1A_0640_1D6_spx_l2b_retry-v27-2026-214.fits")
+    rec = irsa.SiaRecord(id="2026W03_1A_0640_1D6", collection="spherex_dr1", band="D6", t_min=61055.26,
+                         t_max=61055.27, em_min_um=4.41, em_max_um=5.01, access_url=url,
+                         s_ra=33.75, s_dec=-1.61, s_fov=3.485)
+    assert rec.processing_version == "l2b_retry-v27-2026-214"
