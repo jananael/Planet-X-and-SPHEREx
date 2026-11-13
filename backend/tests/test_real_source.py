@@ -17,7 +17,7 @@ from astropy.wcs import WCS  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.config import APP_DIR  # noqa: E402
-from app.errors import UpstreamError  # noqa: E402
+from app.errors import NotFound, UpstreamError  # noqa: E402
 from app.main import app  # noqa: E402
 from app.services import irsa  # noqa: E402
 from app.services.data_source import get_data_source  # noqa: E402
@@ -397,3 +397,17 @@ def test_processing_version_includes_retry_files():
                          t_max=61055.27, em_min_um=4.41, em_max_um=5.01, access_url=url,
                          s_ra=33.75, s_dec=-1.61, s_fov=3.485)
     assert rec.processing_version == "l2b_retry-v27-2026-214"
+
+
+def test_candidate_results_survive_a_restart_and_are_shared_by_workers(real, monkeypatch, tmp_path):
+    """Results are stored on disk: a new RealSource on the same cache (restart, other worker) finds them."""
+    client, _, src, cache = real
+    records = _versioned_records()
+    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: records if coll == "spherex_dr1" else [])
+    params = {"ra": RA, "dec": DEC, "radius": 0.1, "band": "D3", "pipeline": "v27"}
+    cid = client.get("/api/candidates", params=params).json()["candidates"][0]["candidate_id"]
+    restarted = RealSource(TARGETS, cache)
+    again = restarted.get_candidate(cid)
+    assert again.candidate_id == cid and again.detections[0].release == "DR1"
+    with pytest.raises(NotFound):
+        restarted.get_candidate("../../etc/passwd")      # never read outside the candidate folder
