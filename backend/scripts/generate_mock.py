@@ -61,6 +61,21 @@ TARGETS = [
 # Epoch of the catalogue coordinates above. WISE designations give the position at the WISE
 # epoch (~2010.5), not J2000. Approximate; to confirm with the science team.
 CATALOG_EPOCH = {"wise-0855-0714": 2010.5, "barnards-star": 2000.0, "mira": 2000.0}
+PM_SOURCE = "approximate literature values; to verify against Gaia DR3 (science team)"
+# Starting cutout sizes per type (science team: asteroid 300-600", comet 600-1200", stars 180-300").
+SIZE = {"asteroid": 450, "comet": 900, "brown_dwarf": 240, "star": 240, "variable": 240}
+# Is each target actually supported by SPHEREx data? (science team's validation_status rule)
+VALIDATION = {
+    "vesta": ("pending", "Needs an ephemeris-based coverage check (JPL Horizons vs SPHEREx footprints)."),
+    "12p-pons-brooks": ("pending", "Needs an ephemeris-based coverage check; faint in 2025-26 (V ~18-24)."),
+    "wise-0855-0714": ("challenging", "Real images exist; detection in a single frame is not guaranteed "
+                                       "(very faint below ~3 um). Motion ~8\"/yr is about 1 pixel per year."),
+    "barnards-star": ("verified", "Centred in 4 real SPHEREx visits after proper-motion propagation; "
+                                  "difference images show its northward sub-pixel shift."),
+    "mira": ("verified", "Seen in 3 real visits; the saturated core's glow grows and shrinks between them."),
+}
+# SPHEREx spectral resolving power per detector (approx.): bandwidth ~ wavelength / R (mock only).
+RESOLVING_POWER = {"D1": 41, "D2": 41, "D3": 41, "D4": 41, "D5": 135, "D6": 130}
 
 
 def position_at(ra0, dec0, motion, t0: datetime, t: datetime):
@@ -75,9 +90,13 @@ def position_at(ra0, dec0, motion, t0: datetime, t: datetime):
 def main():
     targets, observations = [], []
     for tid, name, ttype, ra, dec, desc, motion, obs in TARGETS:
-        target = {"id": tid, "name": name, "type": ttype, "ra": ra, "dec": dec, "description": desc}
-        if motion[0] == "pm":
-            target |= {"pm_ra": motion[1], "pm_dec": motion[2], "epoch": CATALOG_EPOCH[tid]}
+        target = {"id": tid, "name": name, "type": ttype, "ra": ra, "dec": dec, "description": desc,
+                  "position_epoch": CATALOG_EPOCH.get(tid), "catalog_motion": None,
+                  "validation_status": VALIDATION[tid][0], "validation_note": VALIDATION[tid][1],
+                  "recommended_size_arcsec": SIZE[ttype]}
+        if motion[0] == "pm" and (motion[1] or motion[2]):
+            target["catalog_motion"] = {"pm_ra_cosdec_mas_yr": motion[1] * 1000, "pm_dec_mas_yr": motion[2] * 1000,
+                                        "reference_epoch": CATALOG_EPOCH[tid], "source_catalog": PM_SOURCE}
         targets.append(target)
         t0 = utc(obs[0][0])
         for n, (when, band, wl, flux) in enumerate(obs, 1):
@@ -91,6 +110,8 @@ def main():
                 "obs_time": t.strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "mjd": round((t - MJD0).total_seconds() / 86400, 5),
                 "wavelength_um": wl,
+                "bandwidth_um": round(wl / RESOLVING_POWER[band], 4),
+                "wavelength_source": "mock",
                 "band": band,
                 "release": RELEASE,
                 "source_file": f"MOCK_spherex_{RELEASE.lower()}_{oid}.fits",

@@ -36,8 +36,10 @@ Mock data: [`backend/app/mock_data/`](../backend/app/mock_data/). The JSON shape
 |---|---|---|
 | `type` | `asteroid` \| `comet` \| `brown_dwarf` \| `star` \| `variable` | |
 | `ra`, `dec` | number, deg (ICRS) | Moving objects: position at the **first** observation |
-| `pm_ra`, `pm_dec` | number \| null, arcsec/yr | Proper motion (`pm_ra` includes cos Dec). `null` for asteroids/comets |
-| `epoch` | number \| null | Decimal year of `ra`/`dec` (e.g. `2000.0`; `2026.0` in real mode) |
+| `position_epoch` | number \| null | Decimal year of `ra`/`dec` (e.g. `2000.0`; `2026.0` in real mode after propagation) |
+| `catalog_motion` | object \| null | **Catalogue** proper motion, kept apart from motion measured in SPHEREx: `pm_ra_cosdec_mas_yr`, `pm_dec_mas_yr`, `reference_epoch`, `source_catalog`. `null` for asteroids/comets |
+| `validation_status` | `verified` \| `pending` \| `challenging` \| `not_supported` | Is the target actually supported by SPHEREx data? (+ `validation_note`) |
+| `recommended_size_arcsec` | number | Starting cutout size for the UI: asteroid 450, comet 900, stars 240 (user can change it) |
 
 ### `Observation`
 
@@ -63,8 +65,13 @@ Mock data: [`backend/app/mock_data/`](../backend/app/mock_data/). The JSON shape
 | `mjd` | number | Same instant as `obs_time` |
 | `wavelength_um` | number \| null | At the **cutout centre**: SPHEREx wavelength varies across the image. **Real data: `null` in search results** (it needs the image header). The exact value comes with the image in `X-Wavelength-Um` |
 | `wavelength_range_um` | [min, max] \| null | Whole-detector range. Fine for "roughly which colour", **not** the value at the target |
+| `bandwidth_um` | number \| null | Spectral bandwidth at the target pixel (real: from the image header, like `wavelength_um`) |
+| `wavelength_source` | string \| null | `WCS-WAVE` (image lookup table), `mock`; `CWAVE` planned (calibration product) |
+| `wavelength_pixel` | {x, y, frame} \| null | Pixel where the wavelength was read (`frame: "cutout"`, 0-based) |
 | `band` | `D1`…`D6` | SPHEREx detector (D1 0.75–1.09 µm … D6 4.42–5.00 µm) |
-| `release` | string | e.g. `QR2` |
+| `release` | string | Release of **this** observation: `DR1` (Surveys 1-2) or `QR3` (Surveys 3-4). Calibrations differ between releases |
+| `processing_version` | string \| null | Pipeline tag, e.g. `l2b-v27-2026-228` |
+| `archive_id` | string \| null | The archive's own id (`obs_publisher_did`) |
 | `source_file` | string | Archive file name. **Show it in the UI** (provenance) |
 | `image_url` | string | Relative. Prefix with the API base URL |
 | `footprint` | object \| null | Approximate coverage circle (v0 simplification, extra field beyond the brief) |
@@ -140,6 +147,7 @@ pixels stay visible. Response headers (exposed to the browser via CORS):
 | `X-Wavelength-Um` / `X-Band` / `X-Release` | `2.04` / `D3` / `QR2` |
 | `X-Cutout-Ra` / `X-Cutout-Dec` | centre actually used |
 | `X-Stretch-Vmin` / `X-Stretch-Vmax` | limits actually used |
+| `X-Bandwidth-Um` / `X-Wavelength-Source` / `X-Processing-Version` | bandwidth at the target, where it came from, pipeline version |
 
 Errors: `400 BAD_REQUEST`, `404 NOT_FOUND`, `404 NO_COVERAGE`, `502 UPSTREAM_ERROR`.
 
@@ -159,7 +167,7 @@ Same endpoints and shapes. What differs:
 
 | | Mock | Real |
 |---|---|---|
-| `/search` | Mock observations | Live IRSA SIA2, **QR2 + QR3 merged**, ~5–15 s |
+| `/search` | Mock observations | Live IRSA SIA2, **DR1 + QR3 merged** (QR2 was replaced by DR1 in Nov 2026), ~5–15 s |
 | Observation `id` | `vesta-20250814-d3-1` | `obs_id` + detector, e.g. `2026W11_2A_0501_1D2` |
 | Valid ids | Fixed list | **Only ids returned by a `/search`** (remembered on disk, so they survive a restart) |
 | `target_id` | Set | `null` |
@@ -198,3 +206,6 @@ Asteroid and comet positions are illustrative, not ephemerides. Images are synth
 ## Versioning
 Breaking shape change → `*.v1.json` + update this doc in the same PR. New optional fields are
 non-breaking; clients ignore unknown fields.
+
+**Comparing wavelengths (science team rule):** frames are comparable when their spectral bands
+overlap (`wavelength ± bandwidth/2` for every frame share a common range), not by a fixed ±0.05 µm.

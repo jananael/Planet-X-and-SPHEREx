@@ -56,11 +56,13 @@ export async function loadFrame(obs: Observation, settings: ImageSettings, signa
   if (!min || !max || !Number.isFinite(vmin) || !Number.isFinite(vmax) || vmax <= vmin) throw new ApiFailure("INVALID_IMAGE", "Missing brightness limits");
   const wl = res.headers.get("X-Wavelength-Um");
   const wavelengthUm = wl?.trim() && Number.isFinite(Number(wl)) ? Number(wl) : null;
+  const bw = res.headers.get("X-Bandwidth-Um");
+  const bandwidthUm = bw?.trim() && Number(bw) > 0 ? Number(bw) : null;
   const url = URL.createObjectURL(await res.blob());
   try {
     await waitForImage(url, signal);
     signal.throwIfAborted();
-    return { obs, url, wavelengthUm, vmin, vmax };
+    return { obs, url, wavelengthUm, bandwidthUm, vmin, vmax };
   } catch (error) { URL.revokeObjectURL(url); throw error; }
 }
 

@@ -31,3 +31,20 @@ export function defaultSelection(observations: Observation[], band: string): str
   // otherwise there is a single frame and nothing to compare.
   return [...observations].filter(o => o.band === band).sort((a, b) => a.mjd - b.mjd).map(o => o.id);
 }
+
+/**
+ * Do these frames cover a common wavelength range? (science team: compare bands, not a fixed
+ * tolerance). Each frame covers wavelength ± bandwidth/2; they are comparable if all ranges overlap.
+ * Falls back to a 0.05 um spread when a bandwidth is missing.
+ */
+export function spectralMismatch(frames: { wavelengthUm: number | null; bandwidthUm: number | null }[]): boolean {
+  const known = frames.filter((f): f is { wavelengthUm: number; bandwidthUm: number | null } => f.wavelengthUm !== null);
+  if (known.length < 2) return false;
+  if (known.every(f => f.bandwidthUm !== null && f.bandwidthUm > 0)) {
+    const low = Math.max(...known.map(f => f.wavelengthUm - (f.bandwidthUm as number) / 2));
+    const high = Math.min(...known.map(f => f.wavelengthUm + (f.bandwidthUm as number) / 2));
+    return low >= high;
+  }
+  const w = known.map(f => f.wavelengthUm);
+  return Math.max(...w) - Math.min(...w) > 0.05;
+}

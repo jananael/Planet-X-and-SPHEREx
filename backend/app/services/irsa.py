@@ -8,6 +8,7 @@ from __future__ import annotations
 import io
 import logging
 import math
+import re
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -22,7 +23,10 @@ from app.errors import UpstreamError
 log = logging.getLogger("skytrace.irsa")
 
 SIA_URL = "https://irsa.ipac.caltech.edu/SIA"
-COLLECTIONS = ("spherex_qr2", "spherex_qr3")  # different time ranges, not versions: search both
+# DR1 (Surveys 1-2, reprocessed; replaced QR2, which IRSA no longer serves) + QR3 (Surveys 3-4).
+# Different time ranges: search both. Calibrations differ between releases, so every
+# observation carries its own release; don't treat DR1 vs QR3 photometry as identical.
+COLLECTIONS = ("spherex_dr1", "spherex_qr3")
 PIXEL_ARCSEC = 6.15
 ROTATION_MARGIN = 1.45  # >= sqrt(2): cutouts are detector-frame and rotate between visits
 MIN_SEARCH_RADIUS_DEG = 1 / 3600  # pyvo rejects radius 0
@@ -34,7 +38,7 @@ class SiaRecord:
     """One SPHEREx image as found by SIA2 (everything we need later to cut it out)."""
 
     id: str                 # obs_id + detector, e.g. 2025W19_1B_0116_1D3 (URL-safe)
-    collection: str         # spherex_qr2 | spherex_qr3
+    collection: str         # spherex_dr1 | spherex_qr3
     band: str               # D1..D6
     t_min: float
     t_max: float
@@ -44,14 +48,21 @@ class SiaRecord:
     s_ra: float
     s_dec: float
     s_fov: float            # deg, side of the (square) detector field
+    publisher_did: str = ""  # archive identifier (obs_publisher_did)
 
     @property
     def release(self) -> str:
-        return self.collection.removeprefix("spherex_").upper()  # spherex_qr2 -> QR2
+        return self.collection.removeprefix("spherex_").upper()  # spherex_dr1 -> DR1
 
     @property
     def source_file(self) -> str:
         return PurePosixPath(urlparse(self.access_url).path).name
+
+    @property
+    def processing_version(self) -> str | None:
+        """Pipeline tag from the file name, e.g. 'l2b-v27-2026-228' (changes when IRSA reprocesses)."""
+        m = re.search(r"(l2b-v\d+-\d{4}-\d{3})", self.source_file)
+        return m.group(1) if m else None
 
     @property
     def mjd_mid(self) -> float:
@@ -80,6 +91,7 @@ def row_to_record(row, collection: str) -> SiaRecord:
         s_ra=float(row["s_ra"]),
         s_dec=float(row["s_dec"]),
         s_fov=float(row["s_fov"]),
+        publisher_did=_s(row["obs_publisher_did"]) if "obs_publisher_did" in row.colnames else "",
     )
 
 
@@ -141,20 +153,24 @@ def _quiet_wcs(header, **kw):
         return WCS(header, **kw)
 
 
-def wavelength_at(hdul, ra: float, dec: float) -> tuple[float, float] | None:
-    """Wavelength (um) and bandwidth at sky position (ra, dec), from the alternate WCS 'W' (WAVE-TAB).
+def wavelength_at(hdul, ra: float, dec: float) -> dict | None:
+    """Wavelength and bandwidth (um) at sky position (ra, dec), from the alternate WCS 'W' (WAVE-TAB).
 
-    SPHEREx is a linear-variable-filter instrument: wavelength depends on the detector pixel,
-    so this must be evaluated at the target's pixel, not taken from the detector's range.
+    SPHEREx is a linear-variable-filter instrument: wavelength depends on the detector pixel, so it
+    is evaluated at the target's own pixel. Source: the WCS-WAVE lookup table in the image file.
+    (The science team prefers CWAVE/CBAND from the spectral-WCS calibration product; planned.)
     """
     from astropy.coordinates import SkyCoord
 
     hdr = hdul["IMAGE"].header
     x, y = _quiet_wcs(hdr).celestial.world_to_pixel(SkyCoord(ra, dec, unit="deg"))
-    lam, dlam = _quiet_wcs(hdr, fobj=hdul, key="W").pixel_to_world_values(float(x), float(y))
+    x, y = float(x), float(y)
+    lam, dlam = _quiet_wcs(hdr, fobj=hdul, key="W").pixel_to_world_values(x, y)
     lam, dlam = float(lam), float(dlam)
-    return (lam, dlam) if math.isfinite(lam) else None
-
+    if not math.isfinite(lam):
+        return None
+    return {"wavelength_um": lam, "bandwidth_um": dlam if math.isfinite(dlam) else None,
+            "source": "WCS-WAVE", "pixel": {"x": round(x, 2), "y": round(y, 2), "frame": "cutout"}}
 
 def reproject_north_up(hdul, data: np.ndarray, ra: float, dec: float, size_arcsec: float,
                        scale_arcsec: float = PIXEL_ARCSEC) -> tuple[np.ndarray, np.ndarray]:

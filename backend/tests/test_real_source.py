@@ -28,7 +28,7 @@ RA, DEC = 133.79513, -7.24514
 STAR = (RA + 40 / 3600, DEC + 20 / 3600)  # a star 40" east, 20" north of the centre
 
 
-def fake_record(i: int, rotated: bool, collection="spherex_qr2") -> irsa.SiaRecord:
+def fake_record(i: int, rotated: bool, collection="spherex_dr1") -> irsa.SiaRecord:
     return irsa.SiaRecord(
         id=f"2025W{19 + i}_1B_0116_{i}D3", collection=collection, band="D3",
         t_min=60800.7 + 180 * i, t_max=60800.7013 + 180 * i, em_min_um=1.63, em_max_um=2.42,
@@ -79,7 +79,8 @@ def real(tmp_path, monkeypatch):
 
     monkeypatch.setattr(irsa, "sia_search", fake_search)
     monkeypatch.setattr(irsa, "fetch_cutout", fake_fetch)
-    monkeypatch.setattr(irsa, "wavelength_at", lambda hdul, ra, dec: (2.03, 0.03))
+    monkeypatch.setattr(irsa, "wavelength_at", lambda hdul, ra, dec: {
+        "wavelength_um": 2.03, "bandwidth_um": 0.05, "source": "WCS-WAVE", "pixel": {"x": 39.5, "y": 39.5, "frame": "cutout"}})
     src = RealSource(TARGETS, tmp_path)
     app.dependency_overrides[get_data_source] = lambda: src
     yield TestClient(app), calls, src, tmp_path
@@ -96,10 +97,10 @@ def brightest(png: bytes):
 def test_search_maps_sia_fields(real):
     client, calls, _, _ = real
     body = client.get("/api/search", params={"ra": RA, "dec": DEC}).json()
-    assert body["count"] == 2 and calls["search"] == 2  # both QR2 and QR3 queried
+    assert body["count"] == 2 and calls["search"] == 2  # both DR1 and QR3 queried
     o = body["observations"][0]
     assert o["id"] == "2025W19_1B_0116_0D3"
-    assert o["band"] == "D3" and o["release"] == "QR2" and o["target_id"] is None
+    assert o["band"] == "D3" and o["release"] == "DR1" and o["target_id"] is None
     assert o["wavelength_um"] is None and o["wavelength_range_um"] == [1.63, 2.42]
     assert o["source_file"] == "level2_x_0D3_spx.fits"
     assert o["obs_time"].startswith("2025-05-05T16:")
@@ -174,7 +175,8 @@ def test_live_targets_skip_illustrative_and_apply_proper_motion(real):
     targets = {t["id"]: t for t in client.get("/api/targets").json()["targets"]}
     assert set(targets) == {"wise-0855-0714", "barnards-star", "mira"}
     barnard = targets["barnards-star"]
-    assert barnard["epoch"] == 2026.0
+    assert barnard["position_epoch"] == 2026.0
+    assert barnard["catalog_motion"]["pm_dec_mas_yr"] == 10330.0  # catalogue value, kept apart from SPHEREx
     # 26 years x 10.33"/yr north = ~268" = ~0.0746 deg (the position we verified against real images)
     assert barnard["dec"] == pytest.approx(4.69339 + 10.33 * 26 / 3600, abs=1e-5)
     assert barnard["ra"] == pytest.approx(269.4463, abs=2e-4)
@@ -190,9 +192,25 @@ network = pytest.mark.skipif(os.environ.get("RUN_NETWORK_TESTS") != "1", reason=
 def test_network_search_and_cutout(tmp_path):
     src = RealSource(TARGETS, tmp_path)
     obs = src.search(RA, DEC, 0)
-    assert len(obs) > 100 and {o.release for o in obs} >= {"QR2"}
+    assert len(obs) > 100 and {o.release for o in obs} >= {"DR1"}
     first = next(o for o in obs if o.band == "D3")
     cut = src.get_cutout(first.id, None, None, 120)
     assert cut.data.shape == (20, 20)
     assert cut.observation.wavelength_um is not None
     assert 0.7 < cut.observation.wavelength_um < 5.1
+
+
+def test_real_observation_has_release_version_archive_id_and_bandwidth(real, monkeypatch):
+    client, _, src, cache = real
+    rec = fake_record(0, rotated=False)
+    rec.access_url = "https://irsa.example/level2_2025W33_2C_0321_1D3_spx_l2b-v27-2026-228.fits"
+    rec.publisher_did = "ivo://irsa.ipac/spherex_dr1?2025W33_2C_0321_1/D3"
+    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: [rec] if coll == "spherex_dr1" else [])
+    o = client.get("/api/search", params={"ra": RA, "dec": DEC}).json()["observations"][0]
+    assert o["release"] == "DR1" and o["processing_version"] == "l2b-v27-2026-228"
+    assert o["archive_id"] == "ivo://irsa.ipac/spherex_dr1?2025W33_2C_0321_1/D3"
+    r = client.get(f"/api/observations/{o['id']}/image")
+    assert r.headers["x-bandwidth-um"] == "0.05" and r.headers["x-wavelength-source"] == "WCS-WAVE"
+    assert r.headers["x-processing-version"] == "l2b-v27-2026-228"
+    # the processing version is part of the cutout cache key
+    assert any("l2b-v27-2026-228" in p.name for p in (cache / "cutouts").iterdir())

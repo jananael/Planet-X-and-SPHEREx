@@ -28,3 +28,13 @@ test("a band seen in only one visit selects all of its exposures so there is som
   const list = [obs("c", 10.2, "D1"), obs("a", 10.0, "D1"), obs("b", 10.1, "D1"), obs("d", 80)];
   assert.deepEqual(defaultSelection(list, "D1"), ["a", "b", "c"]);
 });
+
+test("frames are comparable when their spectral bands overlap, not by a fixed tolerance", async () => {
+  const { spectralMismatch } = await import("../lib/observations.ts");
+  const f = (w: number, b: number | null) => ({ wavelengthUm: w, bandwidthUm: b });
+  assert.equal(spectralMismatch([f(1.60, 0.04), f(1.62, 0.04)]), false);   // ranges overlap
+  assert.equal(spectralMismatch([f(1.60, 0.02), f(1.66, 0.02)]), true);    // 0.06 apart, narrow bands: no overlap
+  assert.equal(spectralMismatch([f(2.00, 0.10), f(2.07, 0.10)]), false);   // 0.07 apart but wide bands overlap
+  assert.equal(spectralMismatch([f(1.60, null), f(1.70, null)]), true);    // no bandwidth: 0.05 fallback
+  assert.equal(spectralMismatch([f(1.60, 0.04)]), false);                  // a single frame is never a mismatch
+});

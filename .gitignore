@@ -54,3 +54,6 @@ spike_out/
 # Local tool settings / generated agent notes
 .claude/
 frontend/AGENTS.md
+
+# Moving-target coverage reports
+backend/scripts/out/

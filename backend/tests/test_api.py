@@ -40,7 +40,9 @@ def test_targets_shape_and_types():
     body = client.get("/api/targets").json()
     assert body["count"] == len(body["targets"]) == 5
     for t in body["targets"]:
-        assert set(t) == {"id", "name", "type", "ra", "dec", "description", "pm_ra", "pm_dec", "epoch"}
+        assert set(t) == {"id", "name", "type", "ra", "dec", "description", "position_epoch", "catalog_motion",
+                          "validation_status", "validation_note", "recommended_size_arcsec"}
+        assert t["validation_status"] in {"verified", "pending", "challenging", "not_supported"}
     assert {t["type"] for t in body["targets"]} == {"asteroid", "comet", "brown_dwarf", "star", "variable"}
 
 
@@ -183,3 +185,13 @@ def test_hips_relay_serves_and_caches(tmp_path, monkeypatch):
         assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
         assert r.headers["access-control-allow-origin"] == "http://localhost:3000"
     assert len(calls) == 1 and calls[0].endswith("/RGB-W4-W2-W1/Norder3/Dir0/Npix12.jpg")
+
+
+def test_observation_and_image_carry_bandwidth_and_wavelength_source():
+    o = client.get(f"/api/observations/{VESTA_1}").json()
+    assert o["bandwidth_um"] == pytest.approx(2.04 / 41, abs=1e-4) and o["wavelength_source"] == "mock"
+    r = client.get(f"/api/observations/{VESTA_1}/image")
+    assert float(r.headers["x-bandwidth-um"]) == pytest.approx(o["bandwidth_um"])
+    assert r.headers["x-wavelength-source"] == "mock"
+    r = client.get(f"/api/observations/{VESTA_1}/image", headers={"Origin": "http://localhost:3000"})
+    assert "x-bandwidth-um" in r.headers["access-control-expose-headers"].lower()

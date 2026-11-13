@@ -19,18 +19,19 @@ from app.services import irsa
 from app.services.data_source import Cutout, DataSource, angular_separation_deg
 
 
-REAL_EPOCH = 2026.0  # middle of the SPHEREx QR2 + QR3 coverage (mid-2025 to late 2026)
+REAL_EPOCH = 2026.0  # middle of the SPHEREx DR1 + QR3 coverage (mid-2025 to late 2026)
 SOLAR_SYSTEM = {"asteroid", "comet"}
 
 
 def propagate(target: Target, epoch: float) -> Target:
-    """Move a target's position by its proper motion from target.epoch to `epoch`."""
-    if target.pm_ra is None or target.pm_dec is None or target.epoch is None:
+    """Move a target from its position_epoch to `epoch` using its CATALOGUE proper motion."""
+    pm, start = target.catalog_motion, target.position_epoch
+    if pm is None or start is None:
         return target
-    years = epoch - target.epoch
-    dec = target.dec + target.pm_dec * years / 3600
-    ra = (target.ra + target.pm_ra * years / 3600 / math.cos(math.radians(target.dec))) % 360
-    return target.model_copy(update={"ra": round(ra, 6), "dec": round(dec, 6), "epoch": epoch})
+    years = epoch - start
+    dec = target.dec + pm.pm_dec_mas_yr / 1000 * years / 3600
+    ra = (target.ra + pm.pm_ra_cosdec_mas_yr / 1000 * years / 3600 / math.cos(math.radians(target.dec))) % 360
+    return target.model_copy(update={"ra": round(ra, 6), "dec": round(dec, 6), "position_epoch": epoch})
 
 
 class RealSource(DataSource):
@@ -67,16 +68,24 @@ class RealSource(DataSource):
         return entry
 
     @staticmethod
-    def _to_observation(rec: irsa.SiaRecord, wavelength_um: float | None = None) -> Observation:
+    def _to_observation(rec: irsa.SiaRecord, wl: dict | None = None) -> Observation:
+        """wl: wavelength info at the target pixel (only known once the image header is read)."""
+        wavelength = wl["wavelength_um"] if wl else None
+        bandwidth = wl["bandwidth_um"] if wl else None
         return Observation(
             id=rec.id,
             target_id=None,
             obs_time=rec.obs_time,
             mjd=round(rec.mjd_mid, 6),
-            wavelength_um=round(wavelength_um, 4) if wavelength_um is not None else None,
+            wavelength_um=round(wavelength, 4) if wavelength is not None else None,
+            bandwidth_um=round(bandwidth, 4) if bandwidth is not None else None,
+            wavelength_source=wl["source"] if wl else None,
+            wavelength_pixel=wl["pixel"] if wl else None,
             wavelength_range_um=(round(rec.em_min_um, 4), round(rec.em_max_um, 4)),
             band=rec.band,
             release=rec.release,
+            processing_version=rec.processing_version,
+            archive_id=rec.publisher_did or None,
             source_file=rec.source_file,
             image_url=f"/api/observations/{rec.id}/image",
             footprint=Footprint(ra=rec.s_ra, dec=rec.s_dec, radius_deg=round(rec.s_fov / math.sqrt(2), 4)),
@@ -118,7 +127,9 @@ class RealSource(DataSource):
             raise NoCoverage(f"Observation '{observation_id}' does not cover ra={ra}, dec={dec}")
 
         request_size = size_arcsec * irsa.ROTATION_MARGIN
-        cache = self._cutout_dir / f"{rec.id}_{ra:.5f}_{dec:.5f}_{request_size:.0f}.fits"
+        # The processing version is part of the key: a reprocessed file (e.g. QR2 -> DR1) is a new cutout.
+        version = rec.processing_version or "unknown"
+        cache = self._cutout_dir / f"{rec.id}_{version}_{ra:.5f}_{dec:.5f}_{request_size:.0f}.fits"
         if cache.exists():
             raw = cache.read_bytes()
         else:
@@ -140,5 +151,5 @@ class RealSource(DataSource):
         masked = np.isnan(data) & inside
         if masked.any() and np.isfinite(data).any():
             data[masked] = np.nanmax(data)
-        obs = self._to_observation(rec, wl[0] if wl else None)
+        obs = self._to_observation(rec, wl)
         return Cutout(data=data, ra=ra, dec=dec, pixel_scale_arcsec=irsa.PIXEL_ARCSEC, observation=obs)
