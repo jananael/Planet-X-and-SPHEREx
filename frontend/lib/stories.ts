@@ -30,7 +30,7 @@ export const STORIES: Story[] = [
       { text: "These are SPHEREx images of the same patch of sky, taken a few hours apart on the same day. Every frame is aligned north-up and shown on the same brightness scale." },
       { text: "Watch the bright dot near the crosshair. The background stars stay put, but this one jumps from frame to frame: it is (4) Vesta, an asteroid orbiting the Sun." },
       { text: "Difference mode subtracts the first frame. Everything that stayed still disappears; what moved shows up as a light and dark pair.", difference: true },
-      { text: "Asteroids move across the sky in hours. That is the signature SPHEREx's repeated visits let anyone spot." },
+      { text: "Asteroids shift noticeably against the stars within hours. That is the signature SPHEREx's repeated visits let anyone spot." },
     ],
   },
   {
@@ -42,8 +42,8 @@ export const STORIES: Story[] = [
     steps: [
       { text: "Mira is a pulsating red giant whose brightness rises and falls over about 11 months. These frames come from SPHEREx visits months apart." },
       { text: "Watch the star at the crosshair: it never moves, but its bright glow swells and shrinks from visit to visit. Here the change is brightness, not position." },
-      { text: "Mira is so bright that its centre saturates the detector (pure white) in every frame, so judge the size of the glow, not the centre. All frames share one brightness scale; stretched one by one, the change would be hidden." },
-      { text: "Check the wavelength under each frame: SPHEREx sees different infrared colours across its detector, so a fair comparison needs similar wavelengths." },
+      { text: "Mira is so bright that its centre saturates the detector (shown pure white) in these frames, so judge the size of the glow, not the centre. All frames share one brightness scale; stretched one by one, the change would be hidden." },
+      { text: "Check the wavelength under each frame: SPHEREx sees different infrared colours across its detector, so a fair comparison needs frames whose wavelength ranges overlap." },
     ],
   },
   {
@@ -51,11 +51,11 @@ export const STORIES: Story[] = [
     targetId: "barnards-star",
     kicker: "STORY 3 · LIMITS",
     title: "Smaller than a pixel",
-    summary: "The fastest-moving star: invisible in a blink, revealed by subtraction.",
+    summary: "The star that moves fastest across our sky: hard to see in a blink, revealed by subtraction.",
     steps: [
-      { text: "Barnard's Star has the largest proper motion of any star: about 10.3 arcseconds per year, almost due north." },
+      { text: "Barnard's Star has the largest proper motion of any star: about 10.4 arcseconds per year, almost due north." },
       { text: `Between six-month visits it moves about 5″. One SPHEREx pixel covers ${PIXEL_ARCSEC}″, so the shift is smaller than a single pixel and in a plain blink the star seems to stand still.` },
-      { text: "Now each frame has the first one subtracted. A light patch appears just north (up) of the crosshair and a dark one just south: the star has crept north by less than one pixel, matching its known motion. The later the visit, the stronger the pair.", difference: true },
+      { text: "Now each frame has the first one subtracted. A light patch appears just north (up) of the crosshair and a dark one just south: the star has crept north, matching its known motion. After six months the shift is under one pixel; after a full year it is about 10″, less than two pixels. The later the visit, the stronger the pair.", difference: true },
       { text: "A distant Planet X would be very faint and would creep across the sky over months, not hours like an asteroid. Finding one takes many observations, careful comparison like this, and follow-up, not a single blink." },
     ],
   },
