@@ -162,6 +162,11 @@ def _frame_detections(frame, request: EngineRequest) -> list[tuple[Detection, li
                 flags_out.append("edge_of_image")
             detection = Detection(
                 observation_id=frame.observation_id,
+                # Provenance of THIS frame, never inferred from another detection (contract 0.2).
+                release=frame.release,
+                processing_version=frame.processing_version,
+                source_file=frame.source_file,
+                archive_id=frame.archive_id,
                 observation_time=frame.obs_time,
                 band=frame.band,
                 wavelength_um=frame.wavelength_um,
@@ -288,8 +293,7 @@ class SourceDetectionEngine:
                 # A positional match is a review hint, not independent validation.
                 status="pending_validation",
                 known_match=known,
-                data_release=next((f.release for f in request.frames
-                                   if f.observation_id == detections[0].observation_id), None),
+                # data_release is left out: the contract derives it from every detection ("DR1+QR3").
                 engine_version=self.version,
                 quality_flags=flags,
                 evidence={"detection_threshold_snr": DETECTION_SNR, "association_radius_arcsec": MATCH_RADIUS_ARCSEC,

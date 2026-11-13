@@ -263,6 +263,8 @@ class RealSource(DataSource):
                 processing_version=record.processing_version,
                 wavelength_um=wavelength["wavelength_um"] if wavelength else None,
                 bandwidth_um=wavelength["bandwidth_um"] if wavelength else None,
+                source_file=record.source_file,
+                archive_id=record.publisher_did or None,
             ))
 
         try:

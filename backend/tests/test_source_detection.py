@@ -202,3 +202,18 @@ def test_candidate_output_conforms_to_measurement_contract(tmp_path):
     frame = make_frame(tmp_path, "contract", [(32, 32, 2)])
     candidate = SourceDetectionEngine().detect(request([frame]))[0]
     assert Candidate.model_validate(candidate.model_dump()) == candidate
+
+
+def test_every_detection_keeps_its_own_release_and_pipeline(tmp_path):
+    """Contract 0.2: provenance per detection; data_release summarises them (DR1 + QR3 is allowed)."""
+    from dataclasses import replace
+    dr1 = make_frame(tmp_path, "dr1", [(32, 32, 2)])
+    qr3 = replace(make_frame(tmp_path, "qr3", [(32, 32, 2)], time_offset=10), release="QR3",
+                  processing_version="l2b-v27-2026-276", source_file="level2_qr3_spx_l2b-v27-2026-276.fits",
+                  archive_id="ivo://irsa.ipac/spherex_qr3?qr3/D3")
+    candidate = SourceDetectionEngine().detect(request([dr1, qr3]))[0]
+    by_id = {d.observation_id: d for d in candidate.detections}
+    assert (by_id["dr1"].release, by_id["dr1"].processing_version) == ("DR1", "l2b-v27-2026-228")
+    assert (by_id["qr3"].release, by_id["qr3"].processing_version) == ("QR3", "l2b-v27-2026-276")
+    assert by_id["qr3"].archive_id == "ivo://irsa.ipac/spherex_qr3?qr3/D3"
+    assert candidate.data_release == "DR1+QR3"   # not just the first detection's release
