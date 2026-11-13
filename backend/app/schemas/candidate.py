@@ -14,7 +14,10 @@ Contract version 0.2-draft (Yazan's answers, 2026-11-13; see docs/measurement-co
 - A measured flux (not mock) must be in uJy; flux_error never comes without flux.
 - Times must carry a timezone. Naive times are rejected (never assumed UTC); other offsets are
   converted to UTC explicitly.
-- observation_ids are the detections' ids: one detection per observation, no duplicates.
+- observation_ids are the detections' ids: one detection per observation, no duplicates. Omitted ->
+  derived; an explicit [] with detections is rejected (Yazan's final review, 2026-11-13).
+- Provenance per detection: release + processing_version (required for engine results), source_file and
+  archive_id when known. data_release is only a summary derived from them (e.g. "DR1+QR3").
 """
 import statistics
 from datetime import timezone
@@ -57,6 +60,13 @@ class Detection(BaseModel):
     """The object measured in ONE observation (one detector image of one exposure)."""
 
     observation_id: str
+    # Provenance of THIS observation (an engine result needs release + processing_version).
+    release: str | None = Field(default=None, examples=["DR1", "QR3"], description="Data release of this observation")
+    processing_version: str | None = Field(default=None, examples=["l2b-v27-2026-217"],
+                                           description="Pipeline tag of the file this detection was measured on")
+    source_file: str | None = Field(default=None, description="Archive file name, when known")
+    archive_id: str | None = Field(default=None, examples=["ivo://irsa.ipac/spherex_qr3?2026W29_1A_0138_4/D2"],
+                                   description="Archive identifier (obs_publisher_did), when known")
     observation_time: UtcDatetime = Field(description="UTC, mid-exposure (offsets are converted to UTC; naive rejected)")
     band: Band | None = None
     wavelength_um: float | None = Field(default=None, description="At the source position")
@@ -116,7 +126,8 @@ class Candidate(BaseModel):
     quality: Quality
     status: Literal["pending_validation", "known_object", "artifact", "rejected"] = "pending_validation"
     known_match: str | None = Field(default=None, description="Known object this matches (catalogue / ephemeris)")
-    data_release: str | None = None
+    data_release: str | None = Field(default=None, description="Summary of the detections' releases, e.g. 'DR1' or "
+                                     "'DR1+QR3'. Derived when omitted; each detection keeps its own release")
     engine_version: str = Field(description="What produced this candidate, e.g. 'mock' or the engine's version")
     # Summary of the per-detection SNR. Never hide a weak detection behind an average.
     median_snr: float | None = None
@@ -132,8 +143,8 @@ class Candidate(BaseModel):
         det_ids = [d.observation_id for d in self.detections]
         if len(set(det_ids)) != len(det_ids):
             raise ValueError("one detection per observation: duplicate observation_id in detections")
-        if not self.observation_ids:
-            self.observation_ids = det_ids
+        if "observation_ids" not in self.model_fields_set:
+            self.observation_ids = det_ids  # omitted -> derived from the detections
         elif len(set(self.observation_ids)) != len(self.observation_ids) or set(self.observation_ids) != set(det_ids):
             raise ValueError("observation_ids must list exactly the detections' observation ids, without duplicates")
         for d in self.detections:
@@ -148,7 +159,17 @@ class Candidate(BaseModel):
               or abs(self.median_snr - expected_median) > 0.01 or abs((self.min_snr or 0) - expected_min) > 0.01):
             raise ValueError(f"median_snr/min_snr must summarise the detections' snr values "
                              f"(expected {expected_median} / {expected_min}, or leave both null)")
+        releases = sorted({d.release for d in self.detections if d.release})
+        summary = "+".join(releases) if releases else None
+        if self.data_release is None:
+            self.data_release = summary
+        elif summary is not None and self.data_release != summary:
+            raise ValueError(f"data_release must summarise the detections' releases ({summary!r}), "
+                             f"got {self.data_release!r}")
         if not self.is_mock:
+            missing = [d.observation_id for d in self.detections if not d.release or not d.processing_version]
+            if missing:
+                raise ValueError(f"engine results need release and processing_version on every detection: {missing}")
             for d in self.detections:
                 if (d.flux is not None or d.flux_error is not None) and d.flux_unit != "uJy":
                     raise ValueError(f"measured flux must be in uJy (detection {d.observation_id}: {d.flux_unit!r})")

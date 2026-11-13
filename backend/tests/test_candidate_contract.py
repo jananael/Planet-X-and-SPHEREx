@@ -178,3 +178,35 @@ def test_observation_ids_must_match_detections():
 def test_low_snr_is_not_added_twice():
     d = example(); d["detections"][0].update(snr=3.0, quality_flags=["low_snr"])
     assert Candidate.model_validate(d).detections[0].quality_flags == ["low_snr"]
+
+
+# ---------- Yazan's final review (2026-11-13) ----------
+
+def test_explicit_empty_observation_ids_is_rejected_but_omitted_is_derived():
+    d = example(); d["observation_ids"] = []
+    with pytest.raises(ValidationError, match="observation_ids"):
+        Candidate.model_validate(d)
+    d = example(); del d["observation_ids"]
+    assert Candidate.model_validate(d).observation_ids == [x["observation_id"] for x in example()["detections"]]
+
+
+def test_each_detection_keeps_its_own_provenance():
+    c = Candidate.model_validate(example())
+    for det in c.detections:
+        assert det.release == "QR3" and det.processing_version == "l2b-v27-2026-276"
+        assert det.source_file.endswith(".fits") and det.archive_id.startswith("ivo://irsa.ipac/spherex_qr3?")
+
+
+def test_engine_results_require_release_and_processing_version():
+    for field in ("release", "processing_version"):
+        d = example(); d["is_mock"] = False; d["detections"][1][field] = None
+        with pytest.raises(ValidationError, match="release and processing_version"):
+            Candidate.model_validate(d)
+
+
+def test_data_release_summarises_mixed_dr1_qr3_detections():
+    d = example(); d["detections"][0]["release"] = "DR1"; d["data_release"] = None
+    assert Candidate.model_validate(d).data_release == "DR1+QR3"     # derived, not the first detection's
+    d["data_release"] = "DR1"                                         # would hide the QR3 detection
+    with pytest.raises(ValidationError, match="data_release"):
+        Candidate.model_validate(d)
