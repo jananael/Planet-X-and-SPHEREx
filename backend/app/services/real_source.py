@@ -40,6 +40,11 @@ def propagate(target: Target, epoch: float) -> Target:
     return target.model_copy(update={"ra": round(ra, 6), "dec": round(dec, 6), "position_epoch": epoch})
 
 
+# The engine analyses one 1800" cutout per frame, centred on the query. Detections can only come from
+# inside it, so a larger radius would silently return partial results: refuse it instead.
+CANDIDATE_CUTOUT_ARCSEC = 1800.0
+MAX_CANDIDATE_RADIUS_DEG = CANDIDATE_CUTOUT_ARCSEC / 2 / 3600  # 0.25 deg
+
 _SAFE_ID = re.compile(r"[A-Za-z0-9_.+-]{1,200}")
 
 
@@ -217,6 +222,9 @@ class RealSource(DataSource):
         from app.services.engine import EngineFrame, EngineRequest, pipeline_of
         from app.services.source_detection import SourceDetectionEngine
 
+        if radius > MAX_CANDIDATE_RADIUS_DEG:
+            raise BadRequest(f"radius {radius} deg is larger than the analysed area: candidates come from one "
+                             f"{CANDIDATE_CUTOUT_ARCSEC:.0f}\" cutout per frame, so use radius <= {MAX_CANDIDATE_RADIUS_DEG} deg")
         observations = self.search(ra, dec, radius)
         if not observations:
             return []
@@ -248,7 +256,7 @@ class RealSource(DataSource):
             indexes = sorted({0, (len(records) - 1) // 2, len(records) - 1})
             records = [records[index] for index in indexes]
 
-        cutout_arcsec = 1800.0
+        cutout_arcsec = CANDIDATE_CUTOUT_ARCSEC
         request_size = cutout_arcsec * irsa.ROTATION_MARGIN
         frames = []
         for record in records:

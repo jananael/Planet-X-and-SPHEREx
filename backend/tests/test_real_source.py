@@ -411,3 +411,12 @@ def test_candidate_results_survive_a_restart_and_are_shared_by_workers(real, mon
     assert again.candidate_id == cid and again.detections[0].release == "DR1"
     with pytest.raises(NotFound):
         restarted.get_candidate("../../etc/passwd")      # never read outside the candidate folder
+
+
+def test_candidate_radius_beyond_the_analysed_cutout_is_refused(real, monkeypatch):
+    client, _, _, _ = real
+    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: _versioned_records() if coll == "spherex_dr1" else [])
+    r = client.get("/api/candidates", params={"ra": RA, "dec": DEC, "radius": 1.0, "band": "D3", "pipeline": "v27"})
+    assert r.status_code == 400 and "0.25" in r.json()["error"]["message"]
+    ok = client.get("/api/candidates", params={"ra": RA, "dec": DEC, "band": "D3", "pipeline": "v27"})  # default 0.25
+    assert ok.status_code == 200, ok.text
