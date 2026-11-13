@@ -420,3 +420,20 @@ def test_candidate_radius_beyond_the_analysed_cutout_is_refused(real, monkeypatc
     assert r.status_code == 400 and "0.25" in r.json()["error"]["message"]
     ok = client.get("/api/candidates", params={"ra": RA, "dec": DEC, "band": "D3", "pipeline": "v27"})  # default 0.25
     assert ok.status_code == 200, ok.text
+
+
+def test_candidates_api_passes_known_objects_to_the_engine(real, monkeypatch):
+    """The test field is centred on WISE 0855: the backend must send its predicted position to the engine."""
+    from app.services import source_detection
+    client, _, _, _ = real
+    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: _versioned_records() if coll == "spherex_dr1" else [])
+    seen = {}
+    real_detect = source_detection.SourceDetectionEngine.detect
+    def spy(self, request):
+        seen["known"] = request.known_objects
+        return real_detect(self, request)
+    monkeypatch.setattr(source_detection.SourceDetectionEngine, "detect", spy)
+    body = client.get("/api/candidates", params={"ra": RA, "dec": DEC, "radius": 0.1, "band": "D3", "pipeline": "v27"}).json()
+    names = {k.object_id for k in seen["known"]}
+    assert "wise-0855-0714" in names and all(k.epoch_utc.tzinfo for k in seen["known"])
+    assert "WISE J085510.83-071442.5" in body["candidates"][0]["evidence"]["known_objects_checked"]

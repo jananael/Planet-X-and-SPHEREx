@@ -283,8 +283,11 @@ class RealSource(DataSource):
                 archive_id=record.publisher_did or None,
             ))
 
+        # Known-object predictions are prepared HERE (contract: the engine never calls Horizons/Gaia).
+        from app.services.known_objects import known_objects_for
+        known, known_notes = known_objects_for(self._targets, frames, ra, dec, radius, self._cutout_dir.parent / "horizons")
         try:
-            request = EngineRequest(ra_deg=ra, dec_deg=dec, radius_deg=radius, frames=frames)
+            request = EngineRequest(ra_deg=ra, dec_deg=dec, radius_deg=radius, frames=frames, known_objects=known)
         except ValueError as exc:
             raise BadRequest(f"Selected SPHEREx frames cannot be compared: {exc}") from exc
         try:
@@ -297,6 +300,9 @@ class RealSource(DataSource):
             candidate.evidence["selected_band"] = records[0].band
             candidate.evidence["selected_pipeline"] = pipeline_of(records[0].processing_version)
             candidate.evidence["input_frame_count"] = len(records)
+            candidate.evidence["known_objects_checked"] = sorted({k.name for k in known})
+            if known_notes:
+                candidate.evidence["known_objects_unavailable"] = known_notes
             candidate.evidence["frame_sampling"] = "first, middle, last" if len(records) == 3 else "all available frames (up to 3)"
         for candidate in result:
             path = self._candidate_path(candidate.candidate_id)
