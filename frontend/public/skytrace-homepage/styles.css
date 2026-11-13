@@ -72,3 +72,5 @@ footer .brand-image{width:100px;height:54px}
 .mission-reveal{filter:none;transition:opacity .4s ease}
 .mission-reveal>.mission-copy,.mission-reveal>.telescope-stage{transition:translate .4s ease}
 @media(prefers-reduced-motion:reduce){.mission-reveal,.mission-reveal>.mission-copy,.mission-reveal>.telescope-stage{transition:none}}
+/* Data credit (team decision): shown on every page. */
+footer{gap:24px}footer .credit{margin:0;max-width:560px;font-size:12px;line-height:1.5;color:#9fb0c3;text-align:right}@media(max-width:700px){footer{flex-direction:column;align-items:flex-start}footer .credit{text-align:left}}
