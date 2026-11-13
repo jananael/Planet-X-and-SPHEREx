@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Explorer } from "../../components/explorer";
+import "./explorer.css";
 
 export const metadata: Metadata = {
   title: "Explorer | SKYTRACE",

@@ -57,3 +57,7 @@ frontend/AGENTS.md
 
 # Moving-target coverage reports
 backend/scripts/out/
+
+# From teammates
+*.log
+.openai/

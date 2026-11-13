@@ -32,11 +32,22 @@ export function defaultSelection(observations: Observation[], band: string): str
   return [...observations].filter(o => o.band === band).sort((a, b) => a.mjd - b.mjd).map(o => o.id);
 }
 
-/**
- * Do these frames cover a common wavelength range? (science team: compare bands, not a fixed
- * tolerance). Each frame covers wavelength ± bandwidth/2; they are comparable if all ranges overlap.
- * Falls back to a 0.05 um spread when a bandwidth is missing.
- */
+/** Only offer dates actually returned by the archive, grouped by UTC day. */
+export function observationDates(observations: Observation[], band: string) {
+  const dates = new Map<string, Observation[]>();
+  for (const observation of observations) {
+    if (observation.band !== band) continue;
+    const date = new Date(observation.obs_time).toISOString().slice(0, 10);
+    dates.set(date, [...(dates.get(date) ?? []), observation]);
+  }
+  return [...dates].sort(([a], [b]) => a.localeCompare(b)).map(([date, images]) => ({ date, images }));
+}
+
+export function selectDate(selected: string[], images: Observation[], include: boolean): string[] {
+  const ids = new Set(images.map(image => image.id));
+  return include ? [...new Set([...selected, ...ids])] : selected.filter(id => !ids.has(id));
+}
+
 /**
  * Pipelines mixed in one comparison. Science team (Nov 2026): DR1 reprocessed Surveys 1-2 with the
  * same processing and calibration as QR3, so DR1 + QR3 together is fine; what matters is the
@@ -52,6 +63,11 @@ export function mixedPipelines(frames: { obs: { release: string; processing_vers
   return distinct.length > 1 ? distinct : [];
 }
 
+/**
+ * Do these frames cover a common wavelength range? (science team: compare bands, not a fixed
+ * tolerance). Each frame covers wavelength ± bandwidth/2; they are comparable if all ranges overlap.
+ * Falls back to a 0.05 um spread when a bandwidth is missing.
+ */
 export function spectralMismatch(frames: { wavelengthUm: number | null; bandwidthUm: number | null }[]): boolean {
   const known = frames.filter((f): f is { wavelengthUm: number; bandwidthUm: number | null } => f.wavelengthUm !== null);
   if (known.length < 2) return false;
