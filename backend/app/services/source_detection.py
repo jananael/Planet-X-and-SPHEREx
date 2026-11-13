@@ -134,9 +134,6 @@ def _frame_detections(frame, request: EngineRequest) -> list[tuple[Detection, li
             mask |= (flags.astype(np.int64) & bad_bits) != 0
         if flags is not None and planes.get("TRANSIENT", 0):
             transient = (flags.astype(np.int64) & planes["TRANSIENT"]) != 0
-        source_mask = ((flags.astype(np.int64) & planes.get("SOURCE", 0)) != 0
-                       if flags is not None and planes.get("SOURCE", 0) else None)
-
         variance = None
         if "VARIANCE" in hdul:
             var_hdu = hdul["VARIANCE"]
@@ -146,7 +143,10 @@ def _frame_detections(frame, request: EngineRequest) -> list[tuple[Detection, li
         wcs = _valid_wcs(image_hdu.header)
         if wcs is None:
             raise BadRequest(f"FITS observation {frame.observation_id} has missing or invalid celestial WCS")
-        peaks = _peaks(image, mask, variance, background_mask=source_mask)
+        # SOURCE is an informational pipeline bit, not a bad-pixel mask. On real
+        # SPHEREx cutouts it can cover most of the image; excluding it from the
+        # local background would leave no usable annulus and suppress all peaks.
+        peaks = _peaks(image, mask, variance)
         output = []
         for y, x, snr, snr_method in peaks:
             ra, dec = map(float, wcs.pixel_to_world_values(x, y))

@@ -169,8 +169,12 @@ def test_overflow_pixels_are_excluded_without_claiming_full_saturation(tmp_path)
     assert _frame_detections(frame, request([frame])) == []
 
 
-def test_source_flag_is_excluded_from_background_but_can_be_detected(tmp_path):
+def test_source_flag_is_informational_and_does_not_suppress_detection(tmp_path):
     frame = make_frame(tmp_path, "source-mask", [(32, 32, 2)], flags=[(32, 32, "SOURCE")])
+    # This plane can be broad in real products; it does not mean invalid pixels.
+    with fits.open(frame.fits_path, mode="update") as hdul:
+        hdul["FLAGS"].data[:] |= 1
+        hdul.flush()
     assert len(_frame_detections(frame, request([frame]))) == 1
 
 

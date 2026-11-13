@@ -25,6 +25,7 @@ The five cached cutouts produced 74 peaks total. On repeated local runs, the det
 - **A provisional-threshold warning:** unrelated or artifact-adjacent peaks also pass SNR 5. For example, 3I/ATLAS frame `2025W50_1A_0002_1D1` has a peak at pixel (67, 60) with SNR 230.64 and `near_transient_pixels`. This is an artifact-suspect example, not a confirmed false positive without image-level truth labels. The other transient-adjacent peaks are listed in the JSON output from the validation script.
 - **A matching limitation:** the two 3I inventory positions are 264.81″ apart over about 98 minutes, far outside the provisional 12.3″ gate. The per-frame positions are close to the respective inventory coordinates, but they cannot be linked by this positional matcher. Vesta's two inventory positions differ by 124.02″ over about 3.15 hours, also beyond the gate; in this case, saturation/flags prevent a valid track anyway.
 - Barnard's nearest retained peak is within the provisional gate, but its center pixel is overflow/bloom flagged. One exposure cannot establish a track or proper motion.
+- The Barnard cutout's `SOURCE` bit is set on about 87% of pixels. An earlier implementation excluded these informational pixels from background estimation and returned zero peaks. Treating `SOURCE` as informational restored the 18 frame detections; a regression test covers broad SOURCE flags.
 
 The report does not call every unflagged peak a false positive. There is no labeled reference catalog for all 74 peaks in these cutouts, and 3I/ATLAS's extended appearance can itself produce multiple peaks. Confirmed false-positive and completeness rates remain unmeasured. The candidate-count and SNR distributions are descriptive output of this specific thresholded method, not a validated performance estimate.
 
@@ -34,10 +35,10 @@ From `backend/`, the full command was:
 
 ```text
 PYTHONPATH=app /private/tmp/skytrace-y2-venv/bin/python -m pytest -q
-83 passed, 1 skipped
+93 passed, 3 skipped, 1 warning (Starlette TestClient deprecation)
 ```
 
-The synthetic FITS tests cover empty frames, isolated and nearby sources, >500 detections, missing/incompatible variance and MAD fallback, invalid BUNIT/WCS, OVERFLOW and TRANSIENT flags, SOURCE background masking, high background, incompatible/missing pipeline metadata, duplicate IDs and simultaneous epochs, ambiguous matching, movement outside the gate, three-epoch motion gating, and Candidate contract validation. API integration tests cover real-mode FITS candidates, empty searches and empty detections, required band/pipeline selection, unsupported pipeline metadata, failed download, corrupt FITS, response validation, and repeated requests/detail lookup. The skipped test is the opt-in network check; real FITS samples were examined separately as above.
+The synthetic FITS tests cover empty frames, isolated and nearby sources, >500 detections, missing/incompatible/zero variance and MAD fallback, invalid BUNIT/WCS, OVERFLOW and TRANSIENT flags, broad informational SOURCE flags, unavailable flags, high background, incompatible/missing pipeline metadata, duplicate IDs and simultaneous epochs, ambiguous matching, movement outside the gate, three-epoch motion gating, and Candidate contract validation. API integration tests cover real-mode FITS candidates, empty searches and empty detections, required band/pipeline selection, unsupported pipeline metadata, failed download, corrupt FITS, response validation, and repeated requests/detail lookup. A separate local real-file integration invocation passed Barnard's Star FITS through `/api/candidates` with archive search/download and wavelength lookup stubbed: HTTP 200, 18 candidates, explicit band D6 and pipeline v27. This validates the actual FITS-to-API path with controlled archive metadata, but not a live IRSA transaction. The three skipped tests are opt-in IRSA network checks; the five local real FITS samples were examined separately as above.
 
 ## Verified documentation vs assumptions
 

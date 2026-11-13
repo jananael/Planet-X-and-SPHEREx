@@ -83,16 +83,16 @@ class EngineRequest:
     known_objects: list[KnownObject] = field(default_factory=list)  # a match alone does not validate a detection
 
     def __post_init__(self):
+        # Refuse unknown metadata even for a single input so every result has product provenance.
+        unknown = [f.observation_id for f in self.frames if pipeline_of(f.processing_version) is None]
+        if unknown:
+            raise ValueError(f"unknown processing_version (pipeline cannot be checked) for {unknown}")
         ids = [f.observation_id for f in self.frames]
         if len(ids) != len(set(ids)):
             raise ValueError("frames contain duplicate observation IDs")
         times = [f.obs_time for f in self.frames]
         if len(times) != len(set(times)):
             raise ValueError("frames contain simultaneous observations; they are not independent epochs")
-        # Refuse unknown metadata even for a single input so every result has product provenance.
-        unknown = [f.observation_id for f in self.frames if pipeline_of(f.processing_version) is None]
-        if unknown:
-            raise ValueError(f"unknown processing_version (pipeline cannot be checked) for {unknown}")
         # Incompatible pipelines are never compared quantitatively: one pipeline (l2b-vNN) per request.
         pipes = {pipeline_of(f.processing_version) for f in self.frames}
         if len(pipes) > 1:
