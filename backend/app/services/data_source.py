@@ -77,7 +77,9 @@ def build_mock_candidate(target: Target, observations: list[Observation], truth:
     """A candidate from mock positions/fluxes, labelled as mock. These are KNOWN objects, so the
     status is known_object: the point is to exercise the contract, not to claim anything."""
     obs = sorted(observations, key=lambda o: o.mjd)
-    dets = [Detection(observation_id=o.id, observation_time=o.obs_time, band=o.band, wavelength_um=o.wavelength_um,
+    dets = [Detection(observation_id=o.id, release=o.release, processing_version=o.processing_version,
+                      source_file=o.source_file, archive_id=o.archive_id,
+                      observation_time=o.obs_time, band=o.band, wavelength_um=o.wavelength_um,
                       ra_deg=truth[o.id]["ra"],
                       dec_deg=truth[o.id]["dec"], flux=truth[o.id]["flux"], flux_unit="arbitrary (synthetic)")
             for o in obs]

@@ -109,6 +109,68 @@
           "title": "Observation Id",
           "type": "string"
         },
+        "release": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Data release of this observation",
+          "examples": [
+            "DR1",
+            "QR3"
+          ],
+          "title": "Release"
+        },
+        "processing_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pipeline tag of the file this detection was measured on",
+          "examples": [
+            "l2b-v27-2026-217"
+          ],
+          "title": "Processing Version"
+        },
+        "source_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Archive file name, when known",
+          "title": "Source File"
+        },
+        "archive_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Archive identifier (obs_publisher_did), when known",
+          "examples": [
+            "ivo://irsa.ipac/spherex_qr3?2026W29_1A_0138_4/D2"
+          ],
+          "title": "Archive Id"
+        },
         "observation_time": {
           "description": "UTC, mid-exposure (offsets are converted to UTC; naive rejected)",
           "format": "date-time",
@@ -447,6 +509,7 @@
         }
       ],
       "default": null,
+      "description": "Summary of the detections' releases, e.g. 'DR1' or 'DR1+QR3'. Derived when omitted; each detection keeps its own release",
       "title": "Data Release"
     },
     "engine_version": {
