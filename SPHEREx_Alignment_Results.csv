@@ -1,0 +1,12 @@
+Metric,Result
+First Observation,2025W19_1B_0116_1
+Second Observation,2025W19_1B_0116_2
+Spectral Band,D3
+Image Dimensions,2040 x 2040
+Valid Overlap Pixels,3924348
+Unique Star Matches,19818
+Mutual Star Matches,18873
+Median Alignment Error,0.0
+Mean Alignment Error,0.2375996072440896
+95th Percentile Error,1.0
+Maximum Alignment Error,2.0
