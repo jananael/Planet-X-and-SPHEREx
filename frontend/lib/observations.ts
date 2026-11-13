@@ -56,7 +56,8 @@ export function selectDate(selected: string[], images: Observation[], include: b
  */
 export function mixedPipelines(frames: { obs: { release: string; processing_version?: string | null } }[]): string[] {
   const pipeline = (o: { release: string; processing_version?: string | null }) =>
-    o.processing_version?.match(/l2b-v\d+/)?.[0] ?? null;
+    // 'l2b_retry-v27-…' (DR1 files that IRSA re-ran) is the same pipeline as 'l2b-v27-…'.
+    (v => v ? `l2b-${v[1]}` : null)(o.processing_version?.match(/l2b(?:_retry)?-(v\d+)/));
   const known = frames.map(f => pipeline(f.obs));
   const values = known.every(Boolean) ? known as string[] : frames.map(f => f.obs.release);
   const distinct = [...new Set(values)].sort();

@@ -240,3 +240,13 @@ def test_search_time_window():
     assert naive["count"] == 2
     assert_error(client.get("/api/search", params={**base, "start": "2025-08-15T00:00:00Z", "end": "2025-08-14T00:00:00Z"}),
                  400, "BAD_REQUEST")
+
+
+def test_candidate_json_schema_file_is_in_sync():
+    # docs/candidate.schema.json is what the science team codes against. Regenerate with:
+    # python -c "import json; from app.schemas.candidate import Candidate; print(json.dumps(Candidate.model_json_schema(), indent=2, ensure_ascii=False))" > ../docs/candidate.schema.json
+    import json
+    from pathlib import Path
+    from app.schemas.candidate import Candidate
+    path = Path(__file__).resolve().parents[2] / "docs" / "candidate.schema.json"
+    assert json.loads(path.read_text(encoding="utf-8")) == Candidate.model_json_schema()

@@ -1,0 +1,398 @@
+{
+  "$defs": {
+    "Brightness": {
+      "properties": {
+        "delta_flux": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Delta Flux"
+        },
+        "delta_mag": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delta Mag"
+        },
+        "variability_status": {
+          "default": "inconclusive",
+          "enum": [
+            "variable",
+            "not_variable",
+            "inconclusive"
+          ],
+          "title": "Variability Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "delta_flux"
+      ],
+      "title": "Brightness",
+      "type": "object"
+    },
+    "Classification": {
+      "properties": {
+        "candidate_type": {
+          "enum": [
+            "possible_moving_object",
+            "possible_variable",
+            "sub_pixel_motion",
+            "unclassified"
+          ],
+          "title": "Candidate Type",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Stays null until a documented method defines it",
+          "title": "Score"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidate_type",
+        "method"
+      ],
+      "title": "Classification",
+      "type": "object"
+    },
+    "Detection": {
+      "properties": {
+        "observation_id": {
+          "title": "Observation Id",
+          "type": "string"
+        },
+        "observation_time": {
+          "description": "UTC, mid-exposure",
+          "format": "date-time",
+          "title": "Observation Time",
+          "type": "string"
+        },
+        "ra_deg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ra Deg"
+        },
+        "dec_deg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Dec Deg"
+        },
+        "flux": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Flux"
+        },
+        "flux_error": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Flux Error"
+        },
+        "flux_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Real engine: \"uJy\" (integrated flux). Never MJy/sr",
+          "title": "Flux Unit"
+        }
+      },
+      "required": [
+        "observation_id",
+        "observation_time",
+        "ra_deg",
+        "dec_deg"
+      ],
+      "title": "Detection",
+      "type": "object"
+    },
+    "Motion": {
+      "properties": {
+        "delta_ra_arcsec": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "On-sky RA offset (includes cos Dec), first -> last detection",
+          "title": "Delta Ra Arcsec"
+        },
+        "delta_dec_arcsec": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Delta Dec Arcsec"
+        },
+        "angular_displacement_arcsec": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Angular Displacement Arcsec"
+        },
+        "angular_speed_arcsec_per_day": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Angular Speed Arcsec Per Day"
+        },
+        "position_angle_deg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Direction of motion, degrees east of north",
+          "title": "Position Angle Deg"
+        },
+        "uncertainty_arcsec": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Arcsec"
+        }
+      },
+      "required": [
+        "delta_ra_arcsec",
+        "delta_dec_arcsec",
+        "angular_displacement_arcsec",
+        "angular_speed_arcsec_per_day",
+        "position_angle_deg"
+      ],
+      "title": "Motion",
+      "type": "object"
+    },
+    "Quality": {
+      "properties": {
+        "data_quality": {
+          "default": "unknown",
+          "enum": [
+            "valid",
+            "degraded",
+            "unknown"
+          ],
+          "title": "Data Quality",
+          "type": "string"
+        },
+        "insufficient_evidence": {
+          "default": true,
+          "title": "Insufficient Evidence",
+          "type": "boolean"
+        }
+      },
+      "title": "Quality",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "candidate_id": {
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "observation_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Observation Ids",
+      "type": "array"
+    },
+    "detections": {
+      "items": {
+        "$ref": "#/$defs/Detection"
+      },
+      "title": "Detections",
+      "type": "array"
+    },
+    "motion": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Motion"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "brightness": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Brightness"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "classification": {
+      "$ref": "#/$defs/Classification"
+    },
+    "quality": {
+      "$ref": "#/$defs/Quality"
+    },
+    "status": {
+      "default": "pending_validation",
+      "enum": [
+        "pending_validation",
+        "known_object",
+        "artifact",
+        "rejected"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "known_match": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Known object this matches (catalogue / ephemeris)",
+      "title": "Known Match"
+    },
+    "data_release": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Data Release"
+    },
+    "engine_version": {
+      "description": "What produced this candidate, e.g. 'mock' or the engine's version",
+      "title": "Engine Version",
+      "type": "string"
+    },
+    "snr": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Signal-to-noise of the detection, as defined by the engine",
+      "title": "Snr"
+    },
+    "quality_flags": {
+      "description": "e.g. 'near_transient_pixels', 'saturated', 'mixed_pipeline'",
+      "items": {
+        "type": "string"
+      },
+      "title": "Quality Flags",
+      "type": "array"
+    },
+    "evidence": {
+      "additionalProperties": true,
+      "description": "Engine-specific measurements behind the result",
+      "title": "Evidence",
+      "type": "object"
+    },
+    "is_mock": {
+      "title": "Is Mock",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "observation_ids",
+    "detections",
+    "classification",
+    "quality",
+    "engine_version",
+    "is_mock"
+  ],
+  "title": "Candidate",
+  "type": "object"
+}
