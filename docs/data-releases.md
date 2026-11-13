@@ -44,6 +44,30 @@
 2. **`VERSION` بالـ header بيختلف** وهو بنفس `l2b-vNN`: هلّق ما منفحصه بالكود (كلهم 7.0.5).
 3. **ملفات المعايرة** (`spectral_wcs_*`) بتتحدث: لازم نرجع ننزّلها بـ `scripts/download_spectral_wcs.py`.
 
+## دليل البحث (2026-11-13، IRSA الحقيقي)
+
+```
+RUN_NETWORK_TESTS=1 pytest -v -k network tests/test_real_source.py
+test_network_search_returns_each_release[DR1] PASSED
+test_network_search_returns_each_release[QR3] PASSED
+test_network_search_and_cutout PASSED
+3 passed in 123.59s
+```
+
+- بحث حقيقي عند Mira: كل release رجّع أكثر من 50 رصد، وكل رصد فيه `id`، و `source_file` (`.fits`)،
+  و `archive_id` (`ivo://irsa.ipac/spherex_dr1?…` أو `spherex_qr3?…`)، و `processing_version` (`v27`).
+- اختبارات بدون شبكة لكل release (`test_real_observation_has_release_version_archive_id_and_bandwidth[DR1/QR3]`):
+  الـ release، والـ observation id، واسم الملف، والـ archive id، والـ processing version بيضلوا من البحث لحد هيدرز الصورة.
+- حصر المشاهدات الكامل للأهداف الستة: [observation-inventory.md](observation-inventory.md). تحقق تقوى من نتائج الأرشيف لسّا مطلوب.
+
+## القيود المعروفة
+
+- **QR2 انشال من IRSA** واستبدله DR1. منبحثش فيه، والكاش القديم تبعه محفوظ بـ `*-qr2-era`.
+- **QR3 بيغطي بس 2026-07-04 → 2026-09-22.** أهداف ما إلها زيارة بهالفترة (WISE 0855، 3I/ATLAS) إلها DR1 بس.
+- **7 ملفات DR1 معاد تشغيلها** (`l2b_retry-v27`): نفس الـ pipeline، والكود بيتعامل معها.
+- إذا release وحدة فشلت، النتيجة بترجع من الثانية بس **ما بتنحفظ بالكاش** (عشان ما نخزّن نتيجة ناقصة).
+- البحث والـ cutouts بطيئين (5–30 ثانية للصورة)، وفي retries وكاش 24 ساعة للبحث.
+
 ## كيف تعيدي الفحص
 
 ```bash

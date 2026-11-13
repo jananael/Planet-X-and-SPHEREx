@@ -196,6 +196,17 @@ network = pytest.mark.skipif(os.environ.get("RUN_NETWORK_TESTS") != "1", reason=
 
 
 @network
+@pytest.mark.parametrize("release", ["DR1", "QR3"])
+def test_network_search_returns_each_release(tmp_path, release):
+    """Live IRSA: Mira is covered by both releases (DR1: 2025-07 to 2026-01, QR3: 2026-07)."""
+    obs = [o for o in RealSource(TARGETS, tmp_path).search(34.83663, -2.97764, 0) if o.release == release]
+    assert len(obs) > 50
+    for o in obs:
+        assert o.id and o.source_file.endswith(".fits") and o.archive_id.startswith(f"ivo://irsa.ipac/spherex_{release.lower()}?")
+        assert o.processing_version and "-v27-" in o.processing_version
+
+
+@network
 def test_network_search_and_cutout(tmp_path):
     src = RealSource(TARGETS, tmp_path)
     obs = src.search(RA, DEC, 0)
@@ -207,20 +218,27 @@ def test_network_search_and_cutout(tmp_path):
     assert 0.7 < cut.observation.wavelength_um < 5.1
 
 
-def test_real_observation_has_release_version_archive_id_and_bandwidth(real, monkeypatch):
+@pytest.mark.parametrize("collection, release, obs_id, version", [
+    ("spherex_dr1", "DR1", "2025W33_2C_0321_1", "l2b-v27-2026-228"),
+    ("spherex_qr3", "QR3", "2026W29_1A_0138_4", "l2b-v27-2026-276"),
+])
+def test_real_observation_has_release_version_archive_id_and_bandwidth(real, monkeypatch, collection, release, obs_id, version):
     client, _, src, cache = real
-    rec = fake_record(0, rotated=False)
-    rec.access_url = "https://irsa.example/level2_2025W33_2C_0321_1D3_spx_l2b-v27-2026-228.fits"
-    rec.publisher_did = "ivo://irsa.ipac/spherex_dr1?2025W33_2C_0321_1/D3"
-    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: [rec] if coll == "spherex_dr1" else [])
+    rec = fake_record(0, rotated=False, collection=collection)
+    rec.id = f"{obs_id}D3"
+    rec.access_url = f"https://irsa.example/level2_{obs_id}D3_spx_{version}.fits"
+    rec.publisher_did = f"ivo://irsa.ipac/{collection}?{obs_id}/D3"
+    monkeypatch.setattr(irsa, "sia_search", lambda ra, dec, radius, coll: [rec] if coll == collection else [])
     o = client.get("/api/search", params={"ra": RA, "dec": DEC}).json()["observations"][0]
-    assert o["release"] == "DR1" and o["processing_version"] == "l2b-v27-2026-228"
-    assert o["archive_id"] == "ivo://irsa.ipac/spherex_dr1?2025W33_2C_0321_1/D3"
+    # release, observation id and file identifiers survive the search
+    assert o["release"] == release and o["processing_version"] == version
+    assert o["id"] == f"{obs_id}D3" and o["archive_id"] == f"ivo://irsa.ipac/{collection}?{obs_id}/D3"
+    assert o["source_file"] == f"level2_{obs_id}D3_spx_{version}.fits"
     r = client.get(f"/api/observations/{o['id']}/image")
     assert r.headers["x-bandwidth-um"] == "0.05" and r.headers["x-wavelength-source"] == "WCS-WAVE"
-    assert r.headers["x-processing-version"] == "l2b-v27-2026-228"
+    assert r.headers["x-processing-version"] == version and r.headers["x-release"] == release
     # the processing version is part of the cutout cache key
-    assert any("l2b-v27-2026-228" in p.name for p in (cache / "cutouts").iterdir())
+    assert any(version in p.name for p in (cache / "cutouts").iterdir())
 
 
 def test_search_results_are_cached(real):
