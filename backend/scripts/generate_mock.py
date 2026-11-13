@@ -79,8 +79,9 @@ VALIDATION = {
                           "160 independent exposures; on 2026-07-13 it moves ~124\" (~20 px) in 3.2 h."),
     "12p-pons-brooks": ("challenging", "Ephemeris check: SPHEREx footprints cover it in 172 exposures, but it is "
                                         "V ~19.7-23.8 in 2025-26, probably too faint to see in single images."),
-    "3i-atlas": ("pending", "Ephemeris check: in 184 SPHEREx exposures (DR1); brightest V ~15.3 on 2025-12-08, "
-                            "moving ~265\" in 1.6 h. Still to confirm it is visible in the images."),
+    "3i-atlas": ("verified", "Known Moving Object Demo, not a discovery. Seen in all 23 real DR1 images of 2025-12-08 "
+                             "(00:11-03:30 UTC, D1 and D4): a bright source within 1 pixel of the JPL Horizons position "
+                             "in every frame, and gone from its earlier positions. Extended coma: no point-source photometry."),
     "wise-0855-0714": ("challenging", "Real images exist; detection in a single frame is not guaranteed "
                                        "(very faint below ~3 um). Motion ~8\"/yr is about 1 pixel per year."),
     "barnards-star": ("verified", "Centred in 4 real SPHEREx visits after proper-motion propagation; "

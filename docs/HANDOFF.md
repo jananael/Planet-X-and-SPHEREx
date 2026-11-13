@@ -172,7 +172,7 @@ Yazan answered the 7 final questions (end of `docs/questions-for-yazan.md`). Dec
 5. **3I/ATLAS:** adopt as a **Known Moving Object Demo** (never a discovery). Show real frames + expected
    position per exposure vs measured. Our 265″ in 1.64 h (00:07→01:45 UTC 2025-12-08) must be checked
    against IRSA's official 3I/ATLAS page (schedule + predicted coords) or Horizons. It has a coma (extended)
-   → no point-source photometry. TODO: look at it in real mode; if visible → `verified` + note "known object demo".
+   → no point-source photometry. ✅ DONE 2026-11-13: seen in all 23 DR1 images within 1 px of Horizons → `verified` (Known Moving Object Demo).
 6. **Detection engine:** a Python library inside the project, called by the backend, returning Candidate
    objects per an agreed contract (Yazan defines algorithm/measurements/scoring, then agrees the contract with Jana).
    ✅ DONE (uncommitted). Was: add optional `snr`, `quality_flags: list[str]`, `evidence: dict` to `app/schemas/candidate.py`

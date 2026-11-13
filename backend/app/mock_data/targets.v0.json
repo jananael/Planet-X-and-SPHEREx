@@ -45,8 +45,8 @@
       "description": "Third known interstellar object, passing through the Solar System in 2025-26. Mock track uses its real position and rate on 2025-12-08 (JPL Horizons); images are synthetic in mock mode.",
       "position_epoch": null,
       "catalog_motion": null,
-      "validation_status": "pending",
-      "validation_note": "Ephemeris check: in 184 SPHEREx exposures (DR1); brightest V ~15.3 on 2025-12-08, moving ~265\" in 1.6 h. Still to confirm it is visible in the images.",
+      "validation_status": "verified",
+      "validation_note": "Known Moving Object Demo, not a discovery. Seen in all 23 real DR1 images of 2025-12-08 (00:11-03:30 UTC, D1 and D4): a bright source within 1 pixel of the JPL Horizons position in every frame, and gone from its earlier positions. Extended coma: no point-source photometry.",
       "recommended_size_arcsec": 900,
       "real_view": {
         "ra": 173.77394,

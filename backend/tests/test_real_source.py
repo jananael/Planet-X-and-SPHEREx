@@ -173,9 +173,10 @@ def test_live_targets_skip_illustrative_and_apply_proper_motion(real):
     """Live mode: no asteroid/comet with made-up positions; stars moved to the SPHEREx epoch."""
     client, _, _, _ = real
     targets = {t["id"]: t for t in client.get("/api/targets").json()["targets"]}
-    # 12P has no real view (too faint); 3I/ATLAS has one (status pending until seen in an image)
+    # 12P has no real view (too faint); 3I/ATLAS has one, verified in the real images on 2026-11-13
     assert set(targets) == {"vesta", "3i-atlas", "wise-0855-0714", "barnards-star", "mira"}
-    assert targets["3i-atlas"]["validation_status"] == "pending" and targets["3i-atlas"]["preferred_band"] == "D1"
+    assert targets["3i-atlas"]["validation_status"] == "verified" and targets["3i-atlas"]["preferred_band"] == "D1"
+    assert "not a discovery" in targets["3i-atlas"]["validation_note"]
     vesta = targets["vesta"]
     assert vesta["validation_status"] == "verified" and vesta["preferred_band"] == "D2"
     assert vesta["ra"] == pytest.approx(22.555155) and vesta["search_start"].startswith("2026-07-13T15:50")
