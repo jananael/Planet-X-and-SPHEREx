@@ -13,7 +13,7 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parents[1] / "app" / "mock_data"
 MJD0 = datetime(1858, 11, 17, tzinfo=timezone.utc)
-RELEASE = "QR2"
+RELEASE = "MOCK"  # never a real release name, so mock frames cannot pass for SPHEREx data
 FOOTPRINT_RADIUS_DEG = 1.75  # ~ one 3.5 deg x 3.5 deg SPHEREx detector, as a circle
 
 # SPHEREx detectors -> wavelength coverage (um). The wavelength varies across each image;
@@ -147,7 +147,7 @@ def main():
                 "wavelength_source": "mock",
                 "band": band,
                 "release": RELEASE,
-                "source_file": f"MOCK_spherex_{RELEASE.lower()}_{oid}.fits",
+                "source_file": f"MOCK_spherex_{oid}.fits",
                 "image_url": f"/api/observations/{oid}/image",
                 # footprint centre offset from the target so it isn't trivially centred
                 "footprint": {"ra": round(ra + 0.45, 5), "dec": round(dec - 0.30, 5),

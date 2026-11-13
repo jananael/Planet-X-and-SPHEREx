@@ -58,7 +58,7 @@ export async function loadFrame(obs: Observation, settings: ImageSettings, signa
   const wavelengthUm = wl?.trim() && Number.isFinite(Number(wl)) ? Number(wl) : null;
   const bw = res.headers.get("X-Bandwidth-Um");
   const bandwidthUm = bw?.trim() && Number(bw) > 0 ? Number(bw) : null;
-  // Cosmic-ray (TRANSIENT) pixels are not repaired by the backend; we only warn about them.
+  // TRANSIENT-flagged pixels are not repaired by the backend; we only warn about them.
   const transientPixels = Math.max(0, Number(res.headers.get("X-Transient-Pixels")) || 0);
   const url = URL.createObjectURL(await res.blob());
   try {

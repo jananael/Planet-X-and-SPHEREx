@@ -53,8 +53,8 @@ Mock data: [`backend/app/mock_data/`](../backend/app/mock_data/). The JSON shape
   "mjd": 60901.09028,
   "wavelength_um": 2.04,
   "band": "D3",
-  "release": "QR2",
-  "source_file": "MOCK_spherex_qr2_vesta-20250814-d3-1.fits",
+  "release": "MOCK",
+  "source_file": "MOCK_spherex_vesta-20250814-d3-1.fits",
   "image_url": "/api/observations/vesta-20250814-d3-1/image",
   "footprint": { "ra": 210.85, "dec": -12.15, "radius_deg": 1.75 }
 }
@@ -144,9 +144,9 @@ pixels stay visible. Response headers (exposed to the browser via CORS):
 
 | Header | Example |
 |---|---|
-| `X-Source-File` | `MOCK_spherex_qr2_vesta-20250814-d3-1.fits` |
+| `X-Source-File` | `MOCK_spherex_vesta-20250814-d3-1.fits` |
 | `X-Obs-Time` | `2025-08-14T02:10:00Z` |
-| `X-Wavelength-Um` / `X-Band` / `X-Release` | `2.04` / `D3` / `QR2` |
+| `X-Wavelength-Um` / `X-Band` / `X-Release` | `2.04` / `D3` / `MOCK` (real mode: `DR1` / `QR3`) |
 | `X-Cutout-Ra` / `X-Cutout-Dec` | centre actually used |
 | `X-Stretch-Vmin` / `X-Stretch-Vmax` | limits actually used |
 | `X-Bandwidth-Um` / `X-Wavelength-Source` / `X-Processing-Version` | bandwidth at the target, where it came from, pipeline version |
@@ -231,7 +231,7 @@ Engine inputs, rules and open questions: [measurement-contract.md](measurement-c
   "brightness": { "delta_flux": 0.0, "delta_mag": null, "variability_status": "inconclusive" },
   "classification": { "candidate_type": "possible_moving_object", "score": null, "method": "..." },
   "quality": { "data_quality": "valid", "insufficient_evidence": false },
-  "status": "known_object", "known_match": "(4) Vesta", "data_release": "QR2",
+  "status": "known_object", "known_match": "(4) Vesta", "data_release": "MOCK",
   "engine_version": "mock", "is_mock": true,
   "median_snr": null, "min_snr": null, "quality_flags": [], "evidence": {}
 }

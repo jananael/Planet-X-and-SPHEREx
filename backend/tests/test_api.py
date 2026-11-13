@@ -58,7 +58,7 @@ def test_get_observation_shape():
     assert "mock_truth" not in o
     assert o["obs_time"] == "2025-08-14T02:10:00Z"
     assert o["image_url"] == f"/api/observations/{VESTA_1}/image"
-    assert o["release"] == "QR2"
+    assert o["release"] == "MOCK" and o["source_file"].startswith("MOCK_")
 
 
 def test_unknown_observation_is_not_found():
