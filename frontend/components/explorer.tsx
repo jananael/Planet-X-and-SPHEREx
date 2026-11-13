@@ -234,7 +234,7 @@ export function Explorer() {
   return <div className="explorer-page">
     <StarryBackground topOnly />
     <a className="skip-link" href="#explorer">Skip to Explorer</a>
-    <header className="site-header"><Link href="/" className="explorer-logo" aria-label="SKYTRACE home"><img src="/skytrace/orbital-logo-beige.png" alt="SKYTRACE orbital telescope logo" width="1536" height="1024" /></Link><nav aria-label="Main navigation"><Link href="/">Home</Link><Link href="/explore" aria-current="page">Explorer</Link></nav><div className={`source-badge ${source === "mock" ? "mock" : ""}`}><span />{source === "mock" ? "MOCK DATA" : source === "real" ? "LIVE ARCHIVE" : "API NOT CONNECTED"}</div></header>
+    <header className="site-header"><Link href="/" className="explorer-logo" aria-label="SKYTRACE home"><img src="/skytrace/satellite-logo.png" alt="SKYTRACE satellite logo" width="1774" height="887" /></Link><nav aria-label="Main navigation"><Link href="/">Home</Link><Link href="/explore" aria-current="page">Explorer</Link></nav><div className={`source-badge ${source === "mock" ? "mock" : ""}`}><span />{source === "mock" ? "MOCK DATA" : source === "real" ? "LIVE ARCHIVE" : "API NOT CONNECTED"}</div></header>
     <main id="explorer" className="explorer-shell">
       <section className="intro"><div><p className="eyebrow"><span />THE SKY, ACROSS TIME</p><h1>A new way to <span>look closer.</span></h1><p>Pick a patch of sky. Compare infrared observations.<br className="desktop-break" /> See what moves — and what changes.</p></div><ol className="explorer-guide" aria-label="How to explore">
         <li><span aria-hidden="true">01</span><div><strong>Choose a location</strong><p>Try a target, enter coordinates, or use the sky map.</p></div></li>
@@ -317,6 +317,6 @@ export function Explorer() {
       </div>
       <section className="explore-note"><span aria-hidden="true">✦</span><p><strong>Explore with curiosity. Compare with care.</strong> These observations help you investigate changes, not confirm discoveries. A quiet-looking sky can still tell a story.</p></section>
     </main>
-    <footer className="site-footer"><Link href="/" className="explorer-logo" aria-label="SKYTRACE home"><img src="/skytrace/orbital-logo-beige.png" alt="SKYTRACE orbital telescope logo" width="1536" height="1024" /></Link><p>Data: NASA SPHEREx via NASA/IPAC IRSA · NASA Space Apps Challenge 2026 project, not an official NASA product.</p><nav aria-label="Footer navigation"><Link href="/">Home</Link><Link href="/explore" aria-current="page">Explorer</Link></nav></footer>
+    <footer className="site-footer"><Link href="/" className="explorer-logo" aria-label="SKYTRACE home"><img src="/skytrace/satellite-logo.png" alt="SKYTRACE satellite logo" width="1774" height="887" /></Link><p>Data: NASA SPHEREx via NASA/IPAC IRSA · NASA Space Apps Challenge 2026 project, not an official NASA product.</p><nav aria-label="Footer navigation"><Link href="/">Home</Link><Link href="/explore" aria-current="page">Explorer</Link></nav></footer>
   </div>;
 }

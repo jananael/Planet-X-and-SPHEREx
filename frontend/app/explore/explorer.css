@@ -25,24 +25,21 @@
   mask-image: linear-gradient(to bottom, black 0%, black 72%, transparent 100%);
 }
 .explorer-page .site-header { padding-block: 18px; }
-/* Frame the supplied image's central logo without its large outer margins. */
+/* Preserve the supplied transparent logo's full composition. */
 .explorer-page .explorer-logo {
   position: relative;
   display: block;
   flex: 0 0 auto;
   width: clamp(140px, 16vw, 180px);
-  aspect-ratio: 1.9;
+  aspect-ratio: 2;
   overflow: hidden;
   border-radius: 8px;
 }
 .explorer-page .explorer-logo img {
-  position: absolute;
-  width: 210%;
-  max-width: none;
+  display: block;
+  width: 100%;
   height: auto;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -47%);
+  object-fit: contain;
 }
 .explorer-page .site-header nav a, .explorer-page .site-footer nav a { color: var(--copy); }
 .explorer-page .site-header nav a:hover, .explorer-page .site-footer nav a:hover { color: var(--bright); }
