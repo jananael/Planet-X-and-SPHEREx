@@ -22,6 +22,21 @@ BAD_FLAG_BITS = {
 BAD_FLAG_MASK = sum(1 << bit for bit in BAD_FLAG_BITS.values())
 
 
+def read_flag_definitions(header):
+    """Read quality flag names and bitmasks from the FITS header."""
+    definitions = {}
+
+    for key in header:
+        if key.startswith("MSKN") and key[4:].isdigit():
+            name = str(header[key]).strip()
+            suffix = key[4:]
+            mask_key = "MSKM" + suffix
+
+            if mask_key in header:
+                definitions[name] = int(header[mask_key])
+
+    return definitions
+
 def process_fits(file_path):
     """Read IMAGE, FLAGS, VARIANCE, WCS and build a quality mask.
 
@@ -42,11 +57,20 @@ def process_fits(file_path):
         if image.ndim != 2:
             raise ValueError("IMAGE must be a 2D array")
 
+
         flags = None
+        flag_definitions = {}
+
         if "FLAGS" in hdul and hdul["FLAGS"].data is not None:
             flags = np.array(hdul["FLAGS"].data, dtype=np.int32)
+
             if flags.shape != image.shape:
                 raise ValueError("FLAGS shape does not match IMAGE")
+
+            flag_definitions = read_flag_definitions(
+                hdul["FLAGS"].header
+            )
+
 
         variance = None
         if "VARIANCE" in hdul and hdul["VARIANCE"].data is not None:
@@ -68,8 +92,24 @@ def process_fits(file_path):
     if variance is not None:
         bad_pixels |= ~np.isfinite(variance) | (variance <= 0)
 
+
     if flags is not None:
-        bad_pixels |= (flags & BAD_FLAG_MASK) != 0
+        missing_flags = [
+            name for name in BAD_FLAG_BITS
+            if name not in flag_definitions
+        ]
+
+        if missing_flags:
+            raise ValueError(
+                f"Missing required FLAGS definitions: {missing_flags}"
+            )
+
+        mask_bits = sum(
+            flag_definitions[name] for name in BAD_FLAG_BITS
+        )
+
+        bad_pixels |= (flags & mask_bits) != 0
+
 
     warnings = []
     if flags is None:
