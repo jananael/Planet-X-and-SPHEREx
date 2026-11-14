@@ -279,3 +279,23 @@ def test_resolve_uses_sesame_and_reports_unknown(monkeypatch):
     assert r.status_code == 200 and r.json()["name"] == "NGC 1976" and "Sesame" in r.json()["source"]
     assert client.get("/api/resolve", params={"name": "Nothing Here"}).status_code == 404
     res._sesame.cache_clear()
+
+
+def test_gaia_stars_parses_irsa_csv_and_caches(monkeypatch, tmp_path):
+    from app.routers import gaia_stars as gs
+    from app.config import get_settings
+    monkeypatch.setattr(get_settings(), "cache_dir", tmp_path)
+    calls = []
+
+    class Resp:
+        text = ("source_id,ra,dec,parallax,parallax_error,phot_g_mean_mag,bp_rp\n"
+                "1,34.86,-2.96,1.3056,0.02,8.81,1.65\n2,34.9,-2.9,-0.5,0.1,12,0.8\n")
+        def raise_for_status(self): pass
+    monkeypatch.setattr(gs.requests, "post", lambda url, data, timeout: calls.append(data) or Resp())
+    r = client.get("/api/gaia-stars", params={"ra": 34.8366, "dec": -2.9787})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["count"] == 1 and body["stars"][0]["distance_ly"] == round(1000 / 1.3056 * 3.26156, 1)
+    assert "parallax_over_error>5" in calls[0]["QUERY"] and "gaia_dr3_source" in calls[0]["QUERY"]
+    assert client.get("/api/gaia-stars", params={"ra": 34.8366, "dec": -2.9787}).json()["count"] == 1
+    assert len(calls) == 1  # second call served from the disk cache

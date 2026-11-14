@@ -160,6 +160,8 @@ export function Explorer() {
     searchController.current?.abort(); frameController.current?.abort();
     const controller = new AbortController(); searchController.current = controller;
     setRa(String(position.ra)); setDec(String(position.dec)); setCoordinates(position); setTargetId(id);
+    // The Visualization lab opens on the last place explored here.
+    try { localStorage.setItem("skytrace.last-location", JSON.stringify({ ra: position.ra, dec: position.dec, targetId: id, start: opts.start ?? null, end: opts.end ?? null })); } catch { /* storage unavailable */ }
     setSearching(true); setSearchError(""); setObservations([]); setSelected([]); setFrames([]); setFailures([]); setPlaying(false); setSearched(false);
     const destination = workspaceHref(navigate ? "/observations" : window.location.pathname, position, opts, id);
     if (navigate) router.push(destination);

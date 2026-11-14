@@ -41,22 +41,28 @@ test("visualization fixture is self-contained, labeled, typed, and internally bo
   assert.deepEqual(Object.keys(MODE_EXPLANATIONS).sort(), ["bands", "image", "space", "spectrum", "time"]);
 });
 
-test("Visualization page renders every mode, demo warning, learning and scientific limitations", () => {
+test("Learning lab renders its five real-data views, location controls and honest limits", () => {
   const Workspace = workspaceComponent();
   const html = renderToStaticMarkup(createElement(Workspace));
-  for (const label of ["3D space", "Spectrum", "Image", "Bands", "Timeline"]) assert.match(html, new RegExp(label));
+  for (const label of ["3D stars", "Wavelengths", "Image", "Bands", "Timeline"]) assert.match(html, new RegExp(label));
   assert.doesNotMatch(html, /Sky map/);
-  assert.match(html, /DATA MODES/);
-  assert.match(html, /3D, spectrum, image, bands and timeline views use illustrative demo data/);
-  assert.match(html, /Turn on learning mode/);
-  assert.match(html, /Start guided exploration/);
+  assert.match(html, /YOUR LOCATION/);
+  assert.match(html, /Go to RA\/Dec/);
+  assert.match(html, /My last Explorer spot/);
+  assert.match(html, /REAL DATA/);
+  assert.match(html, /Turn on learning tips/);
   assert.doesNotMatch(html, /Planet X discovery|validated moving object/i);
 });
 
-test("the coordinate sky map was removed from the Learning lab", () => {
+test("Learning lab uses real archive endpoints and the Explorer's last location, never the demo fixture", () => {
   const source = readFileSync(new URL("../components/visualization-workspace.tsx", import.meta.url), "utf8");
-  assert.match(source, /DEMO_DATA_NOTICE/);
-  assert.doesNotMatch(source, /\/api\/sky-objects|CoordinateSkyView/);
+  assert.match(source, /\/api\/search/);
+  assert.match(source, /\/api\/gaia-stars/);
+  assert.match(source, /skytrace\.last-location/);
+  assert.match(source, /not measured yet/);
+  assert.doesNotMatch(source, /DEMO_SOURCES|DEMO_SPECTRUM|DEMO_IMAGE_PIXELS|\/api\/sky-objects|CoordinateSkyView/);
+  const explorer = readFileSync(new URL("../components/explorer.tsx", import.meta.url), "utf8");
+  assert.match(explorer, /localStorage\.setItem\("skytrace\.last-location"/);
 });
 
 test("Visualization is the active product tab and the ML dashboard link is removed", () => {

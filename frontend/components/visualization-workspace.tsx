@@ -1,161 +1,211 @@
 "use client";
-
+// Learning lab on REAL data for one sky location: the last place explored in the Explorer, typed RA/Dec,
+// or a demo target. Views: 3D stars (Gaia DR3 parallaxes via NASA IRSA), wavelength coverage, the real
+// SPHEREx image, the same spot in all six detectors, and the real visit timeline. Nothing is simulated.
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Brand } from "./brand";
-import { DEMO_DATA_NOTICE, DEMO_IMAGE_PIXELS, DEMO_OBSERVATIONS, DEMO_SOURCES, DEMO_SPECTRUM, MODE_EXPLANATIONS, type DemoSource, type VisualizationMode } from "../lib/visualization-model";
+import { API_BASE, errorMessage, getJson } from "../lib/api";
+import { groupVisits } from "../lib/observations";
+import type { Observation, Target } from "../lib/types";
 import "./visualization-workspace.css";
 
-const MODES: { id: VisualizationMode; label: string; icon: string }[] = [
-  { id: "space", label: "3D space", icon: "◉" },
-  { id: "spectrum", label: "Spectrum", icon: "⌁" }, { id: "image", label: "Image", icon: "▧" },
-  { id: "bands", label: "Bands", icon: "◫" }, { id: "time", label: "Timeline", icon: "◷" },
+type Mode = "space" | "spectrum" | "image" | "bands" | "time";
+const MODES: { id: Mode; label: string; icon: string }[] = [
+  { id: "space", label: "3D stars", icon: "◉" }, { id: "spectrum", label: "Wavelengths", icon: "⌁" },
+  { id: "image", label: "Image", icon: "▧" }, { id: "bands", label: "Bands", icon: "◫" }, { id: "time", label: "Timeline", icon: "◷" },
 ];
-const IMAGE_SIDE = DEMO_IMAGE_PIXELS.length;
+const BANDS = ["D1", "D2", "D3", "D4", "D5", "D6"];
+const BAND_COLORS: Record<string, string> = { D1: "#5b8def", D2: "#45b7d1", D3: "#5fcf8a", D4: "#f2c14e", D5: "#f08a4b", D6: "#e5484d" };
+const BAND_RANGE: Record<string, [number, number]> = { D1: [0.75, 1.09], D2: [1.10, 1.62], D3: [1.63, 2.41], D4: [2.42, 3.82], D5: [3.83, 4.41], D6: [4.42, 5.00] };
+const LAST_KEY = "skytrace.last-location";
+const EXPLAIN: Record<Mode, { title: string; what: string; unit: string; use: string; not: string; source: string }> = {
+  space: { title: "Real stars around this spot, at their real distances", what: "Each sphere is a Gaia DR3 star within 0.25° of the location, placed by its sky position and its distance from parallax (only stars with a well-measured parallax).", unit: "Sideways: degrees on the sky. Depth: distance in light-years (log scale).", use: "It shows that stars that look side by side on a picture can be very far apart in depth.", not: "SPHEREx does not measure distances; these come from ESA’s Gaia mission. Faint stars without a good parallax are left out.", source: "Gaia DR3 (ESA) via NASA/IPAC IRSA TAP" },
+  spectrum: { title: "Which infrared colours SPHEREx recorded here", what: "Each bar is one of SPHEREx’s six detectors: the infrared range it covers, and how many real images of this spot it took.", unit: "Wavelength in micrometres (µm). Our eyes see 0.4–0.7 µm.", use: "SPHEREx splits the sky into 102 infrared colours; this shows which ones exist for your location.", not: "Brightness at each wavelength (a real spectrum) is not measured yet: that needs photometry on every image.", source: "NASA SPHEREx images found by SKYTRACE’s archive search (NASA/IPAC IRSA)" },
+  image: { title: "A real SPHEREx picture of this spot", what: "A 300″ cut-out of a real SPHEREx image, rotated north-up. Change the display stretch to bring out faint or bright details.", unit: "Display brightness from calibrated surface brightness (MJy/sr), with zodiacal light removed.", use: "Stretching changes what you can see without changing the data.", not: "A display stretch is not a measurement; do not read brightness off the colours.", source: "NASA SPHEREx Level 2 images (DR1 + QR3) via NASA/IPAC IRSA" },
+  bands: { title: "The same spot in six infrared colours", what: "One real image per detector, D1 (shortest wavelength) to D6 (longest), all centred on your location.", unit: "Each detector covers a different range of infrared wavelengths.", use: "Some objects shine more at short wavelengths, others at long ones: comparing bands hints at temperature and dust.", not: "Images can be from different days; a difference between bands is not proof of a change in time.", source: "NASA SPHEREx Level 2 images via NASA/IPAC IRSA" },
+  time: { title: "When SPHEREx came back to this spot", what: "Each card is one real visit: its dates, how many images it took, and one picture from it.", unit: "UTC dates; a visit groups images less than 30 days apart.", use: "Comparing visits months apart is how slow movers and changing stars are found.", not: "Visits alone do not show a change; compare them in the Explorer’s blink and difference views.", source: "NASA SPHEREx archive search via NASA/IPAC IRSA" },
+};
 
+type Place = { ra: number; dec: number; name: string; targetId: string | null; start: string | null; end: string | null };
+type Star = { source_id: string; ra: number; dec: number; distance_ly: number; parallax_mas: number; g_mag: number | null; bp_rp: number | null };
+const imgSrc = (o: Observation, p: Place, stretch = "asinh", size = 300) => `${API_BASE}${o.image_url}?${new URLSearchParams({ ra: String(p.ra), dec: String(p.dec), size: String(size), stretch })}`;
+const day = (iso: string) => iso.slice(0, 10);
+// Gaia BP-RP colour → the star's real tint: hot stars blue-white, Sun-like yellow-white, cool stars orange-red.
+const starColor = (bpRp: number | null) => { const c = bpRp ?? 0.8; return c < 0.3 ? "#9db4ff" : c < 0.6 ? "#cad8ff" : c < 0.9 ? "#f8f4e8" : c < 1.3 ? "#ffe2a8" : c < 2 ? "#ffbf7a" : "#ff9a60"; };
+
+// ---------- 3D: real Gaia stars ----------
 type Camera = { yaw: number; pitch: number; zoom: number; panX: number; panY: number };
-type Projected = { source: DemoSource; x: number; y: number; radius: number; depth: number };
-const INITIAL_CAMERA: Camera = { yaw: -0.38, pitch: 0.18, zoom: 1, panX: 0, panY: 0 };
-
-function project3d(source: DemoSource, camera: Camera, width: number, height: number): Projected {
-  const ra = source.raDeg * Math.PI / 180; const dec = source.decDeg * Math.PI / 180;
-  const r = 1.2 + source.distanceLy / 82;
-  let x = Math.cos(dec) * Math.sin(ra) * r;
-  let y = Math.sin(dec) * r;
-  let z = Math.cos(dec) * Math.cos(ra) * r;
-  const cy = Math.cos(camera.yaw); const sy = Math.sin(camera.yaw);
-  [x, z] = [x * cy - z * sy, x * sy + z * cy];
-  const cp = Math.cos(camera.pitch); const sp = Math.sin(camera.pitch);
-  [y, z] = [y * cp - z * sp, y * sp + z * cp];
-  const perspective = 4.6 / (4.6 + z);
-  const scale = Math.min(width, height) * 0.27 * camera.zoom;
-  return { source, x: width / 2 + camera.panX + x * scale * perspective, y: height / 2 + camera.panY - y * scale * perspective, radius: Math.max(4, source.radius * perspective * camera.zoom * 4.2), depth: z };
-}
-
-function SpaceScene({ selected, onSelect, onSelectSource }: { selected: string; onSelect: (id: string) => void; onSelectSource: (source: DemoSource) => void }) {
+const INITIAL_CAMERA: Camera = { yaw: -0.5, pitch: 0.25, zoom: 1, panX: 0, panY: 0 };
+function SpaceScene({ place, stars, selected, onSelect }: { place: Place; stars: Star[]; selected: Star | null; onSelect: (s: Star) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null); const drag = useRef<{ x: number; y: number; camera: Camera } | null>(null);
-  const projected = useRef<Projected[]>([]);
-  const [camera, setCamera] = useState(INITIAL_CAMERA);
-  const [layers, setLayers] = useState({ stars: true, paths: true, labels: true });
+  const projected = useRef<{ star: Star; x: number; y: number; r: number }[]>([]);
+  const [camera, setCamera] = useState(INITIAL_CAMERA); const [labels, setLabels] = useState(true);
+  const dMin = Math.log10(Math.max(1, Math.min(...stars.map(s => s.distance_ly)))), dMax = Math.log10(Math.max(10, ...stars.map(s => s.distance_ly)));
   const draw = useCallback(() => {
     const canvas = canvasRef.current; if (!canvas) return;
     const rect = canvas.getBoundingClientRect(); const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = Math.round(rect.width * dpr); canvas.height = Math.round(rect.height * dpr);
     const ctx = canvas.getContext("2d"); if (!ctx) return; ctx.scale(dpr, dpr);
-    const w = rect.width; const h = rect.height;
-    const bg = ctx.createRadialGradient(w * .52, h * .48, 5, w * .52, h * .48, Math.max(w, h) * .78);
-    bg.addColorStop(0, "#101a32"); bg.addColorStop(.55, "#080e1c"); bg.addColorStop(1, "#040710"); ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
-    if (layers.stars) {
-      for (let i = 0; i < 170; i++) {
-        const x = ((i * 97.31) % 997) / 997 * w; const y = ((i * 233.17) % 991) / 991 * h;
-        const radius = i % 19 === 0 ? 1.35 : .55; ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = i % 6 === 0 ? "rgba(181,194,255,.72)" : "rgba(231,238,255,.55)"; ctx.fill();
-      }
+    const w = rect.width, h = rect.height, cosd = Math.cos(place.dec * Math.PI / 180);
+    ctx.fillStyle = "#070d1f"; ctx.fillRect(0, 0, w, h);
+    const S = Math.min(w, h) * 0.38 * camera.zoom;
+    const proj = (x: number, y: number, z: number) => {
+      const cy = Math.cos(camera.yaw), sy = Math.sin(camera.yaw); [x, z] = [x * cy - z * sy, x * sy + z * cy];
+      const cp = Math.cos(camera.pitch), sp = Math.sin(camera.pitch); [y, z] = [y * cp - z * sp, y * sp + z * cp];
+      const k = 3.2 / (3.2 + z); return { x: w / 2 + camera.panX + x * S * k, y: h / 2 + camera.panY - y * S * k, k, z };
+    };
+    // Depth axis: from us (front) to the farthest star, with distance ticks.
+    const zOf = (ly: number) => dMax > dMin ? ((Math.log10(ly) - dMin) / (dMax - dMin)) * 2 - 1 : 0;
+    ctx.strokeStyle = "#3a506b"; ctx.lineWidth = 1; ctx.setLineDash([3, 6]);
+    const a = proj(0, 0, -1.2), b = proj(0, 0, 1.2); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = "#9fb3c4"; ctx.font = "11px DM Sans, sans-serif";
+    for (const ly of [10, 100, 1000, 10000, 100000]) { if (Math.log10(ly) < dMin - 0.2 || Math.log10(ly) > dMax + 0.2) continue; const p = proj(0, 0, zOf(ly)); ctx.fillText(`${ly.toLocaleString()} ly`, p.x + 6, p.y); }
+    const eye = proj(0, 0, -1.25); ctx.fillStyle = "#f4d6b0"; ctx.fillText("YOU (Earth)", eye.x + 6, eye.y + 14);
+    const pts = stars.map(s => {
+      const x = ((s.ra - place.ra + 540) % 360 - 180) * cosd / 0.25, y = (s.dec - place.dec) / 0.25;
+      const p = proj(-x, y, zOf(s.distance_ly)); return { star: s, x: p.x, y: p.y, z: p.z, r: Math.max(2, (14 - (s.g_mag ?? 14)) * 0.9 + 2) * p.k };
+    }).sort((p, q) => q.z - p.z);
+    projected.current = pts;
+    for (const p of pts) {
+      const on = selected?.source_id === p.star.source_id, col = starColor(p.star.bp_rp);
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3.5); g.addColorStop(0, col); g.addColorStop(1, "#0000");
+      ctx.globalAlpha = 0.5; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 3.5, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      if (on) { ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 6, 0, Math.PI * 2); ctx.stroke(); }
+      if (labels && (on || (p.star.g_mag ?? 99) < 10)) { ctx.fillStyle = on ? "#ffd166" : "#d1dbe3"; ctx.fillText(`${Math.round(p.star.distance_ly).toLocaleString()} ly`, p.x + p.r + 6, p.y + 4); }
     }
-    if (layers.paths) {
-      ctx.beginPath(); ctx.ellipse(w / 2 + camera.panX, h / 2 + camera.panY, w * .31 * camera.zoom, h * .12 * camera.zoom, -.12, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(141,119,199,.28)"; ctx.setLineDash([3, 8]); ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
-    }
-    const points = DEMO_SOURCES.map(source => project3d(source, camera, w, h)).sort((a, b) => b.depth - a.depth); projected.current = points;
-    for (const point of points) {
-      const active = point.source.id === selected; const radius = point.radius * (active ? 1.25 : 1);
-      const glow = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius * 4.5);
-      glow.addColorStop(0, `${point.source.color}a8`); glow.addColorStop(1, `${point.source.color}00`);
-      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(point.x, point.y, radius * 4.5, 0, Math.PI * 2); ctx.fill();
-      const sphere = ctx.createRadialGradient(point.x - radius * .42, point.y - radius * .5, radius * .05, point.x + radius * .25, point.y + radius * .3, radius * 1.7);
-      sphere.addColorStop(0, "#ffffff"); sphere.addColorStop(.2, point.source.color); sphere.addColorStop(1, "#222039");
-      ctx.fillStyle = sphere; ctx.beginPath(); ctx.arc(point.x, point.y, radius, 0, Math.PI * 2); ctx.fill();
-      if (active) { ctx.strokeStyle = "#f5eaff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(point.x, point.y, radius + 4, 0, Math.PI * 2); ctx.stroke(); }
-      if (layers.labels) { ctx.font = "11px DM Sans, sans-serif"; ctx.fillStyle = active ? "#fff" : "#b7c0d7"; ctx.fillText(point.source.name, point.x + radius + 8, point.y + 4); }
-    }
-    ctx.fillStyle = "rgba(226,231,248,.55)"; ctx.font = "10px DM Sans, sans-serif"; ctx.fillText("SIMULATED OBJECTS · DEPTH VIEW", 18, h - 18);
-  }, [camera, layers, selected]);
-  useEffect(() => { draw(); const observer = new ResizeObserver(draw); if (canvasRef.current) observer.observe(canvasRef.current); return () => observer.disconnect(); }, [draw]);
-  const pointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    event.currentTarget.setPointerCapture(event.pointerId); drag.current = { x: event.clientX, y: event.clientY, camera };
-  };
-  const pointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!drag.current) return; const dx = event.clientX - drag.current.x; const dy = event.clientY - drag.current.y; const start = drag.current.camera;
-    if (event.shiftKey || event.button === 1) setCamera({ ...start, panX: start.panX + dx, panY: start.panY + dy });
-    else setCamera({ ...start, yaw: start.yaw + dx * .008, pitch: Math.max(-1.3, Math.min(1.3, start.pitch + dy * .008)) });
-  };
-  const pointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (drag.current) {
-      const distance = Math.hypot(event.clientX - drag.current.x, event.clientY - drag.current.y);
-      if (distance < 5) {
-        const rect = event.currentTarget.getBoundingClientRect(); const hit = [...projected.current].reverse().find(p => Math.hypot(p.x - (event.clientX - rect.left), p.y - (event.clientY - rect.top)) < p.radius + 12);
-        if (hit) { onSelect(hit.source.id); onSelectSource(hit.source); }
-      }
-    }
-    drag.current = null;
-  };
-  const changeZoom = (factor: number) => setCamera(c => ({ ...c, zoom: Math.max(.6, Math.min(2.5, c.zoom * factor)) }));
-  const toggleLayer = (key: keyof typeof layers) => setLayers(v => ({ ...v, [key]: !v[key] }));
-  const perspective = (yaw: number, pitch: number) => setCamera(c => ({ ...c, yaw, pitch }));
-  return <section className="viz-scene-panel" aria-label="Interactive three-dimensional scene">
-    <div className="viz-scene-toolbar"><div><span className="viz-live-dot" /> Simulated local scene <span className="viz-scene-meta">· drag to rotate · shift-drag to pan · scroll to zoom</span></div><div className="viz-perspectives"><button onClick={() => perspective(0, 0)}>Front</button><button onClick={() => perspective(1.4, 0)}>Side</button><button onClick={() => perspective(0, 1.1)}>Top</button><button onClick={() => setCamera(INITIAL_CAMERA)}>Reset</button></div></div>
-    <div className="viz-scene-canvas-wrap"><canvas ref={canvasRef} aria-label="Interactive 3D illustrative space scene. Drag to rotate and select an object." onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onWheel={e => { e.preventDefault(); changeZoom(e.deltaY < 0 ? 1.08 : .92); }} />
-      <div className="viz-canvas-controls"><button aria-label="Zoom in" onClick={() => changeZoom(1.15)}>+</button><button aria-label="Zoom out" onClick={() => changeZoom(.87)}>−</button><button aria-label="Reset camera" onClick={() => setCamera(INITIAL_CAMERA)}>⌂</button></div>
-      <div className="viz-layer-menu">{(["stars", "paths", "labels"] as const).map(key => <label key={key}><input type="checkbox" checked={layers[key]} onChange={() => toggleLayer(key)} />{key === "paths" ? "Guide path" : key[0].toUpperCase() + key.slice(1)}</label>)}</div>
+    ctx.fillStyle = "#9fb3c4"; ctx.fillText("GAIA DR3 STARS · SIDEWAYS = SKY POSITION · DEPTH = DISTANCE (LOG)", 16, h - 16);
+  }, [camera, labels, stars, selected, place, dMin, dMax]);
+  useEffect(() => { draw(); const o = new ResizeObserver(draw); if (canvasRef.current) o.observe(canvasRef.current); return () => o.disconnect(); }, [draw]);
+  const zoom = (f: number) => setCamera(c => ({ ...c, zoom: Math.max(.6, Math.min(3, c.zoom * f)) }));
+  const nearest = [...stars].sort((p, q) => p.distance_ly - q.distance_ly).slice(0, 8);
+  return <section className="viz-scene-panel" aria-label="Real stars around the location in 3D">
+    <div className="viz-scene-toolbar"><div><span className="viz-live-dot" /> {stars.length} real stars <span className="viz-scene-meta">· drag to rotate · shift-drag to pan · scroll to zoom · click a star</span></div><div className="viz-perspectives"><button onClick={() => setCamera(c => ({ ...c, yaw: 0, pitch: 0 }))}>Sky view</button><button onClick={() => setCamera(c => ({ ...c, yaw: 1.45, pitch: 0 }))}>Side (depth)</button><button onClick={() => setCamera(c => ({ ...c, yaw: 0, pitch: 1.2 }))}>Top</button><button onClick={() => setCamera(INITIAL_CAMERA)}>Reset</button></div></div>
+    <div className="viz-scene-canvas-wrap"><canvas ref={canvasRef} aria-label="Real Gaia stars placed by sky position and distance" onWheel={e => { e.preventDefault(); zoom(e.deltaY < 0 ? 1.08 : .92); }}
+      onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); drag.current = { x: e.clientX, y: e.clientY, camera }; }}
+      onPointerMove={e => { if (!drag.current) return; const dx = e.clientX - drag.current.x, dy = e.clientY - drag.current.y, s = drag.current.camera; setCamera(e.shiftKey ? { ...s, panX: s.panX + dx, panY: s.panY + dy } : { ...s, yaw: s.yaw + dx * .008, pitch: Math.max(-1.4, Math.min(1.4, s.pitch + dy * .008)) }); }}
+      onPointerUp={e => { if (drag.current && Math.hypot(e.clientX - drag.current.x, e.clientY - drag.current.y) < 5) { const r = e.currentTarget.getBoundingClientRect(); const hit = [...projected.current].reverse().find(p => Math.hypot(p.x - (e.clientX - r.left), p.y - (e.clientY - r.top)) < p.r + 10); if (hit) onSelect(hit.star); } drag.current = null; }} />
+      <div className="viz-canvas-controls"><button aria-label="Zoom in" onClick={() => zoom(1.15)}>+</button><button aria-label="Zoom out" onClick={() => zoom(.87)}>−</button><button aria-label="Reset camera" onClick={() => setCamera(INITIAL_CAMERA)}>⌂</button></div>
+      <div className="viz-layer-menu"><label><input type="checkbox" checked={labels} onChange={() => setLabels(v => !v)} />Distance labels</label></div>
     </div>
-    <div className="viz-object-strip">{DEMO_SOURCES.map(source => <button key={source.id} className={source.id === selected ? "active" : ""} onClick={() => { onSelect(source.id); onSelectSource(source); }}><i style={{ background: source.color }} />{source.name}<span>→</span></button>)}</div>
+    <div className="viz-object-strip">{nearest.map(s => <button key={s.source_id} className={selected?.source_id === s.source_id ? "active" : ""} onClick={() => onSelect(s)}><i style={{ background: starColor(s.bp_rp) }} />{Math.round(s.distance_ly).toLocaleString()} ly<span>G {s.g_mag?.toFixed(1) ?? "—"}</span></button>)}</div>
   </section>;
 }
 
-function Spectrum({ onSelect }: { onSelect: (index: number) => void }) {
-  const [hovered, setHovered] = useState<number | null>(null); const [zoom, setZoom] = useState(1); const [panX, setPanX] = useState(0); const [index, setIndex] = useState(3);
-  const selected = hovered ?? index; const left = 82; const right = 775; const top = 42; const bottom = 405;
-  const point = (i: number) => ({ x: left + panX + (DEMO_SPECTRUM[i]!.wavelengthUm - .5) / 4.3 * right / zoom, y: bottom - DEMO_SPECTRUM[i]!.flux / 10 * (bottom - top) });
-  return <section className="viz-chart-panel"><div className="viz-chart-top"><div><strong>Illustrative source spectrum</strong><small>Hover or select a point to inspect the sample value.</small></div><div className="viz-chart-controls"><button aria-label="Pan spectrum left" onClick={() => setPanX(v => v - 28)}>← Pan</button><button aria-label="Pan spectrum right" onClick={() => setPanX(v => v + 28)}>Pan →</button><button onClick={() => setZoom(v => Math.min(1.8, v * 1.15))}>Zoom +</button><button onClick={() => setZoom(v => Math.max(.7, v / 1.15))}>Zoom −</button><button onClick={() => { setZoom(1); setPanX(0); }}>Reset</button></div></div>
-    <svg viewBox="0 0 900 480" className="viz-spectrum" role="img" aria-label="Interactive illustrative spectrum plot">
-      {[0, 2, 4, 6, 8, 10].map(y => <g key={y}><line x1={left} y1={bottom - y / 10 * (bottom - top)} x2="830" y2={bottom - y / 10 * (bottom - top)} stroke="#ffffff12" /><text x={left - 18} y={bottom - y / 10 * (bottom - top) + 4} textAnchor="end">{y}</text></g>)}
-      {DEMO_SPECTRUM.map((d, i) => { const p = point(i); const err = d.uncertainty / 10 * (bottom - top); return <g key={d.wavelengthUm} className="viz-spectrum-point" onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} onClick={() => { setIndex(i); onSelect(i); }} role="button" tabIndex={0} aria-label={`Select ${d.wavelengthUm} micrometer point, illustrative flux ${d.flux}`} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { setIndex(i); onSelect(i); } }}><line x1={p.x} x2={p.x} y1={p.y - err} y2={p.y + err} stroke="#d6b7ff" strokeWidth="2"/><line x1={p.x - 5} x2={p.x + 5} y1={p.y - err} y2={p.y - err} stroke="#d6b7ff"/><line x1={p.x - 5} x2={p.x + 5} y1={p.y + err} y2={p.y + err} stroke="#d6b7ff"/><circle cx={p.x} cy={p.y} r={i === selected ? 8 : 5} fill={i === selected ? "#fff" : "#bd83f2"} stroke="#120b20" strokeWidth="2"/></g>; })}
-      <polyline points={DEMO_SPECTRUM.map((_, i) => { const p = point(i); return `${p.x},${p.y}`; }).join(" ")} fill="none" stroke="#ba84fa" strokeWidth="3" />
-      <text x="430" y="462" textAnchor="middle" className="viz-axis-label">Wavelength · μm</text><text transform="translate(24 225) rotate(-90)" textAnchor="middle" className="viz-axis-label">Illustrative flux · arbitrary units</text>
-      {[1, 2, 3, 4, 5].map(x => <text key={x} x={left + (x - .5) / 4.3 * right / zoom} y="430" textAnchor="middle">{x}</text>)}
-    </svg><div className="viz-selected-measure"><b>{DEMO_SPECTRUM[selected]!.wavelengthUm.toFixed(1)} μm</b><span>Flux {DEMO_SPECTRUM[selected]!.flux.toFixed(1)} ± {DEMO_SPECTRUM[selected]!.uncertainty.toFixed(2)} demo units</span><small>Illustrative uncertainty bar only; not a measured uncertainty.</small></div>
-  </section>;
+// ---------- Wavelength coverage (real images per detector) ----------
+function Wavelengths({ observations }: { observations: Observation[] }) {
+  const rows = BANDS.map(b => ({ band: b, n: observations.filter(o => o.band === b).length, range: observations.find(o => o.band === b)?.wavelength_range_um ?? BAND_RANGE[b] }));
+  const W = 900, x = (um: number) => 80 + (um - 0.3) / (5.2 - 0.3) * (W - 120), max = Math.max(1, ...rows.map(r => r.n));
+  return <section className="viz-chart-panel"><div className="viz-chart-top"><div><strong>Infrared colours recorded at this spot</strong><small>{observations.length} real SPHEREx images · bar height = number of images per detector</small></div></div>
+    <svg viewBox={`0 0 ${W} 440`} className="viz-spectrum" role="img" aria-label="Wavelength range and number of images for each SPHEREx detector">
+      <rect x={x(0.4)} y={40} width={x(0.7) - x(0.4)} height={330} fill="#ffffff10" /><text x={(x(0.4) + x(0.7)) / 2} y={30} textAnchor="middle">eye</text>
+      {rows.map(r => { const h = r.n / max * 300; return <g key={r.band}><rect x={x(r.range[0])} y={370 - h} width={Math.max(4, x(r.range[1]) - x(r.range[0]) - 4)} height={h} rx={4} fill={BAND_COLORS[r.band]} opacity={r.n ? 1 : .15}><title>{`${r.band}: ${r.range[0].toFixed(2)}–${r.range[1].toFixed(2)} µm, ${r.n} images`}</title></rect><text x={(x(r.range[0]) + x(r.range[1])) / 2} y={362 - h} textAnchor="middle">{r.n}</text><text x={(x(r.range[0]) + x(r.range[1])) / 2} y={392} textAnchor="middle" className="viz-axis-label">{r.band}</text></g>; })}
+      {[1, 2, 3, 4, 5].map(u => <text key={u} x={x(u)} y={425} textAnchor="middle">{u} µm</text>)}
+    </svg><p className="viz-inline-note">Brightness per colour (a true spectrum) is not measured yet: it needs photometry on every image.</p></section>;
 }
 
-function ImageView() {
-  const canvasRef = useRef<HTMLCanvasElement>(null); const dragging = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null); const [stretch, setStretch] = useState<"linear" | "sqrt" | "log">("sqrt"); const [pixel, setPixel] = useState<{ x: number; y: number; value: number } | null>(null); const [zoom, setZoom] = useState(1); const [pan, setPan] = useState({ x: 0, y: 0 });
-  useEffect(() => { const canvas = canvasRef.current; const ctx = canvas?.getContext("2d"); if (!canvas || !ctx) return; const cell = 8; const max = Math.max(...DEMO_IMAGE_PIXELS.flat()); ctx.clearRect(0, 0, canvas.width, canvas.height); DEMO_IMAGE_PIXELS.forEach((row, y) => row.forEach((value, x) => { const normalized = Math.min(1, value / max); const mapped = stretch === "linear" ? normalized : stretch === "sqrt" ? Math.sqrt(normalized) : Math.log1p(normalized * 9) / Math.log(10); const hue = 220 - mapped * 140; ctx.fillStyle = `hsl(${hue} 78% ${7 + mapped * 64}%)`; ctx.fillRect(x * cell, y * cell, cell + 1, cell + 1); })); }, [stretch]);
-  return <section className="viz-image-panel"><div className="viz-image-top"><div><strong>Demo detector frame</strong><small>Generated pixel field · no source image loaded</small></div><div className="viz-image-tools"><label>Display stretch<select value={stretch} onChange={e => setStretch(e.target.value as typeof stretch)}><option value="linear">Linear</option><option value="sqrt">Square root</option><option value="log">Logarithmic</option></select></label><button onClick={() => setZoom(v => Math.min(2.4, v * 1.2))}>Zoom +</button><button onClick={() => setZoom(v => Math.max(.8, v / 1.2))}>Zoom −</button><button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>Reset</button></div></div>
-    <div className="viz-image-wrap" onPointerMove={e => { if (dragging.current) setPan({ x: dragging.current.panX + e.clientX - dragging.current.x, y: dragging.current.panY + e.clientY - dragging.current.y }); }}><canvas ref={canvasRef} width="384" height="384" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }} onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); dragging.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y }; }} onPointerUp={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); dragging.current = null; }} onMouseMove={e => { const rect = e.currentTarget.getBoundingClientRect(); const x = Math.max(0, Math.min(47, Math.floor((e.clientX - rect.left) / rect.width * IMAGE_SIDE))); const y = Math.max(0, Math.min(47, Math.floor((e.clientY - rect.top) / rect.height * IMAGE_SIDE))); setPixel({ x, y, value: DEMO_IMAGE_PIXELS[y]![x]! }); }} onMouseLeave={() => setPixel(null)} aria-label="Illustrative image with pixel hover values" />
-      <div className="viz-colorbar"><span>High</span><i /><span>Low</span></div></div><div className="viz-pixel-readout">{pixel ? <>Pixel x {pixel.x}, y {pixel.y} · value {pixel.value.toFixed(2)} demo units</> : "Move over the image to inspect a pixel"}</div>
-  </section>;
+// ---------- One real image, with display stretch ----------
+function ImageView({ place, observations }: { place: Place; observations: Observation[] }) {
+  const bands = BANDS.filter(b => observations.some(o => o.band === b));
+  const [band, setBand] = useState(bands[0] ?? "D1"); const [stretch, setStretch] = useState("asinh"); const [zoom, setZoom] = useState(1); const [state, setState] = useState<"loading" | "ok" | "error">("loading");
+  useEffect(() => { if (!bands.includes(band) && bands[0]) setBand(bands[0]); }, [bands, band]);
+  const obs = [...observations].filter(o => o.band === band).sort((a, b) => b.obs_time.localeCompare(a.obs_time))[0];
+  const src = obs ? imgSrc(obs, place, stretch) : "";
+  useEffect(() => { setState("loading"); }, [src]);
+  return <section className="viz-image-panel"><div className="viz-image-top"><div><strong>{obs ? `${obs.band} · ${obs.obs_time.replace("T", " ").slice(0, 16)} UTC · ${obs.release}` : "No image"}</strong><small>{obs?.source_file ?? ""}</small></div><div className="viz-image-tools"><label>Detector<select value={band} onChange={e => setBand(e.target.value)}>{bands.map(b => <option key={b}>{b}</option>)}</select></label><label>Display stretch<select value={stretch} onChange={e => setStretch(e.target.value)}><option value="asinh">Asinh</option><option value="zscale">Zscale</option><option value="linear">Linear</option></select></label><button onClick={() => setZoom(v => Math.min(3, v * 1.25))}>Zoom +</button><button onClick={() => setZoom(v => Math.max(1, v / 1.25))}>Zoom −</button></div></div>
+    <div className="viz-image-wrap">{obs && <img key={src} src={src} alt={`Real SPHEREx image, ${obs.band}, ${day(obs.obs_time)}`} onLoad={() => setState("ok")} onError={() => setState("error")} style={{ width: "100%", height: "100%", objectFit: "contain", imageRendering: "pixelated", transform: `scale(${zoom})`, transition: "transform .15s" }} />}
+      {state !== "ok" && <p className="viz-pixel-readout" style={{ position: "absolute" }}>{state === "loading" ? "Loading the real image from the NASA archive… (5–30 s the first time)" : "The image could not be loaded. Try another detector."}</p>}</div>
+    <div className="viz-pixel-readout">North up · east left · 300″ across (about 49 SPHEREx pixels)</div></section>;
 }
 
-function BandCompare({ active }: { active: string }) {
-  const [split, setSplit] = useState(50);
-  return <section className="viz-band-panel"><div className="viz-band-intro"><div><strong>Compare illustrative infrared bands</strong><small>Brightness values are demo units, not calibrated flux.</small></div><label>Swipe comparison<input type="range" min="15" max="85" value={split} onChange={e => setSplit(Number(e.target.value))} aria-label="Adjust band comparison divider" /></label></div><div className="viz-band-grid">{DEMO_OBSERVATIONS.map((obs, i) => <article key={obs.id} className={obs.id === active ? "selected" : ""}><div className="viz-band-art" style={{ "--band-tone": obs.tone, "--band-size": `${32 + obs.value * 2}px` } as React.CSSProperties}><div className="viz-band-wipe" style={{ width: `${split}%` }} /><span>DEMO {i + 1}</span></div><strong>{obs.band}</strong><small>Illustrative brightness {obs.value.toFixed(1)} units</small></article>)}</div><p className="viz-inline-note">Real multi-band comparison requires compatible observations, verified timestamps, and calibrated measurements.</p></section>;
+// ---------- The same spot in all detectors ----------
+function BandCompare({ place, observations }: { place: Place; observations: Observation[] }) {
+  // Prefer the visit that has the most detectors, so the six images are close in time.
+  const visit = groupVisits(observations).sort((a, b) => new Set(b.map(o => o.band)).size - new Set(a.map(o => o.band)).size)[0] ?? [];
+  const per = BANDS.map(b => ({ band: b, obs: visit.find(o => o.band === b) ?? observations.find(o => o.band === b) }));
+  return <section className="viz-band-panel"><div className="viz-band-intro"><div><strong>The same spot through six infrared detectors</strong><small>{visit[0] ? `Mostly from the visit of ${day(visit[0].obs_time)}` : ""} · each image centred on your location</small></div></div>
+    <div className="viz-band-grid">{per.map(({ band, obs }) => <article key={band}>{obs ? <img src={imgSrc(obs, place)} alt={`Real SPHEREx image in ${band}`} style={{ width: "100%", aspectRatio: "1", objectFit: "contain", imageRendering: "pixelated", borderRadius: 6, background: "#050812" }} /> : <div className="viz-band-art" style={{ height: 160 }}><span>NO {band} IMAGE HERE</span></div>}
+      <strong style={{ color: BAND_COLORS[band] }}>{band} · {BAND_RANGE[band][0]}–{BAND_RANGE[band][1]} µm</strong><small>{obs ? `${day(obs.obs_time)} · ${obs.release}` : "not observed here"}</small></article>)}</div>
+    <p className="viz-inline-note">Each picture is scaled on its own, so compare shapes and which objects appear, not absolute brightness.</p></section>;
 }
 
-function TimeCompare({ active, onSelect }: { active: string; onSelect: (id: string) => void }) {
-  const selected = DEMO_OBSERVATIONS.find(obs => obs.id === active) ?? DEMO_OBSERVATIONS[0]!;
-  return <section className="viz-time-panel"><div className="viz-time-header"><div><strong>Observation timeline</strong><small>Three illustrative snapshots · no real exposure times</small></div><span>{selected.time}</span></div><div className="viz-timeline">{DEMO_OBSERVATIONS.map((obs, i) => <button key={obs.id} className={obs.id === active ? "active" : ""} onClick={() => onSelect(obs.id)}><span className="viz-time-dot" style={{ background: obs.tone }} /><b>{obs.time}</b><small>{obs.band}</small><i style={{ height: `${24 + obs.value * 13}px`, background: `linear-gradient(${obs.tone},#7863ac33)` }} /><em>Frame {i + 1}</em></button>)}</div><div className="viz-time-description"><b>{selected.band}</b><span>Demo brightness {selected.value.toFixed(1)} arbitrary units</span><p>This control changes which illustrative snapshot is highlighted. It does not show real time evolution or source motion.</p></div></section>;
+// ---------- Real visits ----------
+function TimeCompare({ place, observations }: { place: Place; observations: Observation[] }) {
+  const visits = groupVisits(observations); const [active, setActive] = useState(0);
+  const v = visits[Math.min(active, visits.length - 1)] ?? [];
+  const band = (o: Observation[]) => BANDS.find(b => o.some(x => x.band === b));
+  const pick = (o: Observation[]) => o.find(x => x.band === band(o));
+  const shown = pick(v);
+  return <section className="viz-time-panel"><div className="viz-time-header"><div><strong>{visits.length} real visits to this spot</strong><small>{observations.length} images in all · a visit groups images under 30 days apart</small></div><span>{v[0] ? `${day(v[0].obs_time)} → ${day(v[v.length - 1].obs_time)}` : ""}</span></div>
+    <div className="viz-timeline" style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(visits.length, 4))}, 1fr)` }}>{visits.map((g, i) => <button key={g[0].id} className={i === active ? "active" : ""} onClick={() => setActive(i)}><span className="viz-time-dot" style={{ background: "#5bc0de" }} /><b>Visit {i + 1}</b><small>{new Date(g[0].obs_time).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" })}</small><em>{g.length} images · {new Set(g.map(o => o.band)).size} detectors</em></button>)}</div>
+    {shown && <div className="viz-time-description"><img src={imgSrc(shown, place)} alt={`Real SPHEREx image from visit ${active + 1}`} style={{ width: 220, height: 220, objectFit: "contain", imageRendering: "pixelated", borderRadius: 8, background: "#050812" }} /><div><b>Visit {Math.min(active, visits.length - 1) + 1}</b><span> · {shown.band} · {shown.obs_time.replace("T", " ").slice(0, 16)} UTC · {shown.release}</span><p>To see what changed between visits, open these dates in the Explorer and use blink or difference.</p></div></div>}</section>;
 }
 
 export function VisualizationWorkspace() {
-  const [mode, setMode] = useState<VisualizationMode>("space"); const [selected, setSelected] = useState(DEMO_SOURCES[0]!.id);
-  const [selectedSource, setSelectedSource] = useState(DEMO_SOURCES[0]!); const [educational, setEducational] = useState(false);
-  const [selectedObservation, setSelectedObservation] = useState(DEMO_OBSERVATIONS[0]!.id); const [spectrumIndex, setSpectrumIndex] = useState(3); const [guided, setGuided] = useState(false); const [guideStep, setGuideStep] = useState(0);
-  const explanation = MODE_EXPLANATIONS[mode];
-  const guide = useMemo(() => ["Open the 3D learning scene to explore an illustration.", "Use RA and Dec to describe a direction on the sky.", "Try spectrum, image, bands and timeline examples; those views use illustrative data."], []);
-  const nextSource = (delta: number) => { const index = DEMO_SOURCES.findIndex(item => item.id === selectedSource.id); const source = DEMO_SOURCES[(index + delta + DEMO_SOURCES.length) % DEMO_SOURCES.length]!; setSelected(source.id); setSelectedSource(source); };
+  const [mode, setMode] = useState<Mode>("space");
+  const [targets, setTargets] = useState<Target[]>([]);
+  const [place, setPlace] = useState<Place | null>(null);
+  const [raIn, setRaIn] = useState(""), [decIn, setDecIn] = useState("");
+  const [observations, setObservations] = useState<Observation[]>([]);
+  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle"); const [error, setError] = useState("");
+  const [stars, setStars] = useState<Star[] | null>(null); const [starsError, setStarsError] = useState(""); const [selectedStar, setSelectedStar] = useState<Star | null>(null);
+  const [educational, setEducational] = useState(false);
+  const fromTarget = (t: Target): Place => ({ ra: t.ra, dec: t.dec, name: t.name, targetId: t.id, start: t.search_start ?? null, end: t.search_end ?? null });
+
+  // Start: ?ra&dec (shared link) → the last place explored in the Explorer → Mira.
+  useEffect(() => {
+    const c = new AbortController();
+    getJson<{ targets: Target[] }>("/api/targets", c.signal).then(({ targets }) => {
+      setTargets(targets);
+      const q = new URLSearchParams(window.location.search); const byId = (id: string | null) => targets.find(t => t.id === id);
+      let last: { ra: number; dec: number; targetId: string | null; start: string | null; end: string | null } | null = null;
+      try { last = JSON.parse(localStorage.getItem(LAST_KEY) ?? "null"); } catch { last = null; }
+      if (q.has("ra") && q.has("dec")) { const t = byId(q.get("target")); setPlace({ ra: Number(q.get("ra")), dec: Number(q.get("dec")), name: t?.name ?? "Shared location", targetId: t?.id ?? null, start: q.get("start") ?? t?.search_start ?? null, end: q.get("end") ?? t?.search_end ?? null }); }
+      else if (last && Number.isFinite(last.ra) && Number.isFinite(last.dec)) { const t = byId(last.targetId); setPlace({ ra: last.ra, dec: last.dec, name: t?.name ?? "Your last Explorer location", targetId: t?.id ?? null, start: last.start, end: last.end }); }
+      else { const t = byId("mira") ?? targets[0]; if (t) setPlace(fromTarget(t)); }
+    }).catch(e => { setStatus("error"); setError(errorMessage(e)); });
+    return () => c.abort();
+  }, []);
+
+  useEffect(() => {
+    if (!place) return; setRaIn(place.ra.toFixed(5)); setDecIn(place.dec.toFixed(5));
+    const c = new AbortController(); setStatus("loading"); setError(""); setStars(null); setStarsError(""); setSelectedStar(null);
+    const q = new URLSearchParams({ ra: String(place.ra), dec: String(place.dec) }); if (place.start) q.set("start", place.start); if (place.end) q.set("end", place.end);
+    getJson<{ observations: Observation[] }>(`/api/search?${q}`, c.signal).then(d => { setObservations(d.observations); setStatus("ready"); }).catch(e => { if (!c.signal.aborted) { setStatus("error"); setError(errorMessage(e)); } });
+    getJson<{ stars: Star[] }>(`/api/gaia-stars?${new URLSearchParams({ ra: String(place.ra), dec: String(place.dec), radius: "0.25" })}`, c.signal).then(d => { setStars(d.stars); setSelectedStar([...d.stars].sort((a, b) => a.distance_ly - b.distance_ly)[0] ?? null); }).catch(e => { if (!c.signal.aborted) setStarsError(errorMessage(e)); });
+    return () => c.abort();
+  }, [place]);
+
+  const goTo = () => { const ra = Number(raIn), dec = Number(decIn); if (Number.isFinite(ra) && ra >= 0 && ra < 360 && Number.isFinite(dec) && dec >= -90 && dec <= 90) setPlace({ ra, dec, name: `RA ${ra.toFixed(3)}°, Dec ${dec.toFixed(3)}°`, targetId: null, start: null, end: null }); else setError("Enter RA from 0 to 360 and Dec from −90 to 90 degrees."); };
+  const useLast = () => { try { const l = JSON.parse(localStorage.getItem(LAST_KEY) ?? "null"); if (l) { const t = targets.find(x => x.id === l.targetId); setPlace({ ra: l.ra, dec: l.dec, name: t?.name ?? "Your last Explorer location", targetId: t?.id ?? null, start: l.start, end: l.end }); } else setError("No Explorer location yet: search one in the Explorer first."); } catch { setError("Browser storage is unavailable."); } };
+  const ex = EXPLAIN[mode];
+  const explorerHref = place ? `/observations?ra=${place.ra}&dec=${place.dec}${place.targetId ? `&target=${place.targetId}` : ""}` : "/explore";
+  const ready = status === "ready" && place;
+
   return <main className="viz-page">
-    <header className="viz-header"><Brand /><nav aria-label="Main navigation"><Link href="/">Home</Link><Link href="/explore">Explorer</Link><Link href="/visualization" aria-current="page">Visualization</Link></nav><span className="viz-dataset-tag"><i /> {DEMO_DATA_NOTICE}</span></header>
-    <section className="viz-page-title"><div><p className="viz-kicker">A SPACE YOU CAN EXPLORE</p><h1>See the data.<br /><span>Understand the universe.</span></h1><p>Move from a sky position to the measurements behind it. Start with a guided, interactive demo.</p></div><button className={`viz-learn-toggle ${educational ? "on" : ""}`} onClick={() => setEducational(v => !v)}>{educational ? "Learning mode on" : "Turn on learning mode"}<span>✦</span></button></section>
-    {guided && <section className="viz-guide"><div><p className="viz-kicker">GUIDED EXPLORATION · STEP {guideStep + 1} OF {guide.length}</p><p>{guide[guideStep]}</p></div><div><button onClick={() => setGuideStep(v => (v - 1 + guide.length) % guide.length)}>Back</button><button onClick={() => setGuideStep(v => (v + 1) % guide.length)}>Next step →</button><button className="viz-guide-close" onClick={() => setGuided(false)}>Exit</button></div></section>}
-    <div className="viz-workspace"><aside className="viz-side-panel"><div className="viz-side-heading"><span className="viz-side-icon">⌖</span><div><p className="viz-kicker">YOUR WORKSPACE</p><h2>Explore a dataset</h2></div></div><div className="viz-demo-callout"><span>DATA MODES</span><p>{DEMO_DATA_NOTICE}</p><small>3D, spectrum, image, bands and timeline views use illustrative demo data.</small></div><p className="viz-side-label">VISUALIZATION MODE</p><div className="viz-mode-list">{MODES.map(item => <button key={item.id} className={mode === item.id ? "active" : ""} onClick={() => setMode(item.id)} aria-pressed={mode === item.id}><span>{item.icon}</span>{item.label}<i>→</i></button>)}</div><div className="viz-selection-box"><p className="viz-side-label">SELECTED OBJECT</p><div className="viz-selected-name"><i style={{ background: selectedSource.color }} /><strong>{selectedSource.name}</strong></div><p>{selectedSource.description}</p><><div className="viz-coord-pair"><span><small>RA · demo</small>{selectedSource.raDeg.toFixed(1)}°</span><span><small>DEC · demo</small>{selectedSource.decDeg.toFixed(1)}°</span></div><div className="viz-side-actions"><button onClick={() => nextSource(-1)} aria-label="Previous object">← Previous</button><button onClick={() => nextSource(1)}>Next →</button></div></></div><button className="viz-guide-launch" onClick={() => { setGuided(true); setGuideStep(0); }}>▷ Start guided exploration</button><Link className="viz-return-link" href="/explore">Open real SPHEREx Explorer <span>↗</span></Link></aside>
-      <section className="viz-main-panel"><div className="viz-main-heading"><div><p className="viz-kicker">{MODES.find(item => item.id === mode)?.label.toUpperCase()}</p><h2>{mode === "space" ? "Navigate the scene" : mode === "spectrum" ? "Explore a spectrum" : mode === "image" ? "Read an image" : mode === "bands" ? "Compare wavelengths" : "Explore observations over time"}</h2></div><div className="viz-main-actions"><span className="viz-illustrative-chip">Illustrative</span><button onClick={() => { setMode("space"); setSelected(DEMO_SOURCES[0]!.id); setSelectedSource(DEMO_SOURCES[0]!); setSelectedObservation(DEMO_OBSERVATIONS[0]!.id); }}>Reset workspace</button></div></div>
-        {mode === "space" && <SpaceScene selected={selected} onSelect={setSelected} onSelectSource={setSelectedSource} />}
-        {mode === "spectrum" && <Spectrum onSelect={setSpectrumIndex} />}
-        {mode === "image" && <ImageView />}
-        {mode === "bands" && <BandCompare active={selectedObservation} />}
-        {mode === "time" && <TimeCompare active={selectedObservation} onSelect={setSelectedObservation} />}
-        {<section className="viz-explanation"><div className="viz-explanation-mark">i</div><div className="viz-explanation-copy"><div className="viz-explanation-title"><p className="viz-kicker">WHAT THIS VIEW MEANS</p><h3>{explanation.title}</h3></div><div className="viz-explanation-grid"><p><b>What am I looking at?</b>{explanation.what}</p><p><b>Unit</b>{explanation.unit}</p><p><b>Why is it useful?</b>{explanation.use}</p><p><b>What can we conclude?</b>{explanation.conclude}</p><p><b>What can’t we conclude?</b>{explanation.not}</p><p><b>Data source</b>SKYTRACE local visualization fixture · {DEMO_DATA_NOTICE}</p></div>{educational && <div className="viz-learning-tip"><span>✦ A little science</span><p>RA and Dec work like longitude and latitude on the sky. A coordinate tells you a direction; by itself it does not tell you how far away an object is.</p></div>}</div></section>}
+    <section className="viz-page-title"><div><p className="viz-kicker">LEARNING LAB · REAL NASA DATA</p><h1>See the data.<br /><span>Understand the universe.</span></h1><p>Pick a spot in the sky and explore it five ways: real stars in 3D, SPHEREx’s infrared colours, the real image, all six detectors, and every visit.</p></div><button className={`viz-learn-toggle ${educational ? "on" : ""}`} onClick={() => setEducational(v => !v)}>{educational ? "Learning tips on" : "Turn on learning tips"}<span>✦</span></button></section>
+    <div className="viz-workspace"><aside className="viz-side-panel">
+      <div className="viz-side-heading"><span className="viz-side-icon">⌖</span><div><p className="viz-kicker">YOUR LOCATION</p><h2>{place?.name ?? "Loading…"}</h2></div></div>
+      <div className="viz-coord-pair"><label><small>RA (deg)</small><input value={raIn} onChange={e => setRaIn(e.target.value)} inputMode="decimal" aria-label="Right ascension in degrees" /></label><label><small>Dec (deg)</small><input value={decIn} onChange={e => setDecIn(e.target.value)} inputMode="decimal" aria-label="Declination in degrees" /></label></div>
+      <div className="viz-side-actions"><button onClick={goTo}>Go to RA/Dec</button><button onClick={useLast}>My last Explorer spot</button></div>
+      <p className="viz-side-label">OR A DEMO TARGET</p>
+      <select value={place?.targetId ?? ""} onChange={e => { const t = targets.find(x => x.id === e.target.value); if (t) setPlace(fromTarget(t)); }} aria-label="Demo target"><option value="" disabled>Choose a target</option>{targets.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
+      <div className="viz-demo-callout"><span>REAL DATA</span><p>{status === "ready" ? `${observations.length} SPHEREx images · ${stars ? `${stars.length} Gaia stars` : "stars loading…"}` : status === "loading" ? "Searching the NASA archive…" : "—"}</p><small>NASA SPHEREx via IRSA · Gaia DR3 via IRSA</small></div>
+      <p className="viz-side-label">VIEW</p><div className="viz-mode-list">{MODES.map(m => <button key={m.id} className={mode === m.id ? "active" : ""} onClick={() => setMode(m.id)} aria-pressed={mode === m.id}><span>{m.icon}</span>{m.label}<i>→</i></button>)}</div>
+      {mode === "space" && selectedStar && <div className="viz-selection-box"><p className="viz-side-label">SELECTED STAR</p><div className="viz-selected-name"><i style={{ background: starColor(selectedStar.bp_rp) }} /><strong>Gaia DR3 {selectedStar.source_id}</strong></div><p>{Math.round(selectedStar.distance_ly).toLocaleString()} light-years away (parallax {selectedStar.parallax_mas.toFixed(2)} mas) · G magnitude {selectedStar.g_mag?.toFixed(1) ?? "—"}</p></div>}
+      <Link className="viz-return-link" href={explorerHref}>Compare these images in the Explorer <span>↗</span></Link>
+    </aside>
+      <section className="viz-main-panel"><div className="viz-main-heading"><div><p className="viz-kicker">{MODES.find(m => m.id === mode)?.label.toUpperCase()}</p><h2>{ex.title}</h2></div><div className="viz-main-actions"><span className="viz-illustrative-chip">Real data</span></div></div>
+        {(status === "error" || error) && <div className="notice error" role="alert">{error}</div>}
+        {status === "loading" && <p className="viz-inline-note" role="status">Searching the NASA archive for this location… (5–15 s the first time)</p>}
+        {ready && !observations.length && mode !== "space" && <p className="viz-inline-note">SPHEREx has no images here in the data we searched.</p>}
+        {ready && mode === "space" && (stars ? (stars.length ? <SpaceScene place={place} stars={stars} selected={selectedStar} onSelect={setSelectedStar} /> : <p className="viz-inline-note">Gaia has no stars with a precise distance within 0.25° of this spot.</p>) : starsError ? <div className="notice error" role="alert">{starsError}</div> : <p className="viz-inline-note" role="status">Asking Gaia for the stars around this spot… (about 10 s the first time)</p>)}
+        {ready && observations.length > 0 && mode === "spectrum" && <Wavelengths observations={observations} />}
+        {ready && observations.length > 0 && mode === "image" && <ImageView place={place} observations={observations} />}
+        {ready && observations.length > 0 && mode === "bands" && <BandCompare place={place} observations={observations} />}
+        {ready && observations.length > 0 && mode === "time" && <TimeCompare place={place} observations={observations} />}
+        <section className="viz-explanation"><div className="viz-explanation-mark">i</div><div className="viz-explanation-copy"><div className="viz-explanation-title"><p className="viz-kicker">WHAT THIS VIEW MEANS</p><h3>{ex.title}</h3></div><div className="viz-explanation-grid"><p><b>What am I looking at?</b>{ex.what}</p><p><b>Unit</b>{ex.unit}</p><p><b>Why is it useful?</b>{ex.use}</p><p><b>What can’t we conclude?</b>{ex.not}</p><p><b>Data source</b>{ex.source}</p></div>{educational && <div className="viz-learning-tip"><span>✦ A little science</span><p>RA and Dec work like longitude and latitude on the sky. A coordinate gives a direction; the distance of a star comes from its parallax, the tiny yearly wobble Gaia measures as Earth goes around the Sun.</p></div>}</div></section>
       </section>
-    </div><footer className="viz-footer"><span>SKYTRACE · Learn through exploration</span><span>All views use illustrative demo data, not live NASA data.</span><div><button onClick={() => setEducational(v => !v)}>{educational ? "Hide learning tips" : "Show learning tips"}</button>{mode === "spectrum" && <span>Selected sample {spectrumIndex + 1} / {DEMO_SPECTRUM.length}</span>}</div></footer>
+    </div><footer className="viz-footer"><span>SKYTRACE · Learn through exploration</span><span>All views use real data: NASA SPHEREx and Gaia DR3, through NASA/IPAC IRSA.</span><div><button onClick={() => setEducational(v => !v)}>{educational ? "Hide learning tips" : "Show learning tips"}</button></div></footer>
   </main>;
 }
