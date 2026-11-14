@@ -67,6 +67,17 @@ test("coordinate sky view uses catalog API and explains its real-data limits", (
   assert.match(source, /drag to rotate/);
 });
 
+test("the Learning lab receives the dashboard's currently selected coordinates and epoch filters", () => {
+  const dashboard = readFileSync(new URL("../components/data-dashboard.tsx", import.meta.url), "utf8");
+  const page = readFileSync(new URL("../components/visualization-page.tsx", import.meta.url), "utf8");
+  assert.match(dashboard, /onLearningLab\(place\)/);
+  assert.match(page, /place\.point\.ra/);
+  assert.match(page, /place\.point\.dec/);
+  assert.match(page, /place\.start/);
+  assert.match(page, /place\.end/);
+  assert.match(page, /searchParams\.set\("view", "lab"\)/);
+});
+
 test("Visualization is the active product tab and the ML dashboard link is removed", () => {
   const home = readFileSync(new URL("../components/home-page.tsx", import.meta.url), "utf8");
   const explorer = readFileSync(new URL("../components/explorer.tsx", import.meta.url), "utf8");

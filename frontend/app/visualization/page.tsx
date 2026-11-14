@@ -3,7 +3,7 @@ import { VisualizationPage } from "../../components/visualization-page";
 
 export const metadata: Metadata = {
   title: "Visualization | SKYTRACE",
-  description: "A dashboard of the real NASA SPHEREx data for a sky location, plus an interactive learning lab with clearly labeled illustrative data.",
+  description: "A real SPHEREx dashboard and a coordinate-centered sky map with Gaia DR3 stars and known solar-system objects, plus illustrative learning views.",
 };
 
 export default function Page() {
