@@ -121,6 +121,22 @@ class RealSource(DataSource):
                 out.append(propagate(t, REAL_EPOCH))
         return out
 
+    def predicted_position(self, target: Target, obs: Observation) -> tuple[float, float, str] | None:
+        """Gaia / literature proper motion for stars, JPL Horizons (cached) for verified moving objects."""
+        from app.services import known_objects as ko
+        if target.type in SOLAR_SYSTEM:
+            view = target.real_view
+            if view is None or target.id not in ko.HORIZONS:
+                return None
+            if not (view.start - ko.REAL_VIEW_SLACK <= obs.obs_time <= view.end + ko.REAL_VIEW_SLACK):
+                return None
+            pos = ko._horizons(target.id, obs.obs_time, self._cutout_dir.parent / "horizons")
+            return (*pos, "JPL Horizons (geocentric)") if pos else None
+        ra, dec = ko._propagated(target, ko.decimal_year(obs.obs_time))
+        motion = target.catalog_motion
+        label = motion.source_catalog.split(";")[0].split("(")[0].strip() if motion else "catalogue position (no motion)"
+        return ra, dec, label
+
     def get_observation(self, observation_id: str) -> Observation:
         return self._to_observation(self._lookup(observation_id)[0])
 

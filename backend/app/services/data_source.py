@@ -65,6 +65,11 @@ class DataSource(ABC):
         (e.g. wavelength_um at the target).
         """
 
+    def predicted_position(self, target: Target, obs: Observation) -> tuple[float, float, str] | None:
+        """Where `target` is PREDICTED to be at `obs.obs_time`: (ra, dec, source label), or None if unknown.
+        Used by the explain player to draw a circle; never a detection."""
+        return None
+
     # Candidates come from the science team's engine. Sources that don't have one say so (501).
     def candidates(self, ra: float, dec: float, radius: float) -> list[Candidate]:
         raise NotImplementedYet("Candidate detection is not connected for this data source yet (science engine pending)")
@@ -166,6 +171,12 @@ class MockSource(DataSource):
             and angular_separation_deg(ra, dec, o.footprint.ra, o.footprint.dec) <= o.footprint.radius_deg + radius
         ]
         return sorted(hits, key=lambda o: o.obs_time)
+
+    def predicted_position(self, target: Target, obs: Observation) -> tuple[float, float, str] | None:
+        truth = self._truth.get(obs.id)
+        if obs.target_id != target.id or not truth:
+            return None
+        return truth["ra"], truth["dec"], "synthetic mock position"
 
     def get_cutout(self, observation_id: str, ra: float | None, dec: float | None, size_arcsec: float) -> Cutout:
         obs = self.get_observation(observation_id)
