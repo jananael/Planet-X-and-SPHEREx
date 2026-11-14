@@ -15,6 +15,7 @@ function HomeHeader() {
       <nav className="home-nav" aria-label="Main navigation">
         <Link href="/" aria-current="page">Home</Link>
         <Link href="/explore">Explorer</Link>
+        <Link href="/visualization">Visualization</Link>
       </nav>
     </header>
   );
@@ -28,6 +29,7 @@ function HomeFooter() {
       <nav className="footer-links" aria-label="Footer navigation">
         <Link href="/">Home</Link>
         <Link href="/explore">Explorer</Link>
+        <Link href="/visualization">Visualization</Link>
       </nav>
     </footer>
   );

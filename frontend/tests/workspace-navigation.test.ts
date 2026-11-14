@@ -4,7 +4,7 @@ import { locationKey, workspaceHref } from "../lib/workspace-navigation.ts";
 import { parseCoordinates } from "../lib/observations.ts";
 
 test("workspace links preserve zero coordinates, date filters, band and target across all routes", () => {
-  for (const path of ["/explore", "/observations"]) {
+  for (const path of ["/explore", "/observations", "/visualization"]) {
     const url = new URL(workspaceHref(path, { ra: 180, dec: 0 }, { start: "2025-01-01", end: "2026-01-01", band: "D3" }, "target with spaces"), "http://localhost");
     assert.equal(url.pathname, path);
     assert.deepEqual(parseCoordinates(url.searchParams.get("ra")!, url.searchParams.get("dec")!), { ra: 180, dec: 0 });

@@ -9,7 +9,7 @@ export function WorkspaceNavigation({ coordinates, options, targetId, footer = f
   const pathname = usePathname();
   return <nav className="workspace-navigation" aria-label={footer ? "Footer navigation" : "Main navigation"}>
     <a href="/">Home</a>
-    {[["/explore", "Explorer"], ["/observations", "Observations & Results"]].map(([path, label]) =>
+    {[["/explore", "Explorer"], ["/observations", "Observations & Results"], ["/visualization", "Visualization"]].map(([path, label]) =>
       <Link key={path} href={workspaceHref(path, coordinates, options, targetId)} aria-current={pathname === path ? "page" : undefined}>{label}</Link>)}
   </nav>;
 }
