@@ -4,11 +4,11 @@
 // Path: JPL Horizons. SPHEREx flashes: real exposure dates. No decorative or invented stars.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { positionAt, type JourneyData } from "../lib/journey";
-import { decRange, duringVisit, isFuture, phaseAt, project, skyCaption, timeline, todayIso, yearsOf } from "../lib/sky-story";
+import { duringVisit, isFuture, phaseAt, project, skyCaption, timeline, todayIso, yearsOf } from "../lib/sky-story";
 import { skyRegion, type SkyFeature } from "../lib/sky-navigation";
 import "./explain-player.css";
 
-const W = 960, H = 440;
+const W = 960, H = 480, K = 2; // whole sky (360° x 180°, 2:1), drawn at 2x for a sharp full-screen view
 type Star = { name: string; ra: number; dec: number; mag: number };
 type Catalog = { stars: Star[]; lines: SkyFeature[]; bounds: SkyFeature[]; names: Record<string, string>; labels: { id: string; ra: number; dec: number }[] };
 
@@ -27,6 +27,7 @@ function loadCatalog(): Promise<Catalog> {
 
 export function SkyStoryPlayer({ data, onClose }: { data: JourneyData; onClose: () => void }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const frame = useRef<HTMLDivElement>(null);
   const today = useMemo(() => todayIso(), []);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [error, setError] = useState("");
@@ -35,7 +36,7 @@ export function SkyStoryPlayer({ data, onClose }: { data: JourneyData; onClose: 
   const track = data.sky_years?.length ? data.sky_years : data.sky_track;
   const years = useMemo(() => yearsOf(track), [track]);
   const tl = useMemo(() => timeline(years.length), [years.length]);
-  const [decMin, decMax] = useMemo(() => decRange(track), [track]);
+  const [decMin, decMax] = [-90, 90]; // the whole sky, pole to pole
   const raCenter = useMemo(() => {
     const x = track.reduce((s, p) => s + Math.cos(p[1] * Math.PI / 180), 0), y = track.reduce((s, p) => s + Math.sin(p[1] * Math.PI / 180), 0);
     return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
@@ -75,6 +76,7 @@ export function SkyStoryPlayer({ data, onClose }: { data: JourneyData; onClose: 
   useEffect(() => {
     const ctx = canvas.current?.getContext("2d");
     if (!ctx || !catalog) return;
+    ctx.setTransform(K, 0, 0, K, 0, 0);
     const P = (ra: number, dec: number) => project(ra, dec, W, H, decMin, decMax, raCenter);
     const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, "#020613"); sky.addColorStop(1, "#0a1230");
     ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
@@ -83,10 +85,24 @@ export function SkyStoryPlayer({ data, onClose }: { data: JourneyData; onClose: 
     };
     const currentId = current ? Object.entries(catalog.names).find(([, n]) => n === current)?.[0] : null;
 
+    // Reference lines: celestial equator and the ecliptic (where the Sun and planets travel).
+    const curve = (decOf: (ra: number) => number, color: string, label: string, labelRa: number) => {
+      ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash([6, 6]); ctx.beginPath();
+      for (let ra = 0, first = true, prevX = 0; ra <= 360; ra += 2) {
+        const [x, y] = P(ra % 360, decOf(ra));
+        if (first || Math.abs(x - prevX) > W / 2) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        first = false; prevX = x;
+      }
+      ctx.stroke(); ctx.restore();
+      const [lx, ly] = P(labelRa, decOf(labelRa)); text(label, lx, ly - 6, color, 11, "center");
+    };
+    curve(() => 0, "#ffffff33", "celestial equator", (raCenter + 150) % 360);
+    const eps = 23.44 * Math.PI / 180;
+    curve(ra => Math.atan(Math.sin(ra * Math.PI / 180) * Math.tan(eps)) * 180 / Math.PI, "#ffd16655", "ecliptic: path of the Sun and planets", (raCenter + 100) % 360);
     // Constellation figures (break lines that wrap around the edges).
     for (const f of catalog.lines) {
       const highlight = f.id === currentId;
-      ctx.strokeStyle = highlight ? "#7fc8ffcc" : "#5b7fc244"; ctx.lineWidth = highlight ? 1.6 : 1;
+      ctx.strokeStyle = highlight ? "#7fc8ffee" : "#6f93d677"; ctx.lineWidth = highlight ? 2 : 1;
       for (const line of f.geometry.coordinates) {
         ctx.beginPath();
         line.forEach(([lon, lat], i) => {
@@ -100,14 +116,14 @@ export function SkyStoryPlayer({ data, onClose }: { data: JourneyData; onClose: 
     // Real stars, size by brightness.
     for (const s of catalog.stars) {
       if (s.dec < decMin - 2 || s.dec > decMax + 2) continue;
-      const [x, y] = P(s.ra, s.dec), r = Math.max(0.6, 2.8 - s.mag * 0.55);
+      const [x, y] = P(s.ra, s.dec), r = Math.max(0.8, 3.2 - s.mag * 0.6);
       ctx.fillStyle = "#ffffffd9"; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     }
     // Constellation names.
     for (const l of catalog.labels) {
       if (l.dec < decMin || l.dec > decMax) continue;
       const [x, y] = P(l.ra, l.dec), on = l.id === currentId;
-      text(catalog.names[l.id] ?? l.id, x, y, on ? "#bfe6ff" : "#8aa6d655", on ? 16 : 11, "center", on ? 600 : 400);
+      text(catalog.names[l.id] ?? l.id, x, y, on ? "#bfe6ff" : "#9fb8e099", on ? 17 : 11, "center", on ? 600 : 400);
     }
 
     // The object's path: finished years dimmer, the current year drawn up to now.
@@ -120,7 +136,7 @@ export function SkyStoryPlayer({ data, onClose }: { data: JourneyData; onClose: 
       for (const future of [false, true]) {
         ctx.save();
         ctx.strokeStyle = future ? `rgba(200,220,255,${alpha * 0.75})` : `rgba(255,209,102,${alpha})`;
-        ctx.lineWidth = i === upto ? 3 : 2;
+        ctx.lineWidth = i === upto ? 3.5 : 2.5;
         if (future) ctx.setLineDash([2, 6]);
         ctx.beginPath();
         let open = false;
@@ -185,10 +201,13 @@ export function SkyStoryPlayer({ data, onClose }: { data: JourneyData; onClose: 
     <section className="explain-player" aria-label={`${data.target.name} travelling through the night sky`}>
       <div className="explain-badge">Real stars and constellations · path from JPL Horizons · SPHEREx moments from real observations</div>
       {error && <div className="notice error" role="alert">The star map could not load: {error}</div>}
-      <canvas ref={canvas} width={W} height={H} className="explain-canvas sky-story-canvas" role="img"
+      <div ref={frame} className="sky-story-frame">
+      <canvas ref={canvas} width={W * K} height={H * K} className="explain-canvas sky-story-canvas" role="img"
         aria-label={`${year ?? "Night sky"}${current ? `, ${data.target.name} in ${current}` : ""}`} />
+      </div>
       <p className="explain-caption" aria-live="polite">{skyCaption(data, phase, year, current, nowPoint?.[0], today)}</p>
       <div className="explain-controls">
+        <button type="button" onClick={() => { const el = frame.current; if (!el) return; if (document.fullscreenElement) void document.exitFullscreen(); else void el.requestFullscreen?.(); }}>⛶ Full screen</button>
         <button type="button" onClick={() => { if (t >= tl.total) { setT(0); setPlaying(true); } else setPlaying(p => !p); }}>
           {t >= tl.total ? "Replay" : playing ? "Pause" : "Play"}
         </button>
