@@ -5,6 +5,8 @@ export interface Target {
   validation_status?: ValidationStatus; validation_note?: string | null; recommended_size_arcsec?: number;
   /** Moving objects (real data): only images in this UTC window contain the object here. */
   search_start?: string | null; search_end?: string | null; preferred_band?: string | null;
+  /** Catalogue proper motion (stars), e.g. Gaia DR3; null for objects without one. */
+  catalog_motion?: { pm_ra_cosdec_mas_yr: number; pm_dec_mas_yr: number; reference_epoch: number; source_catalog: string } | null;
 }
 export interface SearchOptions { start?: string | null; end?: string | null; band?: string | null }
 export interface Observation {

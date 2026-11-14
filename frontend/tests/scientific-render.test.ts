@@ -74,21 +74,6 @@ test("Evidence Story renders one shared evidence panel, honest empty lens and pr
   assert.doesNotMatch(html, /<img/);
 });
 
-test("machine learning renders without a location or backend and disables prediction actions", () => {
-  const { MachineLearning } = component("machine-learning");
-  const html = renderToStaticMarkup(createElement(MachineLearning, { coordinates: null, source: null, changeLocationHref: "/explore" }));
-  assert.match(html, /Predicting the Sky of Tomorrow/);
-  assert.match(html, /Predictions are not yet available/);
-  assert.match(html, /fieldset[^>]*disabled/);
-  assert.match(html, /Choose Sky Coordinates/);
-  assert.match(html, /Not available/);
-  const located = renderToStaticMarkup(createElement(MachineLearning, { coordinates: { ra: 180, dec: 0 }, source: "mock", changeLocationHref: "/explore?ra=180&dec=0" }));
-  assert.match(located, /180 °/);
-  assert.match(located, /0 °/);
-  assert.match(located, /Synthetic demo data/);
-  assert.match(located, /not yet connected as model input/);
-});
-
 test("real candidate renders uncertainty with units and an explicit unconfirmed label", () => {
   const { CandidateCard } = component("scientific-evidence");
   const candidate = JSON.parse(readFileSync(new URL("../../docs/examples/candidate.example.json", import.meta.url), "utf8"));
