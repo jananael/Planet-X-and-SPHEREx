@@ -12,10 +12,18 @@ Last updated: **2026-11-14 (evening)** · `main` = GitHub. Yazan's engine (PR #2
 OK), plus Taqwa's S2-T4, Yazan's visualization workspace + catalog sky map (PR #6), Sadeel's Evidence Story and new
 Explorer design, and the "Learning lab". **Production build checked: no errors.** Tests: backend 131 passed / 5 skipped,
 frontend 82, tsc OK. **Commit/push only when Jana says. Update this file after every step** (Jana's rule).
-Next: **deploy** on **Render free (backend, chosen by Jana) + Vercel (frontend)**: `render.yaml` (native Python, no
-Docker), `WARM_ON_START=true` refills the demo cache in the background after each wake-up (free plan sleeps after
-~15 min and loses its disk), steps in `docs/deploy.md`. `astroquery` was missing from `backend/requirements.txt`
-(journeys/Horizons would have failed on the server): added. Then slides and the Space Apps page.
+**DEPLOYED (2026-11-14, night) - public, no login:**
+- **Site: https://skytrace-puce.vercel.app** (Vercel, project `skytrace`, Hobby, Root Directory `frontend`, env
+  `NEXT_PUBLIC_API_BASE_URL=https://skytrace-api-pwq3.onrender.com`, `NEXT_PUBLIC_SITE_URL=https://skytrace-puce.vercel.app`).
+  `skytrace.vercel.app` belongs to someone else. Vercel auto-deploys on every push to `main`.
+- **API: https://skytrace-api-pwq3.onrender.com** (Render free, Blueprint from `render.yaml`, `DATA_SOURCE=real`,
+  `WARM_ON_START=true`, `CORS_ORIGINS=http://localhost:3000`, `CORS_ORIGIN_REGEX=^https://.*\.vercel\.app$`).
+  `autoDeploy: false`: after a backend push, Render -> Manual Deploy.
+- Tested on the public site: Explorer -> (4) Vesta -> 2 real D2 images load, "Explain the data" (Horizons journey),
+  "Simple explanation" (night-sky story), no console errors.
+- Free Render sleeps after ~15 min (first request ~1 min) and loses its cache; open `/api/health` ~10 min before a
+  demo. `astroquery` was missing from `backend/requirements.txt`: added before deploy.
+Next: slides and the Space Apps page (public link above).
 
 ---
 
@@ -217,9 +225,8 @@ Errors: BAD_REQUEST 400, NOT_FOUND 404, NO_COVERAGE 404, UPSTREAM_ERROR 502, NOT
   observation id, flags, "Not available" for nulls) once real measurements exist.
 
 ### Next for Jana (priority order)
-1. **Deploy** (`docs/deploy.md`; Dockerfiles untested; Jana's accounts: Vercel for the frontend, Render or Railway
-   for the backend). Submission is 15 Nov; the rules require a public link without login.
-2. **Warm the cache before the demo** (`backend/scripts/prefetch_demo.py`, include 3I/ATLAS).
+1. ~~Deploy~~ **done**: https://skytrace-puce.vercel.app (see top). Submission is 15 Nov 23:59.
+2. **Before the demo:** open https://skytrace-api-pwq3.onrender.com/api/health to wake it; the warm-up refills the cache.
 3. **Slides + Space Apps project page:** fill challenge name, team name, public link, project page link, Ramallah
    and roles; description, data used, **AI-use disclosure (mandatory)**. A 30-second video is optional
    (7 slides OR 30 s video).
