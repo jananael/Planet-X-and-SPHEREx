@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Brand } from "./brand";
 import { DEMO_DATA_NOTICE, DEMO_IMAGE_PIXELS, DEMO_OBSERVATIONS, DEMO_SOURCES, DEMO_SPECTRUM, MODE_EXPLANATIONS, type DemoSource, type VisualizationMode } from "../lib/visualization-model";
+import { getJson } from "../lib/api";
+import type { Coordinates } from "../lib/types";
 import "./visualization-workspace.css";
 
 const MODES: { id: VisualizationMode; label: string; icon: string }[] = [
@@ -102,15 +104,73 @@ function SpaceScene({ selected, onSelect, onSelectSource }: { selected: string; 
   </section>;
 }
 
-function SkyMap({ selected, onSelectSource }: { selected: string; onSelectSource: (source: DemoSource) => void }) {
-  const [zoom, setZoom] = useState(1);
-  const points = DEMO_SOURCES.map(source => ({ source, x: (source.raDeg / 150) * 100, y: ((55 - source.decDeg) / 110) * 100 }));
-  return <section className="viz-sky-panel" aria-label="Illustrative RA and Dec sky map"><div className="viz-sky-toolbar"><span>Coordinates: RA / Dec · degrees</span><div><button onClick={() => setZoom(v => Math.min(2.8, v * 1.2))}>Zoom +</button><button onClick={() => setZoom(v => Math.max(.7, v / 1.2))}>Zoom −</button><button onClick={() => setZoom(1)}>Reset</button></div></div>
-    <svg className="viz-sky-map" viewBox="0 0 1000 640" role="img" aria-label="Illustrative sky map with selectable demo points"><defs><radialGradient id="skyglow"><stop stopColor="#17264a" /><stop offset="1" stopColor="#070b16" /></radialGradient></defs><rect width="1000" height="640" fill="url(#skyglow)" />
-      {Array.from({ length: 9 }, (_, i) => <g key={`grid-${i}`}><line x1={i * 125} y1="0" x2={i * 125} y2="640" stroke="#ffffff12" /><line x1="0" y1={i * 80} x2="1000" y2={i * 80} stroke="#ffffff12" /></g>)}
-      <g transform={`translate(500 320) scale(${zoom}) translate(-500 -320)`}>{points.map(({ source, x, y }) => <g key={source.id} onClick={() => onSelectSource(source)} role="button" tabIndex={0} aria-label={`Select ${source.name}, RA ${source.raDeg} degrees, Dec ${source.decDeg} degrees`} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onSelectSource(source); }} className="viz-sky-point"><circle cx={x * 10} cy={y * 6.4} r={source.id === selected ? 13 : 9} fill={`${source.color}44`} /><circle cx={x * 10} cy={y * 6.4} r="4" fill={source.color} /><text x={x * 10 + 12} y={y * 6.4 - 10}>{source.name}</text></g>)}</g>
-      <text x="500" y="625" textAnchor="middle" className="viz-axis-label">Right ascension (RA) · degrees</text><text transform="translate(22 320) rotate(-90)" textAnchor="middle" className="viz-axis-label">Declination (Dec) · degrees</text>
-    </svg><p className="viz-inline-note">Every plotted coordinate is illustrative demo data, not an astronomical catalog position.</p>
+type SkyObject = { name?: string; source_id?: string; ra_deg: number; dec_deg: number; g_mag?: number | null; ra_error_mas?: number | null; dec_error_mas?: number | null; position_method?: string; object_type?: string; visual_magnitude?: number | null; position_error_arcsec?: number | null; pmra_mas_yr?: number | null; pmdec_mas_yr?: number | null; parallax_mas?: number | null };
+type SkyCatalogResponse = { center: Coordinates; radius_deg: number; epoch_utc: string; stars: SkyObject[]; solar_system_objects: SkyObject[]; providers: Record<string, { status: string; count?: number; reason?: string }> };
+
+function CoordinateSkyView() {
+  const [ra, setRa] = useState(""); const [dec, setDec] = useState(""); const [date, setDate] = useState("");
+  const [center, setCenter] = useState<Coordinates | null>(null); const [catalog, setCatalog] = useState<SkyCatalogResponse | null>(null);
+  const [selectedObject, setSelectedObject] = useState<SkyObject | null>(null); const [loading, setLoading] = useState(false); const [message, setMessage] = useState("");
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search); const initialRa = Number(params.get("ra")); const initialDec = Number(params.get("dec"));
+    setDate(new Date().toISOString().slice(0, 10));
+    if (params.has("ra") && params.has("dec") && Number.isFinite(initialRa) && Number.isFinite(initialDec) && initialRa >= 0 && initialRa < 360 && initialDec >= -90 && initialDec <= 90) {
+      setRa(String(initialRa)); setDec(String(initialDec)); setCenter({ ra: initialRa, dec: initialDec });
+    }
+  }, []);
+  useEffect(() => {
+    if (!center || !date) return;
+    const controller = new AbortController(); setLoading(true); setMessage(""); setCatalog(null); setSelectedObject(null);
+    const epoch = `${date}T12:00:00Z`;
+    getJson<SkyCatalogResponse>(`/api/sky-objects?${new URLSearchParams({ ra: String(center.ra), dec: String(center.dec), radius_deg: "0.5", epoch })}`, controller.signal)
+      .then(setCatalog).catch(error => { if (!controller.signal.aborted) setMessage(error instanceof Error ? error.message : "The catalog query could not be completed."); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [center, date]);
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault(); const nextRa = Number(ra), nextDec = Number(dec);
+    if (!ra.trim() || !dec.trim() || !Number.isFinite(nextRa) || nextRa < 0 || nextRa >= 360 || !Number.isFinite(nextDec) || nextDec < -90 || nextDec > 90 || !date) { setMessage("Enter RA from 0° to under 360°, Dec from −90° to 90°, and an observation date."); return; }
+    const next = { ra: nextRa, dec: nextDec }; setCenter(next);
+    const url = new URL(window.location.href); url.searchParams.set("ra", String(nextRa)); url.searchParams.set("dec", String(nextDec)); url.searchParams.set("start", date); window.history.replaceState({}, "", url);
+  };
+  const stars = catalog?.stars ?? []; const smallBodies = catalog?.solar_system_objects ?? [];
+  const allObjects = [...stars.map(item => ({ ...item, category: "Star" })), ...smallBodies.map(item => ({ ...item, category: item.object_type || "Solar-system object" }))];
+  const point = (object: SkyObject) => {
+    if (!center || !catalog) return { x: 500, y: 310 };
+    let deltaRa = object.ra_deg - center.ra; if (deltaRa > 180) deltaRa -= 360; if (deltaRa < -180) deltaRa += 360;
+    return { x: 500 + deltaRa * Math.cos(center.dec * Math.PI / 180) / catalog.radius_deg * 450, y: 310 - (object.dec_deg - center.dec) / catalog.radius_deg * 280 };
+  };
+  const provider = (key: string) => catalog?.providers[key];
+  return <section className="viz-catalog-panel" aria-label="Coordinate-based sky map">
+    <div className="viz-catalog-intro"><div><strong>Objects near your sky position</strong><p>Enter a direction in the sky. The map shows catalogued stars and known solar-system objects near that direction.</p></div><span className="viz-catalog-chip">{catalog ? "Catalog results" : "Coordinate search"}</span></div>
+    <form className="viz-coordinate-form" onSubmit={submit}>
+      <label>Right ascension (RA), degrees<input inputMode="decimal" value={ra} onChange={event => setRa(event.target.value)} placeholder="e.g. 34.8366" aria-label="Right ascension in degrees" /></label>
+      <label>Declination (Dec), degrees<input inputMode="decimal" value={dec} onChange={event => setDec(event.target.value)} placeholder="e.g. −2.9776" aria-label="Declination in degrees" /></label>
+      <label>Sky position date (UTC)<input type="date" value={date} onChange={event => setDate(event.target.value)} aria-label="Sky position date in UTC" /></label>
+      <button type="submit" disabled={loading || !date}>{loading ? "Searching…" : "Show nearby objects"}</button>
+    </form>
+    {message && <p className="viz-catalog-message" role="alert">{message}</p>}
+    {!center && <div className="viz-catalog-empty">Choose a sky position to load real catalog results. If you came from Explorer, its RA and Dec will be filled in here.</div>}
+    {center && <>
+      {loading && <p className="viz-catalog-status" role="status">Querying Gaia DR3 and SkyBoT for RA {center.ra.toFixed(5)}°, Dec {center.dec.toFixed(5)}°…</p>}
+      {catalog && <div className="viz-provider-status" aria-label="Catalog source status">
+        <span><b>Gaia DR3:</b> {provider("gaia_dr3")?.status === "available" ? `${stars.length} cataloged stars returned (brightest 300 maximum)` : `unavailable${provider("gaia_dr3")?.reason ? ` (${provider("gaia_dr3")?.reason})` : ""}`}</span>
+        <span><b>SkyBoT:</b> {provider("skybot")?.status === "available" ? `${smallBodies.length} known solar-system objects returned` : `unavailable${provider("skybot")?.reason ? ` (${provider("skybot")?.reason})` : ""}`}</span>
+        <span><b>Epoch:</b> {catalog.epoch_utc.replace("T", " ").slice(0, 16)} UTC · geocenter</span>
+      </div>}
+      {catalog && <svg className="viz-catalog-map" viewBox="0 0 1000 620" role="img" aria-label={`Catalog sky map centered on RA ${center.ra}, Dec ${center.dec} degrees`}>
+        <defs><clipPath id="catalog-map-clip"><rect x="50" y="30" width="900" height="560" rx="12" /></clipPath><radialGradient id="catalog-map-bg"><stop stopColor="#121e38" /><stop offset="1" stopColor="#070b16" /></radialGradient></defs>
+        <rect x="50" y="30" width="900" height="560" rx="12" fill="url(#catalog-map-bg)" />
+        {[0, 1, 2, 3, 4].map(i => { const cosDec = Math.max(.01, Math.cos(center.dec * Math.PI / 180)); return <g key={i}><line x1={50 + i * 225} y1="30" x2={50 + i * 225} y2="590" stroke="#ffffff18"/><line x1="50" y1={30 + i * 140} x2="950" y2={30 + i * 140} stroke="#ffffff18"/><text x={50 + i * 225} y="612" textAnchor="middle" className="viz-map-tick">{(center.ra + (i - 2) * .25 / cosDec).toFixed(3)}°</text><text x="42" y={34 + i * 140} textAnchor="end" className="viz-map-tick">{(center.dec + (2 - i) * .25).toFixed(3)}°</text></g>; })}
+        <g clipPath="url(#catalog-map-clip)">{stars.map((object, i) => { const p = point(object); const radius = Math.max(2.5, Math.min(7, 6 - ((object.g_mag ?? 15) - 6) * .32)); return <g key={object.source_id ?? `star-${i}`} onClick={() => setSelectedObject(object)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") setSelectedObject(object); }} role="button" tabIndex={0} aria-label={`Gaia star ${object.source_id}, magnitude ${object.g_mag ?? "unknown"}`}><circle cx={p.x} cy={p.y} r={radius + (selectedObject?.source_id === object.source_id ? 4 : 0)} fill="#81c7ff" fillOpacity=".18"/><circle cx={p.x} cy={p.y} r={radius} fill="#a9d7ff" stroke="#e6f4ff" strokeWidth=".7"/></g>; })}
+          {smallBodies.map((object, i) => { const p = point(object); return <g key={`${object.name}-${i}`} onClick={() => setSelectedObject(object)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") setSelectedObject(object); }} role="button" tabIndex={0} aria-label={`${object.object_type ?? "Solar-system object"} ${object.name ?? "unknown"}`}><path d={`M ${p.x} ${p.y - 8} l 7 13 h -14 z`} fill="#ffbd69" stroke="#fff0d7" strokeWidth="1.4"/><circle cx={p.x} cy={p.y} r={selectedObject?.name === object.name ? 12 : 0} fill="none" stroke="#fff0d7"/></g>; })}
+        </g><circle cx="500" cy="310" r="8" fill="none" stroke="#f4d6b0" strokeWidth="1.5"/><path d="M 488 310h24 M 500 298v24" stroke="#f4d6b0" strokeWidth="1"/>
+        <text x="500" y="22" textAnchor="middle" className="viz-axis-label">North ↑ · each grid step = 0.25°</text><text x="500" y="610" textAnchor="middle" className="viz-axis-label">Right ascension · degrees</text>
+      </svg>}
+      {catalog && <div className="viz-catalog-footer"><span><i className="viz-star-key"/> Gaia DR3 stars · brighter stars have larger markers</span><span><i className="viz-asteroid-key"/> Known solar-system objects</span><span>Center cross = entered coordinates</span><span>Click a marker for details</span></div>}
+      {selectedObject && <div className="viz-object-detail"><strong>{selectedObject.source_id ? `Gaia DR3 source ${selectedObject.source_id}` : `${selectedObject.object_type ?? "Solar-system object"}: ${selectedObject.name ?? "unnamed"}`}</strong><span>RA {selectedObject.ra_deg.toFixed(6)}° · Dec {selectedObject.dec_deg.toFixed(6)}°</span>{selectedObject.g_mag != null && <span>Gaia G magnitude {selectedObject.g_mag.toFixed(2)}</span>}{selectedObject.ra_error_mas != null && selectedObject.dec_error_mas != null && <span>Catalog coordinate uncertainty: RA ±{selectedObject.ra_error_mas.toFixed(2)} mas, Dec ±{selectedObject.dec_error_mas.toFixed(2)} mas</span>}{selectedObject.visual_magnitude != null && <span>Predicted visual magnitude {selectedObject.visual_magnitude.toFixed(1)} · position uncertainty {selectedObject.position_error_arcsec ?? "not provided"} arcsec</span>}{selectedObject.parallax_mas != null && <span>Parallax {selectedObject.parallax_mas.toFixed(2)} mas · proper motion {selectedObject.pmra_mas_yr ?? "—"}, {selectedObject.pmdec_mas_yr ?? "—"} mas/year</span>}{selectedObject.position_method && <span>Coordinate handling: {selectedObject.position_method}</span>}</div>}
+      {catalog && <p className="viz-catalog-caveat">This is a 2D direction map, not a physical 3D model. Gaia positions are propagated from J2016.0 using proper motion only; radial velocity is not included. SkyBoT predictions use the geocenter, not the SPHEREx spacecraft, and include known objects only. The returned Gaia list is capped at the 300 brightest sources. Sources: <a href="https://gea.esac.esa.int/archive/" target="_blank" rel="noreferrer">Gaia Archive</a> · <a href="https://ssp.imcce.fr/webservices/skybot/api/conesearch/" target="_blank" rel="noreferrer">IMCCE SkyBoT</a>.</p>}
+    </>}
   </section>;
 }
 
@@ -149,26 +209,27 @@ function TimeCompare({ active, onSelect }: { active: string; onSelect: (id: stri
 }
 
 export function VisualizationWorkspace() {
-  const [mode, setMode] = useState<VisualizationMode>("space"); const [selected, setSelected] = useState(DEMO_SOURCES[0]!.id);
+  const [mode, setMode] = useState<VisualizationMode>("sky"); const [selected, setSelected] = useState(DEMO_SOURCES[0]!.id);
   const [selectedSource, setSelectedSource] = useState(DEMO_SOURCES[0]!); const [educational, setEducational] = useState(false);
   const [selectedObservation, setSelectedObservation] = useState(DEMO_OBSERVATIONS[0]!.id); const [spectrumIndex, setSpectrumIndex] = useState(3); const [guided, setGuided] = useState(false); const [guideStep, setGuideStep] = useState(0);
+  useEffect(() => { const params = new URLSearchParams(window.location.search); if (params.has("ra") && params.has("dec")) setMode("sky"); }, []);
   const explanation = MODE_EXPLANATIONS[mode];
-  const guide = useMemo(() => ["Start in 3D space: drag the scene and select a colored object.", "Open the sky map to see how coordinates describe direction.", "Inspect a spectrum: each point samples brightness at a wavelength.", "Try image stretches and compare bands; this demo is illustrative."], []);
+  const guide = useMemo(() => ["Enter sky coordinates to find cataloged stars and solar-system objects nearby.", "Use RA and Dec to describe a direction on the sky.", "Open the 3D learning scene to explore an illustration.", "Try spectrum, image, and timeline examples; those views use illustrative data."], []);
   const nextSource = (delta: number) => { const index = DEMO_SOURCES.findIndex(item => item.id === selectedSource.id); const source = DEMO_SOURCES[(index + delta + DEMO_SOURCES.length) % DEMO_SOURCES.length]!; setSelected(source.id); setSelectedSource(source); };
   return <main className="viz-page">
-    <header className="viz-header"><Brand /><nav aria-label="Main navigation"><Link href="/">Home</Link><Link href="/explore">Explorer</Link><Link href="/visualization" aria-current="page">Visualization</Link></nav><span className="viz-dataset-tag"><i /> {DEMO_DATA_NOTICE}</span></header>
+    <header className="viz-header"><Brand /><nav aria-label="Main navigation"><Link href="/">Home</Link><Link href="/explore">Explorer</Link><Link href="/visualization" aria-current="page">Visualization</Link></nav><span className="viz-dataset-tag"><i /> {mode === "sky" ? "Sky map · catalog-based" : DEMO_DATA_NOTICE}</span></header>
     <section className="viz-page-title"><div><p className="viz-kicker">A SPACE YOU CAN EXPLORE</p><h1>See the data.<br /><span>Understand the universe.</span></h1><p>Move from a sky position to the measurements behind it. Start with a guided, interactive demo.</p></div><button className={`viz-learn-toggle ${educational ? "on" : ""}`} onClick={() => setEducational(v => !v)}>{educational ? "Learning mode on" : "Turn on learning mode"}<span>✦</span></button></section>
     {guided && <section className="viz-guide"><div><p className="viz-kicker">GUIDED EXPLORATION · STEP {guideStep + 1} OF {guide.length}</p><p>{guide[guideStep]}</p></div><div><button onClick={() => setGuideStep(v => (v - 1 + guide.length) % guide.length)}>Back</button><button onClick={() => setGuideStep(v => (v + 1) % guide.length)}>Next step →</button><button className="viz-guide-close" onClick={() => setGuided(false)}>Exit</button></div></section>}
-    <div className="viz-workspace"><aside className="viz-side-panel"><div className="viz-side-heading"><span className="viz-side-icon">⌖</span><div><p className="viz-kicker">YOUR WORKSPACE</p><h2>Explore a dataset</h2></div></div><div className="viz-demo-callout"><span>DEMO MODE</span><p>{DEMO_DATA_NOTICE}</p><small>No live astronomy products are loaded in this visualization.</small></div><p className="viz-side-label">VISUALIZATION MODE</p><div className="viz-mode-list">{MODES.map(item => <button key={item.id} className={mode === item.id ? "active" : ""} onClick={() => setMode(item.id)} aria-pressed={mode === item.id}><span>{item.icon}</span>{item.label}<i>→</i></button>)}</div><div className="viz-selection-box"><p className="viz-side-label">SELECTED OBJECT</p><div className="viz-selected-name"><i style={{ background: selectedSource.color }} /><strong>{selectedSource.name}</strong></div><p>{selectedSource.description}</p><div className="viz-coord-pair"><span><small>RA · demo</small>{selectedSource.raDeg.toFixed(1)}°</span><span><small>DEC · demo</small>{selectedSource.decDeg.toFixed(1)}°</span></div><div className="viz-side-actions"><button onClick={() => nextSource(-1)} aria-label="Previous object">← Previous</button><button onClick={() => nextSource(1)}>Next →</button></div></div><button className="viz-guide-launch" onClick={() => { setGuided(true); setGuideStep(0); }}>▷ Start guided exploration</button><Link className="viz-return-link" href="/explore">Open real SPHEREx Explorer <span>↗</span></Link></aside>
-      <section className="viz-main-panel"><div className="viz-main-heading"><div><p className="viz-kicker">{MODES.find(item => item.id === mode)?.label.toUpperCase()}</p><h2>{mode === "space" ? "Navigate the scene" : mode === "sky" ? "Map the sky" : mode === "spectrum" ? "Explore a spectrum" : mode === "image" ? "Read an image" : mode === "bands" ? "Compare wavelengths" : "Explore observations over time"}</h2></div><div className="viz-main-actions"><span className="viz-illustrative-chip">Illustrative</span><button onClick={() => { setMode("space"); setSelected(DEMO_SOURCES[0]!.id); setSelectedSource(DEMO_SOURCES[0]!); setSelectedObservation(DEMO_OBSERVATIONS[0]!.id); }}>Reset workspace</button></div></div>
+    <div className="viz-workspace"><aside className="viz-side-panel"><div className="viz-side-heading"><span className="viz-side-icon">⌖</span><div><p className="viz-kicker">YOUR WORKSPACE</p><h2>Explore a dataset</h2></div></div><div className="viz-demo-callout"><span>DATA MODES</span><p>Coordinate sky map: catalog-based</p><small>3D, spectrum, image, bands, and timeline views remain illustrative demo views.</small></div><p className="viz-side-label">VISUALIZATION MODE</p><div className="viz-mode-list">{MODES.map(item => <button key={item.id} className={mode === item.id ? "active" : ""} onClick={() => setMode(item.id)} aria-pressed={mode === item.id}><span>{item.icon}</span>{item.label}<i>→</i></button>)}</div><div className="viz-selection-box"><p className="viz-side-label">{mode === "sky" ? "ILLUSTRATIVE EXAMPLE OBJECT" : "SELECTED OBJECT"}</p><div className="viz-selected-name"><i style={{ background: selectedSource.color }} /><strong>{selectedSource.name}</strong></div><p>{mode === "sky" ? "This sample object belongs to the educational 3D scene. Use the catalog markers in the sky map for the coordinate-based results." : selectedSource.description}</p>{mode !== "sky" && <><div className="viz-coord-pair"><span><small>RA · demo</small>{selectedSource.raDeg.toFixed(1)}°</span><span><small>DEC · demo</small>{selectedSource.decDeg.toFixed(1)}°</span></div><div className="viz-side-actions"><button onClick={() => nextSource(-1)} aria-label="Previous object">← Previous</button><button onClick={() => nextSource(1)}>Next →</button></div></>}</div><button className="viz-guide-launch" onClick={() => { setGuided(true); setGuideStep(0); }}>▷ Start guided exploration</button><Link className="viz-return-link" href="/explore">Open real SPHEREx Explorer <span>↗</span></Link></aside>
+      <section className="viz-main-panel"><div className="viz-main-heading"><div><p className="viz-kicker">{MODES.find(item => item.id === mode)?.label.toUpperCase()}</p><h2>{mode === "space" ? "Navigate the scene" : mode === "sky" ? "Map the sky around your coordinates" : mode === "spectrum" ? "Explore a spectrum" : mode === "image" ? "Read an image" : mode === "bands" ? "Compare wavelengths" : "Explore observations over time"}</h2></div><div className="viz-main-actions"><span className="viz-illustrative-chip">{mode === "sky" ? "Catalog-based · 2D" : "Illustrative"}</span><button onClick={() => { setMode("sky"); setSelected(DEMO_SOURCES[0]!.id); setSelectedSource(DEMO_SOURCES[0]!); setSelectedObservation(DEMO_OBSERVATIONS[0]!.id); }}>{mode === "sky" ? "Reset workspace" : "Back to sky map"}</button></div></div>
         {mode === "space" && <SpaceScene selected={selected} onSelect={setSelected} onSelectSource={setSelectedSource} />}
-        {mode === "sky" && <SkyMap selected={selected} onSelectSource={source => { setSelected(source.id); setSelectedSource(source); }} />}
+        {mode === "sky" && <CoordinateSkyView />}
         {mode === "spectrum" && <Spectrum onSelect={setSpectrumIndex} />}
         {mode === "image" && <ImageView />}
         {mode === "bands" && <BandCompare active={selectedObservation} />}
         {mode === "time" && <TimeCompare active={selectedObservation} onSelect={setSelectedObservation} />}
-        <section className="viz-explanation"><div className="viz-explanation-mark">i</div><div className="viz-explanation-copy"><div className="viz-explanation-title"><p className="viz-kicker">WHAT THIS VIEW MEANS</p><h3>{explanation.title}</h3></div><div className="viz-explanation-grid"><p><b>What am I looking at?</b>{explanation.what}</p><p><b>Unit</b>{explanation.unit}</p><p><b>Why is it useful?</b>{explanation.use}</p><p><b>What can we conclude?</b>{explanation.conclude}</p><p><b>What can’t we conclude?</b>{explanation.not}</p><p><b>Data source</b>SKYTRACE local visualization fixture · {DEMO_DATA_NOTICE}</p></div>{educational && <div className="viz-learning-tip"><span>✦ A little science</span><p>RA and Dec work like longitude and latitude on the sky. A coordinate tells you a direction; by itself it does not tell you how far away an object is.</p></div>}</div></section>
+        {mode !== "sky" && <section className="viz-explanation"><div className="viz-explanation-mark">i</div><div className="viz-explanation-copy"><div className="viz-explanation-title"><p className="viz-kicker">WHAT THIS VIEW MEANS</p><h3>{explanation.title}</h3></div><div className="viz-explanation-grid"><p><b>What am I looking at?</b>{explanation.what}</p><p><b>Unit</b>{explanation.unit}</p><p><b>Why is it useful?</b>{explanation.use}</p><p><b>What can we conclude?</b>{explanation.conclude}</p><p><b>What can’t we conclude?</b>{explanation.not}</p><p><b>Data source</b>SKYTRACE local visualization fixture · {DEMO_DATA_NOTICE}</p></div>{educational && <div className="viz-learning-tip"><span>✦ A little science</span><p>RA and Dec work like longitude and latitude on the sky. A coordinate tells you a direction; by itself it does not tell you how far away an object is.</p></div>}</div></section>}
       </section>
-    </div><footer className="viz-footer"><span>SKYTRACE · Learn through exploration</span><span>Illustrations are labeled; no scientific observation is implied.</span><div><button onClick={() => setEducational(v => !v)}>{educational ? "Hide learning tips" : "Show learning tips"}</button>{mode === "spectrum" && <span>Selected sample {spectrumIndex + 1} / {DEMO_SPECTRUM.length}</span>}</div></footer>
+    </div><footer className="viz-footer"><span>SKYTRACE · Learn through exploration</span><span>Sky map uses catalog queries; the other science views are illustrative demo data.</span><div><button onClick={() => setEducational(v => !v)}>{educational ? "Hide learning tips" : "Show learning tips"}</button>{mode === "spectrum" && <span>Selected sample {spectrumIndex + 1} / {DEMO_SPECTRUM.length}</span>}</div></footer>
   </main>;
 }

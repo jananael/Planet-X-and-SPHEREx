@@ -13,6 +13,7 @@ import type { Coordinates, Observation, Target } from "../lib/types";
 import "./data-dashboard.css";
 
 type Place = { point: Coordinates; name: string; targetId: string | null; start?: string | null; end?: string | null };
+export type DashboardPlace = Place;
 const fmtDate = (iso: string | null) => iso ? new Date(iso).toISOString().slice(0, 10) : "—";
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
@@ -84,7 +85,7 @@ function Bars({ rows, color }: { rows: { label: string; count: number }[]; color
   return <ul className="dash-bars">{rows.map(r => <li key={r.label}><span>{r.label}</span><i><b style={{ width: `${(r.count / max) * 100}%`, background: color }} /></i><em>{r.count}</em></li>)}</ul>;
 }
 
-export function DataDashboard({ onLearningLab }: { onLearningLab: () => void }) {
+export function DataDashboard({ onLearningLab }: { onLearningLab: (place: DashboardPlace | null) => void }) {
   const [targets, setTargets] = useState<Target[]>([]);
   const [place, setPlace] = useState<Place | null>(null);
   const [observations, setObservations] = useState<Observation[]>([]);
@@ -146,7 +147,7 @@ export function DataDashboard({ onLearningLab }: { onLearningLab: () => void }) 
           {!place?.targetId && <option value="">{place?.name ?? "Custom location"}</option>}
           {targets.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select></label>
-        <button type="button" className="dash-lab" onClick={onLearningLab}>Learning lab (demo) →</button>
+        <button type="button" className="dash-lab" disabled={!place} onClick={() => onLearningLab(place)}>Coordinate sky map & learning lab →</button>
       </div>
     </div>
     {status === "error" && <div className="notice error" role="alert">The data could not be loaded: {error}</div>}

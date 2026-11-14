@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.config import get_settings
 from app.errors import register_error_handlers
-from app.routers import candidates, explain, health, hips, journey, observations, resolve, search, targets
+from app.routers import candidates, explain, health, hips, journey, observations, resolve, search, sky_objects, targets
 
 
 def create_app() -> FastAPI:
@@ -21,7 +21,7 @@ def create_app() -> FastAPI:
     )
     register_error_handlers(app)
 
-    for r in (health.router, targets.router, observations.router, search.router, candidates.router, explain.router, journey.router, resolve.router, hips.router):
+    for r in (health.router, targets.router, observations.router, search.router, candidates.router, explain.router, journey.router, resolve.router, hips.router, sky_objects.router):
         app.include_router(r, prefix="/api")
     return app
 

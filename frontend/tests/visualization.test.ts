@@ -45,13 +45,38 @@ test("Visualization page renders every mode, demo warning, learning and scientif
   const Workspace = workspaceComponent();
   const html = renderToStaticMarkup(createElement(Workspace));
   for (const label of ["3D space", "Sky map", "Spectrum", "Image", "Bands", "Timeline"]) assert.match(html, new RegExp(label));
-  assert.match(html, /Illustrative Demo Data — Not Live NASA Data/);
-  assert.match(html, /No live astronomy products are loaded/);
+  assert.match(html, /DATA MODES/);
+  assert.match(html, /Catalog-based · 2D/);
+  assert.match(html, /Coordinate sky map: catalog-based/);
+  assert.match(html, /3D, spectrum, image, bands, and timeline views remain illustrative demo views/);
   assert.match(html, /Turn on learning mode/);
-  assert.match(html, /What can’t we conclude\?/);
-  assert.match(html, /drag to rotate/);
   assert.match(html, /Start guided exploration/);
   assert.doesNotMatch(html, /Planet X discovery|validated moving object/i);
+});
+
+test("coordinate sky view uses catalog API and explains its real-data limits", () => {
+  const source = readFileSync(new URL("../components/visualization-workspace.tsx", import.meta.url), "utf8");
+  assert.match(source, /DEMO_DATA_NOTICE/);
+  assert.match(source, /\/api\/sky-objects/);
+  assert.match(source, /Gaia DR3/);
+  assert.match(source, /SkyBoT/);
+  assert.match(source, /proper motion only/);
+  assert.match(source, /not a physical 3D model/);
+  assert.match(source, /geocenter, not the SPHEREx spacecraft/);
+  assert.match(source, /What can’t we conclude\?/);
+  assert.match(source, /drag to rotate/);
+});
+
+test("the Learning lab receives the dashboard's currently selected coordinates and epoch filters", () => {
+  const dashboard = readFileSync(new URL("../components/data-dashboard.tsx", import.meta.url), "utf8");
+  const page = readFileSync(new URL("../components/visualization-page.tsx", import.meta.url), "utf8");
+  assert.match(dashboard, /onLearningLab\(place\)/);
+  assert.match(dashboard, /Coordinate sky map & learning lab/);
+  assert.match(page, /place\.point\.ra/);
+  assert.match(page, /place\.point\.dec/);
+  assert.match(page, /place\.start/);
+  assert.match(page, /place\.end/);
+  assert.match(page, /searchParams\.set\("view", "lab"\)/);
 });
 
 test("Visualization is the active product tab and the ML dashboard link is removed", () => {
