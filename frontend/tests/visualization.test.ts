@@ -63,6 +63,7 @@ test("Visualization is the active product tab and the ML dashboard link is remov
   assert.match(home, /href="\/visualization"/);
   assert.match(staticHome, /href="\/visualization"/);
   assert.match(workspaceNav, /\["\/visualization", "Visualization"\]/);
-  assert.match(route, /VisualizationWorkspace/);
+  assert.match(route, /VisualizationPage/);  // dashboard first, the workspace is its Learning lab
+  assert.match(readFileSync(new URL("../components/visualization-page.tsx", import.meta.url), "utf8"), /VisualizationWorkspace/);
   assert.doesNotMatch(home + explorer, /\/machine-learning/);
 });

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { VisualizationWorkspace } from "../../components/visualization-workspace";
+import { VisualizationPage } from "../../components/visualization-page";
 
 export const metadata: Metadata = {
   title: "Visualization | SKYTRACE",
-  description: "Explore interactive, educational astronomical visualizations with clearly labeled illustrative data.",
+  description: "A dashboard of the real NASA SPHEREx data for a sky location, plus an interactive learning lab with clearly labeled illustrative data.",
 };
 
-export default function VisualizationPage() {
-  return <VisualizationWorkspace />;
+export default function Page() {
+  return <VisualizationPage />;
 }
