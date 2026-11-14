@@ -62,6 +62,7 @@ test("empty responses need explicit completed metadata before saying analysis fo
 test("candidate network, coverage, unsupported-engine and scientific failures stay distinct", () => {
   assert.equal(analysisError("NO_COVERAGE").phase, "no_coverage");
   assert.equal(analysisError("INTERNAL_ERROR").phase, "failed");
+  assert.equal(analysisError("BAD_REQUEST", "Specify band and pipeline").message, "Specify band and pipeline");
   assert.equal(analysisError("NOT_IMPLEMENTED").phase, "unavailable");
   assert.equal(analysisError("NOT_IMPLEMENTED").retry, false);
   assert.equal(analysisError("NOT_FOUND").phase, "unavailable");

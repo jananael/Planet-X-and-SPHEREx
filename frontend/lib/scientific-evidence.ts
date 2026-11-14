@@ -126,10 +126,11 @@ export function analysisOutcome(response: CandidateResponse): AnalysisResult {
   const labels = { queued: "The backend reports analysis is queued. No result is available yet.", processing: "The backend reports analysis is processing. No completed result is available yet.", failed: "The backend reports analysis failed. No successful scientific conclusion is available.", unavailable: "The backend reports analysis is unavailable.", not_analyzed: "The backend reports this region has not been analyzed." };
   return { phase: state, retry: false, message: labels[state] };
 }
-export function analysisError(code?: string): AnalysisResult {
+export function analysisError(code?: string, message?: string): AnalysisResult {
   if (["NOT_IMPLEMENTED", "NOT_FOUND"].includes(code ?? "")) return { phase: "unavailable", retry: false, message: "Scientific candidate analysis is unavailable for this backend. The real-data engine may not be connected. No absence of changes can be inferred." };
   if (code === "NO_COVERAGE") return { phase: "no_coverage", retry: false, message: "The backend reports no image coverage for the requested analysis region. This is different from an analysis that found no candidates." };
   if (["TIMEOUT", "NETWORK", "UPSTREAM_ERROR"].includes(code ?? "") || !code) return { phase: "network_error", retry: true, message: "Candidate results could not be retrieved because the network or upstream archive is unavailable. Analysis completion is unknown." };
+  if (code === "BAD_REQUEST" && message) return { phase: "failed", retry: false, message };
   return { phase: "failed", retry: code === "INTERNAL_ERROR", message: code === "INVALID_RESPONSE" ? "Candidate data failed response validation. The result is unavailable; it is not a successful analysis." : "The backend could not complete the scientific request. No successful result or no-candidate conclusion can be drawn." };
 }
 

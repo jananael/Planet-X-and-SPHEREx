@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { bestBand, defaultSelection, groupVisits, observationDates, parseCoordinates, selectDate } from "../lib/observations.ts";
+import { bestBand, candidateSearchGroup, defaultSelection, groupVisits, observationDates, parseCoordinates, selectDate } from "../lib/observations.ts";
 import type { Observation } from "../lib/types.ts";
 
 const obs = (id: string, mjd: number, band = "D3"): Observation => ({ id, mjd, band, target_id: null, obs_time: new Date(mjd * 86400000).toISOString(), wavelength_um: null, release: "QR2", source_file: `${id}.fits`, image_url: `/api/observations/${id}/image` });
@@ -20,6 +20,16 @@ test("selecting a date handles partial selection without duplicates or losing ot
   const images = [obs("a", 1), obs("b", 1.1)];
   assert.deepEqual(selectDate(["other-date", "a"], images, true), ["other-date", "a", "b"]);
   assert.deepEqual(selectDate(["other-date", "a", "b"], images, false), ["other-date"]);
+});
+
+test("candidate regional scope requires one band and known compatible processing pipeline", () => {
+  const dr1 = { ...obs("dr1", 1, "D1"), processing_version: "l2b-v27-2026-217" };
+  const qr3 = { ...obs("qr3", 2, "D1"), release: "QR3", processing_version: "l2b-v27-2026-276" };
+  assert.deepEqual(candidateSearchGroup([dr1, qr3]), { ok: true, band: "D1", pipeline: "v27" });
+  assert.equal(candidateSearchGroup([dr1, { ...qr3, band: "D2" }]).ok, false);
+  assert.equal(candidateSearchGroup([dr1, { ...qr3, processing_version: "l2b-v28-2026-276" }]).ok, false);
+  assert.equal(candidateSearchGroup([dr1, { ...qr3, processing_version: null }]).ok, false);
+  assert.equal(candidateSearchGroup([]).ok, false);
 });
 
 test("coordinate validation rejects blanks, nonfinite values and out-of-range boundaries", () => {

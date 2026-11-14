@@ -45,8 +45,8 @@ async function request(path: string, signal: AbortSignal, timeout = 60_000): Pro
   } finally { clearTimeout(timer); signal.removeEventListener("abort", abort); }
 }
 
-export async function getJson<T>(path: string, signal: AbortSignal): Promise<T> {
-  return (await request(path, signal)).json() as Promise<T>;
+export async function getJson<T>(path: string, signal: AbortSignal, timeout?: number): Promise<T> {
+  return (await request(path, signal, timeout)).json() as Promise<T>;
 }
 
 export async function loadFrame(obs: Observation, settings: ImageSettings, signal: AbortSignal, limits?: { vmin: number; vmax: number }): Promise<BlinkFrame> {
@@ -74,8 +74,10 @@ export async function loadFrame(obs: Observation, settings: ImageSettings, signa
   } catch (error) { URL.revokeObjectURL(url); throw error; }
 }
 
-export async function getCandidateAnalysis(ra: number, dec: number, signal: AbortSignal): Promise<CandidateResponse> {
-  const payload = await getJson<unknown>(`/api/candidates?${new URLSearchParams({ ra: String(ra), dec: String(dec), radius: "0.25" })}`, signal);
+export async function getCandidateAnalysis(ra: number, dec: number, band: string, pipeline: string, signal: AbortSignal): Promise<CandidateResponse> {
+  // The backend processes up to three real FITS frames sequentially. Each IRSA retrieval
+  // can take about 170 s across retries, so the generic 60 s JSON timeout aborts valid work.
+  const payload = await getJson<unknown>("/api/candidates?" + new URLSearchParams({ ra: String(ra), dec: String(dec), radius: "0.25", band, pipeline }), signal, 540_000);
   try { return parseCandidateResponse(payload); }
   catch { throw new ApiFailure("INVALID_RESPONSE", "Candidate data did not match the scientific response contract."); }
 }
