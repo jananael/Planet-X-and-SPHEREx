@@ -6,6 +6,8 @@ import dynamic from "next/dynamic";
 import { StarryBackground } from "./starry-background";
 import { ObservationDetails } from "./observation-details";
 import { ScientificEvidence } from "./scientific-evidence";
+import { ExplainPlayer } from "./explain-player";
+import { explainUrl, type ExplainFacts } from "../lib/explain";
 import { emptyCoverageMessage, formatUtc, NOT_AVAILABLE } from "../lib/scientific-format";
 
 // Loaded only when the user opens it (Aladin Lite + sky imagery are heavy).
@@ -42,6 +44,11 @@ export function Explorer() {
   const [progress, setProgress] = useState({ ready: 0, completed: 0 });
   const [frameRetry, setFrameRetry] = useState(0);
   const [index, setIndex] = useState(0); const [playing, setPlaying] = useState(false);
+  // "Explain it simply": plain-language scenes over the same real frames (facts from /api/explain).
+  const [explain, setExplain] = useState<ExplainFacts | null>(null);
+  const [explainLoading, setExplainLoading] = useState(false);
+  const [explainError, setExplainError] = useState("");
+  useEffect(() => { setExplain(null); setExplainError(""); }, [frames]);  // new frames: new explanation
   const [viewMode, setViewMode] = useState<"images" | "video">("images");
   const [speed, setSpeed] = useState(0.7);
   const [difference, setDifference] = useState(false);
@@ -285,6 +292,16 @@ export function Explorer() {
             <button type="button" aria-pressed={viewMode === "images"} aria-controls="sky-observation-view" onClick={() => { setViewMode("images"); setPlaying(false); }}><span>Images</span><small>Inspect one moment at a time</small></button>
             <button type="button" aria-pressed={viewMode === "video"} aria-controls="sky-observation-view" onClick={() => { setViewMode("video"); setCompare(false); setPlaying(frames.length >= 2 && !loadingFrames); }}><span>Video</span><small>Watch changes across time</small></button>
           </div>
+          {frames.length > 0 && !loadingFrames && coordinates && <button type="button" className="explain-button" aria-pressed={!!explain} disabled={explainLoading} onClick={async () => {
+            if (explain) { setExplain(null); return; }
+            setExplainLoading(true); setExplainError(""); setPlaying(false);
+            const controller = new AbortController();
+            try { setExplain(await getJson<ExplainFacts>(explainUrl(coordinates.ra, coordinates.dec, size, frames.map(f => f.obs.id)), controller.signal)); }
+            catch (error) { setExplainError(errorMessage(error)); }
+            finally { setExplainLoading(false); }
+          }}><span>{explainLoading ? "Preparing…" : explain ? "Back to scientific view" : "Explain it simply"}</span><small>Real images, plain words, no prior knowledge needed</small></button>}
+          {explainError && <div className="notice error" role="alert">The simple explanation could not be prepared: {explainError}</div>}
+          {explain && <ExplainPlayer frames={frames} facts={explain} onClose={() => setExplain(null)} />}
           <p className="viewer-mode-hint" id="viewer-mode-help">{viewMode === "images" ? "Step through your selected images using the arrows or frame markers. Use Compare or Difference to inspect changes." : "An animated sequence of your selected observations, not a live telescope feed. Select at least two images, then play, pause, or adjust the interval."}</p>
           {activeStory && story && <div className="story-panel" role="region" aria-label={`Story: ${activeStory.title}`}>
             <div className="story-panel-top"><span className="story-kicker">{activeStory.kicker} · STEP {story.step + 1} OF {activeStory.steps.length}</span><button className="story-exit" onClick={endStory} aria-label="Exit story">✕</button></div>
@@ -293,7 +310,7 @@ export function Explorer() {
             <div className="story-nav"><button disabled={story.step === 0} onClick={() => moveStory(-1)}>← Back</button><span className="story-dots" aria-hidden="true">{activeStory.steps.map((_, i) => <span key={i} className={i === story.step ? "on" : ""} />)}</span>{story.step < activeStory.steps.length - 1 ? <button className="story-next" onClick={() => moveStory(1)}>Next →</button> : <button className="story-next" onClick={endStory}>Finish</button>}</div>
           </div>}
           {searched && observations.length > 0 && selected.length === 0 && <div className="viewer-availability"><p>Images are available for this location. Choose the dates you want to load.</p><a href="#available-observations">Choose your images below &darr;</a></div>}
-          <div id="sky-observation-view" className="viewer-stage" aria-label={viewMode === "video" ? "Animated observation sequence" : "Observation image viewer"} aria-describedby="viewer-mode-help" aria-busy={loadingFrames} ref={stageRef}>
+          <div id="sky-observation-view" className="viewer-stage" style={explain ? { display: "none" } : undefined} aria-label={viewMode === "video" ? "Animated observation sequence" : "Observation image viewer"} aria-describedby="viewer-mode-help" aria-busy={loadingFrames} ref={stageRef}>
             {frame && !loadingFrames ? <>{frames.map((f, i) => <img key={f.obs.id} src={f.url} alt={`${source === "mock" ? "Synthetic demo observation" : source === "real" ? "SPHEREx observation" : "Observation (source unavailable)"}, ${utc(f.obs.obs_time)}, ${f.obs.band}`} className="sky-frame" style={{ visibility: i === index && !showDifference ? "visible" : "hidden" }} />)}{difference && frames.length > 1 && <canvas ref={canvas} className="sky-frame difference-canvas" role="img" aria-label="Difference between the current frame and the first frame" />}{showCompare && <><img src={frames[0].url} alt="" aria-hidden="true" className="sky-frame compare-reference" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }} /><span className="compare-line" style={{ left: `${split}%` }} aria-hidden="true" /><span className="compare-tag left">{utc(frames[0].obs.obs_time).slice(0, 16)}</span><span className="compare-tag right">{utc(frame.obs.obs_time).slice(0, 16)}</span><input className="compare-range" type="range" min={0} max={100} value={split} onChange={event => setSplit(Number(event.target.value))} aria-label="Move the comparison divider" /></>}{scale && <div className="scale-bar" aria-label={`Scale: ${scale.arcsec} arcseconds, about ${scale.pixels} SPHEREx pixels`}><span style={{ width: scale.px }} /><small>{scale.arcsec}″ · ≈{scale.pixels} px</small></div>}<span className="crosshair" aria-hidden="true" /><span className="stage-label">{difference && frames.length > 1 ? "DIFFERENCE · FRAME 1 REFERENCE" : showCompare ? `COMPARE · FRAME 1 | FRAME ${index + 1}` : `${frame.obs.band} · ${frame.obs.release}`}</span><span className="stage-counter">{index + 1} / {frames.length}</span><span className="north-label" aria-hidden="true">N ↑</span></> : <div className="viewer-empty"><div className={`view-reticle ${loadingFrames || searching ? "loading" : ""}`} aria-hidden="true"><span>✧</span></div><h3>{searching ? "Finding your patch of sky" : loadingFrames ? "Gathering moments in time" : failures.length ? "Images could not be loaded" : searched && !observations.length ? "A little further into the sky" : "Every comparison starts somewhere"}</h3><p>{loadingFrames ? `${progress.ready} of ${selectedObservations.length} images ready · ${progress.completed} processed` : searching ? "We’re looking for observations at your coordinates." : searched && !observations.length ? "Try another position or one of the demo targets." : selected.length === 0 && observations.length ? "Choose all images or specific dates in Available observations below to load your view." : "Enter your coordinates above to find images of this location."}</p>{loadingFrames && <><progress value={progress.completed} max={selectedObservations.length} /><small>First-time archive images can take 5–30 seconds each.</small></>}</div>}
           </div>
           <div className="playback" role="group" aria-label="Playback controls"><div className="transport"><button aria-label="Previous frame" disabled={loadingFrames || frames.length < 2} onClick={() => { setPlaying(false); step(-1); }}>◀</button><button className="play-button" aria-label={playing ? "Pause playback" : "Play comparison"} disabled={loadingFrames || frames.length < 2} onClick={() => { if (!playing) setViewMode("video"); setPlaying(p => !p); }}>{playing ? "Ⅱ" : "▶"}</button><button aria-label="Next frame" disabled={loadingFrames || frames.length < 2} onClick={() => { setPlaying(false); step(1); }}>▶</button></div><label className="speed-control" htmlFor="speed">Interval <input id="speed" type="range" min="0.2" max="2" step="0.1" value={speed} onChange={event => setSpeed(Number(event.target.value))} /><span>{speed.toFixed(1)}s</span></label></div>
