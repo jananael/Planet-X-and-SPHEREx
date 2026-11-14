@@ -3,6 +3,7 @@
 // honest when it is shared on its own.
 import { GIFEncoder, applyPalette, quantize } from "gifenc";
 import type { BlinkFrame } from "./types";
+import { dataSourceLabel, formatUtc } from "./scientific-format";
 
 const SCALE = 2;          // nearest-neighbour upscale: keeps SPHEREx pixels crisp
 const CAPTION = 64;       // px strip under the image
@@ -15,9 +16,9 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-function utc(iso: string) { return new Date(iso).toISOString().slice(0, 16).replace("T", " ") + " UTC"; }
+const utc = formatUtc;
 
-export async function makeBlinkGif(frames: BlinkFrame[], { delayMs, synthetic }: { delayMs: number; synthetic: boolean }): Promise<Blob> {
+export async function makeBlinkGif(frames: BlinkFrame[], { delayMs, synthetic, dataSource }: { delayMs: number; synthetic: boolean; dataSource?: string | null }): Promise<Blob> {
   if (frames.length < 2) throw new Error("Need at least two frames");
   const images = await Promise.all(frames.map(f => loadImage(f.url)));
   const w = images[0].naturalWidth * SCALE, imageH = images[0].naturalHeight * SCALE, h = imageH + CAPTION;
@@ -45,7 +46,7 @@ export async function makeBlinkGif(frames: BlinkFrame[], { delayMs, synthetic }:
     const wl = f.wavelengthUm === null ? "" : ` · ${f.wavelengthUm.toFixed(3)} µm`;
     ctx.fillText(`${utc(f.obs.obs_time)} · ${f.obs.band}${wl}`, 14, imageH + 26);
     ctx.fillStyle = "#c27af3"; ctx.font = font(12);
-    ctx.fillText(`SKYTRACE · Data: NASA SPHEREx via IRSA${synthetic ? " · synthetic demo images" : ""}`, 14, imageH + 48);
+    ctx.fillText(`SKYTRACE · ${dataSourceLabel(synthetic ? "mock" : dataSource)}`, 14, imageH + 48);
 
     const { data } = ctx.getImageData(0, 0, w, h);
     const palette = quantize(data, 256);

@@ -40,7 +40,7 @@ class Cutout:
     observation: Observation
     repaired_pixels: int = 0          # flagged pixels replaced for display (real data)
     repaired_flags: list[str] = field(default_factory=list)
-    transient_pixels: int = 0         # TRANSIENT-flagged pixels left unrepaired in the cutout (real data)
+    transient_pixels: int | None = None  # None when flag data is unavailable; zero only after counting
 
 
 class DataSource(ABC):
@@ -78,7 +78,9 @@ def build_mock_candidate(target: Target, observations: list[Observation], truth:
     """A candidate from mock positions/fluxes, labelled as mock. These are KNOWN objects, so the
     status is known_object: the point is to exercise the contract, not to claim anything."""
     obs = sorted(observations, key=lambda o: o.mjd)
-    dets = [Detection(observation_id=o.id, observation_time=o.obs_time, band=o.band, wavelength_um=o.wavelength_um,
+    dets = [Detection(observation_id=o.id, release=o.release, processing_version=o.processing_version,
+                      source_file=o.source_file, archive_id=o.archive_id,
+                      observation_time=o.obs_time, band=o.band, wavelength_um=o.wavelength_um,
                       ra_deg=truth[o.id]["ra"],
                       dec_deg=truth[o.id]["dec"], flux=truth[o.id]["flux"], flux_unit="arbitrary (synthetic)")
             for o in obs]
@@ -108,7 +110,7 @@ def build_mock_candidate(target: Target, observations: list[Observation], truth:
                                             variability_status="variable" if rel > 0.3 else "inconclusive"),
         classification=Classification(candidate_type=kind, method="mock: synthetic positions and fluxes"),
         quality=Quality(data_quality="valid", insufficient_evidence=False),
-        status="known_object", known_match=target.name, data_release=obs[0].release,
+        status="known_object", known_match=target.name,
         engine_version="mock", is_mock=True,
     )
 
@@ -185,7 +187,9 @@ class MockSource(DataSource):
             field_seed=obs.target_id or obs.id, field_ra=field_ra, field_dec=field_dec,
             noise_seed=obs.id, source=truth,
         )
-        return Cutout(data=data, ra=ra, dec=dec, pixel_scale_arcsec=SPHEREX_PIXEL_ARCSEC, observation=obs)
+        # The synthetic renderer does not generate flagged transient pixels.
+        return Cutout(data=data, ra=ra, dec=dec, pixel_scale_arcsec=SPHEREX_PIXEL_ARCSEC, observation=obs,
+                      transient_pixels=0)
 
 
 @lru_cache

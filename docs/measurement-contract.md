@@ -56,8 +56,15 @@ Frontend ──GET /api/candidates?ra&dec&radius──▶ Backend ──EngineRe
 
 ### Detection لكل صورة
 كل مرشّح فيه قائمة `detections`، **وحدة لكل observation**:
-`observation_id`، `observation_time`، `band`، `wavelength_um`، `bandwidth_um`، `ra_deg`، `dec_deg`،
-`snr`، `flux`، `flux_error`، `flux_unit`، `quality_flags`.
+`observation_id`، **`release`، `processing_version`، `source_file`، `archive_id`**، `observation_time`، `band`،
+`wavelength_um`، `bandwidth_um`، `ra_deg`، `dec_deg`، `snr`، `flux`، `flux_error`، `flux_unit`، `quality_flags`.
+
+### مصدر كل رصد (provenance)
+- **كل detection بيحمل مصدره:** `release` (DR1 / QR3) و `processing_version` (مثلاً `l2b-v27-2026-276`)،
+  و `source_file` و `archive_id` إذا متوفرين. بنتيجة المحرك (`is_mock: false`) الكود **بيرفض** detection بدون
+  `release` أو `processing_version`.
+- **`Candidate.data_release` ملخص بس:** بينشتق من الـ detections (`"QR3"` أو `"DR1+QR3"`)، ومش من أول detection.
+  إذا انبعت بقيمة ما بتطابقهم، الكود بيرفض.
 
 ### SNR
 - **لكل detection** (لأن قوة الجسم بتختلف من صورة لصورة).
@@ -109,7 +116,8 @@ Frontend ──GET /api/candidates?ra&dec&radius──▶ Backend ──EngineRe
 ### قواعد عامة
 - **الوقت UTC، منتصف التعريض.** الكود بيفرضها على `observation_time` و `EngineFrame.obs_time` و `KnownObject.epoch_utc`:
   وقت **بدون timezone بينرفض** (ما منفترض إنه UTC)، ووقت بـ offset تاني **بيتحوّل لـ UTC** بشكل صريح.
-- **`observation_ids` = معرّفات الـ detections بالضبط:** detection وحدة لكل observation، بدون تكرار. إذا انحذفت بتنشتق من الـ detections.
+- **`observation_ids` = معرّفات الـ detections بالضبط:** detection وحدة لكل observation، بدون تكرار. إذا **انحذف
+  الحقل** بينشتق من الـ detections؛ أما **`[]` صريحة** مع وجود detections فبتنرفض (`model_fields_set`).
 - **`flux_error` بدون `flux` ممنوع.** وبمرشّح حقيقي، وجود `flux` أو `flux_error` بيفرض `flux_unit: "uJy"`.
 - **`is_mock`:** `true` يعني **القياسات** مش من المحرك (وضع mock أو مثال للعقد). الصور والـ observation ids ممكن يكونوا
   حقيقيين، مثل مثال فيستا. `delta_ra_arcsec` على السما (× cos Dec).
@@ -132,7 +140,9 @@ Frontend ──GET /api/candidates?ra&dec&radius──▶ Backend ──EngineRe
 - [x] تحديث `candidate.py` و `candidate.schema.json` (2026-11-13)
 - [x] مثال JSON من بيانات حقيقية + اختبارات validation
 - [x] مراجعة يزان الأولى (موافقة مشروطة) + إصلاح النقاط الخمس: pipeline غير معروف، UTC، flux_error، observation_ids، اختبار الـ schema
-- [ ] **المراجعة الأخيرة** واعتماد `1.0`
+- [x] المراجعة الأخيرة ليزان: `observation_ids=[]` الصريحة بتنرفض، و provenance لكل detection (2026-11-13)
+- [ ] **موافقة يزان وجنى** واعتماد `1.0` (تحديث `CONTRACT_VERSION`)
+- [ ] PR #2: المحرك لازم يعبّي `release` و `processing_version` لكل detection، ويمرّر `known_objects`
 - [ ] الـ background jobs و `job_id` بالـ API (لسّا مش مبنية، بنبنيها لما يجهز المحرك)
 - [x] صور من pipeline وحدة بكل طلب: `EngineRequest` بيرفض الخلط (الـ backend بيقسم الطلب لما نربط المحرك)
 - [x] حد الـ `low_snr` = 5 (مبدئي، يزان 2026-11-13)

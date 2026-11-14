@@ -307,6 +307,13 @@ def test_candidates_real_fits_and_multiple_requests(real, monkeypatch):
     candidate = body["candidates"][0]
     assert candidate["is_mock"] is False
     assert all(d["flux"] is None and d["flux_error"] is None for d in candidate["detections"])
+    records_by_id = {record.id: record for record in records}
+    for detection in candidate["detections"]:
+        record = records_by_id[detection["observation_id"]]
+        assert detection["release"] == record.release
+        assert detection["processing_version"] == record.processing_version
+        assert detection["source_file"] == record.source_file
+        assert detection["archive_id"] == (record.publisher_did or None)
     assert candidate["evidence"]["selected_band"] == "D3"
     assert candidate["evidence"]["selected_pipeline"] == "v27"
     assert client.get(f"/api/candidates/{candidate['candidate_id']}").json()["candidate_id"] == candidate["candidate_id"]

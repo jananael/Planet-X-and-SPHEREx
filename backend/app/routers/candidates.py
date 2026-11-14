@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from app.schemas import ErrorResponse
-from app.schemas.candidate import Candidate, CandidateList
+from app.schemas.candidate import Candidate, CandidateAnalysis, CandidateList
 from app.services.data_source import DataSource, get_data_source
 
 router = APIRouter(tags=["candidates"], responses={400: {"model": ErrorResponse}, 501: {"model": ErrorResponse}})
@@ -18,10 +18,11 @@ def list_candidates(
     pipeline: Annotated[str | None, Query(pattern="^v\\d+$", description="Processing pipeline, e.g. v27")]=None,
     ds: DataSource = Depends(get_data_source),
 ) -> CandidateList:
-    """Candidates near (ra, dec), from mock fixtures or the real FITS detection engine."""
+    """Candidates from mock fixtures or the real FITS detection engine."""
     found = ds.candidates(ra, dec, radius, band=band, pipeline=pipeline)
     return CandidateList(query={"ra": ra, "dec": dec, "radius": radius,
-                                "band": band, "pipeline": pipeline}, candidates=found, count=len(found))
+                                "band": band, "pipeline": pipeline}, candidates=found, count=len(found),
+                         analysis=CandidateAnalysis(state="completed", data_source=ds.name))
 
 
 @router.get("/candidates/{candidate_id}", response_model=Candidate, responses={404: {"model": ErrorResponse}})

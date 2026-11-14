@@ -12,10 +12,17 @@ export interface Observation {
   wavelength_um: number | null; wavelength_range_um?: [number, number] | null;
   band: string; release: string; source_file: string; image_url: string;
   processing_version?: string | null; archive_id?: string | null;
+  bandwidth_um?: number | null; wavelength_source?: string | null;
+  wavelength_pixel?: { x: number; y: number; frame: string } | null;
   footprint?: { ra: number; dec: number; radius_deg: number } | null;
 }
 export interface Coordinates { ra: number; dec: number }
 export type Stretch = "asinh" | "zscale" | "linear";
 export interface ImageSettings extends Coordinates { size: number; stretch: Stretch }
-export interface BlinkFrame { obs: Observation; url: string; wavelengthUm: number | null; bandwidthUm: number | null; vmin: number; vmax: number; transientPixels: number }
+export interface BlinkFrame {
+  obs: Observation; url: string; wavelengthUm: number | null; bandwidthUm: number | null;
+  vmin: number; vmax: number; transientPixels: number | null;
+  repairedPixels?: number | null; repairedFlags?: string[] | null;
+  wavelengthSource?: string | null; processingVersion?: string | null;
+}
 export interface FrameFailure { observation: Observation; message: string; code: string }

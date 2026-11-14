@@ -52,7 +52,7 @@ test("frames are comparable when their spectral bands overlap, not by a fixed to
   assert.deepEqual(mixedPipelines([o("DR1", "l2b-v27-2026-228"), o("QR3", "l2b-v27-2026-276")]), []);  // same pipeline: fine
   assert.deepEqual(mixedPipelines([o("DR1", "l2b-v27-2026-228"), o("QR4", "l2b-v28-2027-010")]), ["l2b-v27", "l2b-v28"]);
   assert.deepEqual(mixedPipelines([o("DR1", "l2b_retry-v27-2026-214"), o("QR3", "l2b-v27-2026-276")]), []);  // re-run file, same pipeline
-  assert.deepEqual(mixedPipelines([o("QR3"), o("DR1")]), ["DR1", "QR3"]);  // versions unknown: compare releases
+  assert.deepEqual(mixedPipelines([o("QR3"), o("DR1")]), []);  // releases cannot establish processing differences
   const f = (w: number, b: number | null) => ({ wavelengthUm: w, bandwidthUm: b });
   assert.equal(spectralMismatch([f(1.60, 0.04), f(1.62, 0.04)]), false);   // ranges overlap
   assert.equal(spectralMismatch([f(1.60, 0.02), f(1.66, 0.02)]), true);    // 0.06 apart, narrow bands: no overlap

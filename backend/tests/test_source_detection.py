@@ -14,7 +14,8 @@ RA, DEC = 42.0, 10.0
 
 
 def make_frame(tmp_path, name, sources=(), *, time_offset=0, size=64, variance=True,
-               variance_unit="(MJy/sr)^2", wcs=True, image_unit="MJy / sr", flags=(), include_flags=True):
+               variance_unit="(MJy/sr)^2", wcs=True, image_unit="MJy / sr", flags=(), include_flags=True,
+               release="DR1", processing_version="l2b-v27-2026-228", source_file=None, archive_id=None):
     rng = np.random.default_rng(43)
     image = rng.normal(0, 0.03, (size, size))
     for x, y, flux in sources:
@@ -47,7 +48,8 @@ def make_frame(tmp_path, name, sources=(), *, time_offset=0, size=64, variance=T
     path = tmp_path / f"{name}.fits"
     fits.HDUList(hdus).writeto(path)
     return EngineFrame(name, path, datetime(2025, 1, 1, tzinfo=timezone.utc) + timedelta(minutes=time_offset),
-                       "D3", "DR1", "l2b-v27-2026-228", None, None)
+                       "D3", release, processing_version, None, None,
+                       source_file=source_file or f"{name}.fits", archive_id=archive_id or f"archive:{name}")
 
 
 def request(frames):
@@ -202,3 +204,23 @@ def test_candidate_output_conforms_to_measurement_contract(tmp_path):
     frame = make_frame(tmp_path, "contract", [(32, 32, 2)])
     candidate = SourceDetectionEngine().detect(request([frame]))[0]
     assert Candidate.model_validate(candidate.model_dump()) == candidate
+
+
+def test_detections_preserve_provenance_from_each_frame_and_summarize_releases(tmp_path):
+    frames = [
+        make_frame(tmp_path, "dr1", [(32, 32, 2)], time_offset=0,
+                   release="DR1", source_file="dr1-frame.fits", archive_id="ivo:archive/dr1"),
+        make_frame(tmp_path, "qr3", [(32, 32, 2)], time_offset=10,
+                   release="QR3", source_file="qr3-frame.fits", archive_id="ivo:archive/qr3"),
+    ]
+    candidate = SourceDetectionEngine().detect(request(frames))[0]
+    by_id = {d.observation_id: d for d in candidate.detections}
+    assert by_id["dr1"].release == "DR1"
+    assert by_id["dr1"].processing_version == "l2b-v27-2026-228"
+    assert by_id["dr1"].source_file == "dr1-frame.fits"
+    assert by_id["dr1"].archive_id == "ivo:archive/dr1"
+    assert by_id["qr3"].release == "QR3"
+    assert by_id["qr3"].processing_version == "l2b-v27-2026-228"
+    assert by_id["qr3"].source_file == "qr3-frame.fits"
+    assert by_id["qr3"].archive_id == "ivo:archive/qr3"
+    assert candidate.data_release == "DR1+QR3"

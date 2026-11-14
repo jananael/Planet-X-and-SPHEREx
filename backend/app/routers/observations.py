@@ -61,7 +61,7 @@ def get_observation_image(
         obs.release, f"{cutout.ra:.6f}", f"{cutout.dec:.6f}", f"{used_min:.6g}", f"{used_max:.6g}",
         "" if obs.bandwidth_um is None else f"{obs.bandwidth_um}", obs.wavelength_source or "",
         obs.processing_version or "", str(cutout.repaired_pixels), ",".join(cutout.repaired_flags),
-        str(cutout.transient_pixels),
+        "" if cutout.transient_pixels is None else str(cutout.transient_pixels),
     )))
     headers["Cache-Control"] = "public, max-age=3600"
     return Response(content=png, media_type="image/png", headers=headers)

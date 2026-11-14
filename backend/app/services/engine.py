@@ -47,6 +47,8 @@ class EngineFrame:
     wavelength_um: float | None        # at the target pixel (CWAVE calibration, else WCS-WAVE)
     bandwidth_um: float | None
     pixel_scale_arcsec: float = 6.15
+    source_file: str | None = None     # exact archive filename for this frame, when known
+    archive_id: str | None = None      # exact archive publisher DID for this frame, when known
 
     def __post_init__(self):
         object.__setattr__(self, "obs_time", to_utc(self.obs_time))

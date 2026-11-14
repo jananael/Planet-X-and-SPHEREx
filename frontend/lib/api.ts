@@ -1,4 +1,7 @@
 import type { BlinkFrame, FrameFailure, ImageSettings, Observation } from "./types.ts";
+import { numericHeader } from "./scientific-format.ts";
+import { parseCandidateResponse } from "./scientific-evidence.ts";
+import type { CandidateResponse } from "./scientific-types.ts";
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
 export class ApiFailure extends Error {
@@ -52,20 +55,29 @@ export async function loadFrame(obs: Observation, settings: ImageSettings, signa
   // Real archive images can take 5–30 s, and the backend retries IRSA for up to ~170 s.
   const res = await request(`${obs.image_url}?${q}`, signal, IMAGE_TIMEOUT_MS);
   const min = res.headers.get("X-Stretch-Vmin"), max = res.headers.get("X-Stretch-Vmax");
-  const vmin = Number(min), vmax = Number(max);
-  if (!min || !max || !Number.isFinite(vmin) || !Number.isFinite(vmax) || vmax <= vmin) throw new ApiFailure("INVALID_IMAGE", "Missing brightness limits");
-  const wl = res.headers.get("X-Wavelength-Um");
-  const wavelengthUm = wl?.trim() && Number.isFinite(Number(wl)) ? Number(wl) : null;
-  const bw = res.headers.get("X-Bandwidth-Um");
-  const bandwidthUm = bw?.trim() && Number(bw) > 0 ? Number(bw) : null;
+  const vmin = numericHeader(min), vmax = numericHeader(max);
+  if (vmin === null || vmax === null || vmax <= vmin) throw new ApiFailure("INVALID_IMAGE", "Missing brightness limits");
+  const wavelengthUm = numericHeader(res.headers.get("X-Wavelength-Um"), { positive: true });
+  const bandwidthUm = numericHeader(res.headers.get("X-Bandwidth-Um"), { positive: true });
   // TRANSIENT-flagged pixels are not repaired by the backend; we only warn about them.
-  const transientPixels = Math.max(0, Number(res.headers.get("X-Transient-Pixels")) || 0);
+  const transientPixels = numericHeader(res.headers.get("X-Transient-Pixels"), { count: true });
+  const repairedPixels = numericHeader(res.headers.get("X-Repaired-Pixels"), { count: true });
+  const rawFlags = res.headers.get("X-Repaired-Flags");
+  const repairedFlags = rawFlags === null ? null : rawFlags.split(",").map(flag => flag.trim()).filter(Boolean);
+  const wavelengthSource = res.headers.get("X-Wavelength-Source")?.trim() || null;
+  const processingVersion = res.headers.get("X-Processing-Version")?.trim() || obs.processing_version || null;
   const url = URL.createObjectURL(await res.blob());
   try {
     await waitForImage(url, signal);
     signal.throwIfAborted();
-    return { obs, url, wavelengthUm, bandwidthUm, vmin, vmax, transientPixels };
+    return { obs, url, wavelengthUm, bandwidthUm, vmin, vmax, transientPixels, repairedPixels, repairedFlags, wavelengthSource, processingVersion };
   } catch (error) { URL.revokeObjectURL(url); throw error; }
+}
+
+export async function getCandidateAnalysis(ra: number, dec: number, signal: AbortSignal): Promise<CandidateResponse> {
+  const payload = await getJson<unknown>(`/api/candidates?${new URLSearchParams({ ra: String(ra), dec: String(dec), radius: "0.5" })}`, signal);
+  try { return parseCandidateResponse(payload); }
+  catch { throw new ApiFailure("INVALID_RESPONSE", "Candidate data did not match the scientific response contract."); }
 }
 
 // Wait for the browser to load the PNG. Uses the load event, not img.decode(): decode() can stay

@@ -7,6 +7,10 @@
   "detections": [
     {
       "observation_id": "2026W29_1A_0138_4D2",
+      "release": "QR3",
+      "processing_version": "l2b-v27-2026-276",
+      "source_file": "level2_2026W29_1A_0138_4D2_spx_l2b-v27-2026-276.fits",
+      "archive_id": "ivo://irsa.ipac/spherex_qr3?2026W29_1A_0138_4/D2",
       "observation_time": "2026-07-13T15:57:52Z",
       "band": "D2",
       "wavelength_um": null,
@@ -21,6 +25,10 @@
     },
     {
       "observation_id": "2026W29_1A_0163_1D2",
+      "release": "QR3",
+      "processing_version": "l2b-v27-2026-276",
+      "source_file": "level2_2026W29_1A_0163_1D2_spx_l2b-v27-2026-276.fits",
+      "archive_id": "ivo://irsa.ipac/spherex_qr3?2026W29_1A_0163_1/D2",
       "observation_time": "2026-07-13T19:07:09Z",
       "band": "D2",
       "wavelength_um": null,
