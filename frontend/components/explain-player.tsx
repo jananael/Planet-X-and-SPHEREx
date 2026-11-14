@@ -67,8 +67,8 @@ export function ExplainPlayer({ frames, facts, onClose }: { frames: BlinkFrame[]
 
   if (!scenes.length) return null;
   return (
-    <section className="explain-player" aria-label="Simple explanation of these images">
-      <div className="explain-badge">{facts.is_mock ? "Synthetic demo images · simplified explanation" : "Real SPHEREx images · simplified explanation"}</div>
+    <section className="explain-player" aria-label="Guided walkthrough of these images">
+      <div className="explain-badge">{facts.is_mock ? "Synthetic demo images · guided walkthrough" : "Real SPHEREx images · guided walkthrough"}</div>
       <canvas ref={canvas} width={SIZE} height={SIZE} className="explain-canvas" role="img"
         aria-label={`Frame ${scene.frame + 1} of ${facts.frames.length}${scene.circle && facts.object ? `, circle on ${facts.object.name}` : ""}`} />
       <p className="explain-caption" aria-live="polite">{scene.caption}</p>
@@ -79,7 +79,7 @@ export function ExplainPlayer({ frames, facts, onClose }: { frames: BlinkFrame[]
         </button>
         <button type="button" onClick={() => setStep(s => Math.min(scenes.length - 1, s + 1))} disabled={done} aria-label="Next scene">▶</button>
         <span className="explain-progress">{Math.min(step + 1, scenes.length)} / {scenes.length}</span>
-        <button type="button" className="explain-close" onClick={onClose}>Back to scientific view</button>
+        <button type="button" className="explain-close" onClick={onClose}>Back to images</button>
       </div>
       <details className="explain-notes">
         <summary>What this explanation can and cannot tell you</summary>
