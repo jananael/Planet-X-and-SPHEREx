@@ -38,7 +38,7 @@ test("candidate client uses the actual endpoint and preserves completed-empty ve
   try {
     globalThis.fetch = async input => {
       const url = new URL(String(input));
-      assert.equal(url.pathname, "/api/candidates"); assert.equal(url.searchParams.get("ra"), "10"); assert.equal(url.searchParams.get("radius"), "0.5");
+      assert.equal(url.pathname, "/api/candidates"); assert.equal(url.searchParams.get("ra"), "10"); assert.equal(url.searchParams.get("radius"), "0.25");
       return Response.json({ candidates: [], count: 0, analysis: { state: "completed", data_source: "real", scope: "sky_region" } });
     };
     const result = await getCandidateAnalysis(10, 20, new AbortController().signal);

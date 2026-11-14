@@ -75,7 +75,7 @@ export async function loadFrame(obs: Observation, settings: ImageSettings, signa
 }
 
 export async function getCandidateAnalysis(ra: number, dec: number, signal: AbortSignal): Promise<CandidateResponse> {
-  const payload = await getJson<unknown>(`/api/candidates?${new URLSearchParams({ ra: String(ra), dec: String(dec), radius: "0.5" })}`, signal);
+  const payload = await getJson<unknown>(`/api/candidates?${new URLSearchParams({ ra: String(ra), dec: String(dec), radius: "0.25" })}`, signal);
   try { return parseCandidateResponse(payload); }
   catch { throw new ApiFailure("INVALID_RESPONSE", "Candidate data did not match the scientific response contract."); }
 }
