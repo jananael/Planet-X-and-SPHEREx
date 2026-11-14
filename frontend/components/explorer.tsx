@@ -49,6 +49,14 @@ export function Explorer() {
   const [explainLoading, setExplainLoading] = useState(false);
   const [explainError, setExplainError] = useState("");
   useEffect(() => { setExplain(null); setExplainError(""); }, [frames]);  // new frames: new explanation
+  const canExplain = frames.length > 0 && !loadingFrames && !!coordinates;
+  async function openExplain() {
+    if (!coordinates || !frames.length) return;
+    setExplainLoading(true); setExplainError(""); setPlaying(false);
+    try { setExplain(await getJson<ExplainFacts>(explainUrl(coordinates.ra, coordinates.dec, size, frames.map(f => f.obs.id)), new AbortController().signal)); }
+    catch (error) { setExplainError(errorMessage(error)); }
+    finally { setExplainLoading(false); }
+  }
   const [viewMode, setViewMode] = useState<"images" | "video">("images");
   const [speed, setSpeed] = useState(0.7);
   const [difference, setDifference] = useState(false);
@@ -288,21 +296,25 @@ export function Explorer() {
 </details>
           </section>
         <section className="panel viewer-panel" aria-labelledby="viewer-title"><div className="viewer-heading"><div className="section-heading"><span className="step-number">03</span><div><p className="eyebrow">SEE WHAT TIME REVEALS</p><h2 id="viewer-title">Your view of the sky</h2></div></div><span className="alignment-badge">◎ North up · East left</span></div>
-          <div className="viewer-mode-picker" role="group" aria-label="Choose how to view observations">
+          <div className="audience-picker" role="group" aria-label="Choose how to see the results">
+            <button type="button" aria-pressed={!explain} onClick={() => setExplain(null)}>
+              <span className="audience-icon" aria-hidden="true">🔬</span><span className="audience-title">Scientific view</span>
+              <small>The real images with time, band, wavelength, release and file. Compare, blink, difference.</small>
+            </button>
+            <button type="button" className="audience-simple" aria-pressed={!!explain} disabled={!canExplain || explainLoading} onClick={() => { if (!explain) void openExplain(); }}>
+              <span className="audience-icon" aria-hidden="true">✨</span><span className="audience-title">{explainLoading ? "Preparing the explanation…" : "Simple explanation"}</span>
+              <small>{canExplain ? "A short guided video over the same real images, in plain words. No science background needed." : "Load images of a location first, then press here."}</small>
+            </button>
+          </div>
+          {source && <p className={`data-source-line ${source === "mock" ? "mock" : ""}`}>{source === "real" ? "● Real data: NASA SPHEREx images from NASA/IPAC IRSA (DR1 + QR3)" : source === "mock" ? "● Synthetic demo data: not real observations" : ""}</p>}
+          {!explain && <div className="viewer-mode-picker" role="group" aria-label="Choose how to view observations">
             <button type="button" aria-pressed={viewMode === "images"} aria-controls="sky-observation-view" onClick={() => { setViewMode("images"); setPlaying(false); }}><span>Images</span><small>Inspect one moment at a time</small></button>
             <button type="button" aria-pressed={viewMode === "video"} aria-controls="sky-observation-view" onClick={() => { setViewMode("video"); setCompare(false); setPlaying(frames.length >= 2 && !loadingFrames); }}><span>Video</span><small>Watch changes across time</small></button>
-          </div>
-          {frames.length > 0 && !loadingFrames && coordinates && <button type="button" className="explain-button" aria-pressed={!!explain} disabled={explainLoading} onClick={async () => {
-            if (explain) { setExplain(null); return; }
-            setExplainLoading(true); setExplainError(""); setPlaying(false);
-            const controller = new AbortController();
-            try { setExplain(await getJson<ExplainFacts>(explainUrl(coordinates.ra, coordinates.dec, size, frames.map(f => f.obs.id)), controller.signal)); }
-            catch (error) { setExplainError(errorMessage(error)); }
-            finally { setExplainLoading(false); }
-          }}><span>{explainLoading ? "Preparing…" : explain ? "Back to scientific view" : "Explain it simply"}</span><small>Real images, plain words, no prior knowledge needed</small></button>}
+          </div>}
+
           {explainError && <div className="notice error" role="alert">The simple explanation could not be prepared: {explainError}</div>}
           {explain && <ExplainPlayer frames={frames} facts={explain} onClose={() => setExplain(null)} />}
-          <p className="viewer-mode-hint" id="viewer-mode-help">{viewMode === "images" ? "Step through your selected images using the arrows or frame markers. Use Compare or Difference to inspect changes." : "An animated sequence of your selected observations, not a live telescope feed. Select at least two images, then play, pause, or adjust the interval."}</p>
+          {!explain && <p className="viewer-mode-hint" id="viewer-mode-help">{viewMode === "images" ? "Step through your selected images using the arrows or frame markers. Use Compare or Difference to inspect changes." : "An animated sequence of your selected observations, not a live telescope feed. Select at least two images, then play, pause, or adjust the interval."}</p>}
           {activeStory && story && <div className="story-panel" role="region" aria-label={`Story: ${activeStory.title}`}>
             <div className="story-panel-top"><span className="story-kicker">{activeStory.kicker} · STEP {story.step + 1} OF {activeStory.steps.length}</span><button className="story-exit" onClick={endStory} aria-label="Exit story">✕</button></div>
             <h3>{activeStory.title}</h3>

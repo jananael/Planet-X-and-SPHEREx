@@ -1,10 +1,20 @@
-/* "Explain it simply" button and player. Uses the Explorer's tokens. */
-.explain-button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; margin: 0 0 14px;
-  padding: 14px 20px; text-align: left; border: 1px dashed #ffd16699; border-radius: 12px; background: #ffd1660d; color: inherit; cursor: pointer; }
-.explain-button span { font-size: 14px; font-weight: 500; }
-.explain-button small { font-size: 11px; color: var(--muted, #9aa3b5); }
-.explain-button[aria-pressed="true"] { border-style: solid; border-color: #ffd166; }
-.explain-button:disabled { opacity: .6; cursor: progress; }
+/* Two ways to see a location: Scientific view / Simple explanation. Then the player. */
+.audience-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 4px 0 10px; }
+.audience-picker button { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; row-gap: 4px; align-items: center;
+  padding: 18px 20px; text-align: left; border: 2px solid var(--line, #303047); border-radius: 14px; background: #0b1020;
+  color: inherit; cursor: pointer; transition: border-color .15s, background .15s; }
+.audience-picker button small { grid-column: 1 / -1; font-size: 12px; line-height: 1.45; color: var(--muted, #9aa3b5); }
+.audience-icon { font-size: 26px; line-height: 1; }
+.audience-title { font-size: 17px; font-weight: 600; }
+.audience-picker button[aria-pressed="true"] { border-color: #5bc0de; background: #5bc0de1a; }
+.audience-picker .audience-simple { border-color: #ffd16666; }
+.audience-picker .audience-simple .audience-title { color: #ffe2a0; }
+.audience-picker .audience-simple[aria-pressed="true"] { border-color: #ffd166; background: #ffd1661a; }
+.audience-picker button:hover:not(:disabled) { border-color: #ffffff66; }
+.audience-picker button:disabled { opacity: .55; cursor: not-allowed; }
+.data-source-line { margin: 0 0 14px; font-size: 12px; color: #8fe3a6; }
+.data-source-line.mock { color: #ffb4a8; }
+@media (max-width: 640px) { .audience-picker { grid-template-columns: 1fr; } }
 
 .explain-player { display: grid; gap: 12px; margin-bottom: 16px; }
 .explain-badge { justify-self: start; font-size: 11px; letter-spacing: .04em; padding: 4px 10px; border-radius: 20px;
