@@ -307,15 +307,14 @@ export function Explorer() {
             </button>
           </div>
           {source && <p className={`data-source-line ${source === "mock" ? "mock" : ""}`}>{source === "real" ? "● Real data: NASA SPHEREx images from NASA/IPAC IRSA (DR1 + QR3)" : source === "mock" ? "● Synthetic demo data: not real observations" : ""}</p>}
-          <div className="viewer-mode-picker" role="group" aria-label="Choose how to view observations">
-            <button type="button" aria-pressed={!explain && viewMode === "images"} aria-controls="sky-observation-view" onClick={() => { setExplain(null); setViewMode("images"); setPlaying(false); }}><span>Images</span><small>Inspect one moment at a time</small></button>
-            <button type="button" aria-pressed={!explain && viewMode === "video"} aria-controls="sky-observation-view" onClick={() => { setExplain(null); setViewMode("video"); setCompare(false); setPlaying(frames.length >= 2 && !loadingFrames); }}><span>Video</span><small>Watch changes across time</small></button>
-            <button type="button" aria-pressed={!!explain} disabled={!canExplain || explainLoading} onClick={() => { if (!explain) void openExplain(); }}><span>{explainLoading ? "Preparing…" : "Walkthrough"}</span><small>{canExplain ? "Step by step: what changed and where" : "Load images first"}</small></button>
-          </div>
+          <button type="button" className="walkthrough-button" aria-pressed={!!explain} disabled={!canExplain || explainLoading} onClick={() => { if (explain) setExplain(null); else void openExplain(); }}>
+            <span aria-hidden="true">{explain ? "✕" : "🧭"}</span><span className="walkthrough-title">{explainLoading ? "Preparing the walkthrough…" : explain ? "Close the walkthrough" : "Guided walkthrough"}</span>
+            <small>{canExplain ? "Step by step: what changed, where, and how much" : "Load images of a location first"}</small>
+          </button>
 
           {explainError && <div className="notice error" role="alert">The walkthrough could not be prepared: {explainError}</div>}
           {explain && <ExplainPlayer frames={frames} facts={explain} onClose={() => setExplain(null)} />}
-          {!explain && <p className="viewer-mode-hint" id="viewer-mode-help">{viewMode === "images" ? "Step through your selected images using the arrows or frame markers. Use Compare or Difference to inspect changes." : "An animated sequence of your selected observations, not a live telescope feed. Select at least two images, then play, pause, or adjust the interval."}</p>}
+          {!explain && <p className="viewer-mode-hint" id="viewer-mode-help">Press ▶ to play your images in sequence, use the arrows to step through them, or Compare / Difference to inspect what changed.</p>}
           {activeStory && story && <div className="story-panel" role="region" aria-label={`Story: ${activeStory.title}`}>
             <div className="story-panel-top"><span className="story-kicker">{activeStory.kicker} · STEP {story.step + 1} OF {activeStory.steps.length}</span><button className="story-exit" onClick={endStory} aria-label="Exit story">✕</button></div>
             <h3>{activeStory.title}</h3>
