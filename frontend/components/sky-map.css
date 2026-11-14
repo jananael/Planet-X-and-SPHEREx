@@ -64,3 +64,175 @@
   .sky-navigator .navigator-bookmarks { margin-inline: 20px; }
   .sky-navigator .navigator-layers > div { right: -70px; }
 }
+/* One starting method at a time. */
+.exploration-picker{width:min(480px,100%);margin:12px auto 40px;text-align:center;grid-column:1/-1}
+.exploration-picker label{display:block;color:#f4d6b0;font-size:22px;margin-bottom:16px}
+.exploration-picker select{width:100%;padding:17px 22px;border:1px solid #5bc0de80;border-radius:30px;background:#141f36;color:#ecf5fc;font:inherit;cursor:pointer;color-scheme:dark}
+.exploration-picker p{font-size:13px;color:#a7bacd;margin-top:12px}
+.explorer-flow>[hidden],.target-panel [hidden]{display:none!important}
+.map-launch{text-align:center;padding:36px 10px}.map-launch h2{margin:16px 0}.map-launch p{color:#b5c7d5}.map-launch button{margin-top:20px}
+.target-panel .starting-alternative{border:0;padding-top:0;margin-top:0}
+.sky-map-modal{width:calc(100vw - 40px);height:calc(100dvh - 40px);max-width:1600px;max-height:none;padding:0;border:1px solid #5bc0de55;border-radius:20px;background:#030915;color:#e9f7ff;overflow:hidden}
+.sky-map-modal::backdrop{background:#020611df;backdrop-filter:blur(6px)}
+/* Keep all navigator controls floating over the atlas. */
+.explorer-shell .explorer-flow .sky-map-modal .sky-map.navigator-expanded{position:relative;inset:auto;display:block;width:100%;height:100%;min-height:0;border:0;border-radius:0;overflow:hidden}
+.sky-map-modal .sky-navigator .navigator-atlas-wrap{position:absolute;inset:0;min-height:0}
+.explorer-shell .sky-map-modal .sky-navigator .sky-map-view{height:100%;min-height:0}
+.sky-map-modal .navigator-toolbar{position:absolute;z-index:5;top:24px;left:50%;transform:translateX(-50%);width:min(520px,calc(100% - 220px));padding:0;background:none;display:block;text-align:center;pointer-events:none}
+.sky-map-modal .navigator-toolbar>div:first-child{max-width:none}
+.sky-map-modal .navigator-toolbar .eyebrow,.sky-map-modal .navigator-toolbar h3{display:none}
+.sky-map-modal .navigator-search{pointer-events:auto;gap:0;filter:drop-shadow(0 3px 12px #0008)}
+.sky-map-modal .navigator-search input{width:100%;background:#081326c9;border:1px solid #a4d7ec55;border-radius:24px 0 0 24px;padding:12px 18px;color:#f2faff;backdrop-filter:blur(10px)}
+.sky-map-modal .navigator-search button{border-radius:0 24px 24px 0;background:#142a40d9;border:1px solid #a4d7ec55;color:#d2f3ff}
+.sky-map-modal .navigator-quick{justify-content:center;gap:6px;pointer-events:auto;margin-top:8px}
+.sky-map-modal .navigator-quick button{font-size:11px;color:#e2f1fa;text-shadow:0 1px 5px #000;padding:3px 9px;background:#08132685;border-radius:20px}
+.sky-map-modal .navigator-actions{position:fixed;top:0;right:0;width:auto}
+.sky-map-modal .navigator-close{position:fixed;top:0;right:calc(-50vw + 50% + 25px);width:42px;height:42px;border-radius:50%!important;font-size:28px!important;pointer-events:auto;background:#081326bd!important;color:white}
+.sky-map-modal .navigator-layers{position:fixed;top:0;left:calc(-50vw + 50% + 25px);pointer-events:auto;text-align:left}
+.sky-map-modal .navigator-layers summary{border-radius:22px;background:#081326c9}
+.sky-map-modal .navigator-layers>div{left:0;right:auto;max-height:65vh;overflow:auto;background:#0b1728ed}
+.sky-map-modal .navigator-selection{position:absolute;bottom:76px;left:50%;transform:translateX(-50%);width:min(780px,calc(100% - 130px));display:block;padding:0;border:0;background:none;text-align:center;pointer-events:none;text-shadow:0 1px 5px #000,0 2px 12px #000}
+.sky-map-modal .navigator-selection dl{display:flex;justify-content:center;flex-wrap:wrap;gap:12px 36px;margin:12px 0;background:none}
+.sky-map-modal .navigator-selection dl>div{background:none;padding:0;border:0}
+.sky-map-modal .navigator-selection dt{font-size:10px;letter-spacing:.12em;color:#b9d6e5}
+.sky-map-modal .navigator-selection dd{margin:5px 0;color:#f5fbff;font-size:16px}
+.sky-map-modal .navigator-selection small{font-size:11px;color:#d1e3ec}
+.sky-map-modal .navigator-selection .navigator-kind{color:#d1e3ec}
+.sky-map-modal .navigator-selection-actions{display:flex;flex-direction:row;justify-content:center;align-items:center;gap:10px;margin-top:16px;pointer-events:auto}
+.sky-map-modal .navigator-selection-actions .navigator-icon{position:relative;flex:none;width:42px;height:42px;padding:9px;border-radius:50%;background:#09192dba;color:#d7f4ff;border:1px solid #9ad5eb66}
+.navigator-icon svg{width:23px;height:23px}.navigator-tooltip{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;background:#12223a;padding:7px 10px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .15s}
+.navigator-icon:hover .navigator-tooltip,.navigator-icon:focus-visible .navigator-tooltip{opacity:1}
+.sky-map-modal .navigator-selection-actions .primary-button{min-height:42px;padding:10px 20px;border-radius:24px;background:#163849dd;color:#effbff;border:1px solid #5bc0de88}
+.sky-map-modal .navigator-bookmarks{position:absolute;bottom:20px;left:24px;z-index:6;margin:0;max-width:min(340px,80vw);background:#071324d9;border-radius:14px;padding:10px 14px;font-size:11px}
+.sky-map-modal .navigator-bookmarks[open]{max-height:50vh;overflow:auto}
+.sky-map-modal .sky-map-credit{position:absolute;bottom:8px;right:20px;max-width:50%;padding:0;margin:0;background:none;font-size:9px;text-align:right;color:#aac0d1}
+.sky-map-modal .navigator-message{position:absolute;top:115px;left:50%;transform:translateX(-50%);z-index:6;max-width:65%;padding:10px 16px;background:#10213ad9;border-radius:12px;font-size:12px;text-align:center}
+@media(max-width:700px){.sky-map-modal{width:calc(100vw - 12px);height:calc(100dvh - 12px);border-radius:12px}.sky-map-modal .navigator-toolbar{top:65px;width:calc(100% - 32px)}.sky-map-modal .navigator-close{top:-52px;right:0}.sky-map-modal .navigator-layers{top:-52px;left:0}.sky-map-modal .navigator-selection{bottom:90px;width:calc(100% - 30px)}.sky-map-modal .navigator-selection dl{gap:8px 16px}.sky-map-modal .navigator-selection dd{font-size:13px}.sky-map-modal .navigator-selection-actions .primary-button{flex-basis:auto}.sky-map-modal .sky-map-credit{font-size:8px;max-width:45%}.sky-map-modal .navigator-bookmarks{left:12px;bottom:20px;max-width:48%}.sky-map-modal .navigator-message{top:155px;max-width:90%;width:90%}}
+/* Before choosing a method, leave an open star-filled canvas below the selector. */
+.explorer-awaiting-choice{min-height:100dvh}
+.explorer-awaiting-choice .explorer-shell{min-height:calc(100dvh - 160px);padding-bottom:18vh}
+.explorer-awaiting-choice .explore-note,.explorer-awaiting-choice .site-footer{display:none}
+/* Compact, balanced navigator chrome with a soft modal entrance. */
+.sky-map-modal[open]{animation:navigator-pop .42s cubic-bezier(.2,.8,.2,1) both;box-shadow:0 28px 110px #0009}
+.sky-map-modal[open]::backdrop{animation:navigator-backdrop .35s ease both}
+@keyframes navigator-pop{from{opacity:0;transform:translateY(22px) scale(.955)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes navigator-backdrop{from{background:#02061100;backdrop-filter:blur(0)}to{background:#020611df;backdrop-filter:blur(6px)}}
+.sky-map-modal .navigator-toolbar{top:20px;left:20px;right:20px;width:auto;transform:none}
+.sky-map-modal .navigator-toolbar>div:first-child{width:min(360px,calc(100% - 180px));margin:0 auto}
+.sky-map-modal .navigator-search{height:36px;filter:drop-shadow(0 2px 8px #0006)}
+.sky-map-modal .navigator-search input{height:36px;min-height:0;padding:8px 13px;font-size:11px;border-radius:20px 0 0 20px;background:#081326ad}
+.sky-map-modal .navigator-search button{height:36px;min-height:0;padding:6px 13px;font-size:11px;border-radius:0 20px 20px 0}
+.sky-map-modal .navigator-quick{margin-top:6px;gap:4px}
+.sky-map-modal .navigator-quick button{min-height:24px;padding:3px 8px;font-size:10px;background:#08132670}
+.sky-map-modal .navigator-actions{position:static;width:auto;display:contents}
+.sky-map-modal .navigator-close{position:absolute;top:0;right:0;width:34px;height:34px;min-height:0;padding:0!important;display:grid;place-items:center;font-size:23px!important;border-color:#b0d6e944!important}
+.sky-map-modal .navigator-layers{position:absolute;top:0;left:0}
+.sky-map-modal .navigator-layers summary{min-height:34px;padding:8px 13px;font-size:11px;border-color:#b0d6e944}
+.sky-map-modal .navigator-layers label{font-size:12px;min-height:34px}
+.sky-map-modal .navigator-selection{bottom:62px;width:min(620px,calc(100% - 70px));text-shadow:0 1px 5px #000,0 1px 12px #000}
+.sky-map-modal .navigator-selection .navigator-kind{display:block;font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:#c0d2df;line-height:1.5}
+.sky-map-modal .navigator-selection strong{font-size:12px;font-weight:500}
+.sky-map-modal .navigator-selection p{font-size:11px;line-height:1.6;margin:5px auto;max-width:360px}
+.sky-map-modal .navigator-selection dl{gap:10px 27px;margin:8px 0}
+.sky-map-modal .navigator-selection dt{font-size:8px;letter-spacing:.12em}
+.sky-map-modal .navigator-selection dd{font-size:12px;line-height:1.3;margin:4px 0;font-variant-numeric:tabular-nums}
+.sky-map-modal .navigator-selection small{display:block;margin:6px auto 0;max-width:470px;font-size:9px;line-height:1.6;color:#cedce5}
+.sky-map-modal .navigator-selection-actions{gap:8px;margin-top:12px;min-width:0}
+.sky-map-modal .navigator-selection-actions .navigator-icon{width:34px;height:34px;min-height:0;padding:7px;background:#09192d99}
+.sky-map-modal .navigator-icon svg{width:18px;height:18px}
+.sky-map-modal .navigator-selection-actions .primary-button{height:34px;min-height:0;padding:7px 16px;font-size:11px;font-weight:500;background:#163849c9}
+.sky-map-modal .navigator-bookmarks{left:20px;bottom:18px;padding:8px 11px;border:1px solid #9ad5eb33;border-radius:18px;font-size:10px}
+.sky-map-modal .navigator-bookmarks summary{font-size:10px}
+.sky-map-modal .navigator-bookmarks p{font-size:10px;line-height:1.6}
+.sky-map-modal .navigator-message{top:94px;padding:8px 12px;font-size:11px}
+.sky-map-modal .aladin-location{display:none!important}
+@media(max-width:700px){.sky-map-modal .navigator-toolbar{top:16px;left:14px;right:14px}.sky-map-modal .navigator-toolbar>div:first-child{width:min(360px,100%);padding-top:45px}.sky-map-modal .navigator-close,.sky-map-modal .navigator-layers{top:0}.sky-map-modal .navigator-selection{bottom:75px;width:calc(100% - 28px)}.sky-map-modal .navigator-selection dl{gap:8px 20px}.sky-map-modal .navigator-selection dd{font-size:11px}.sky-map-modal .navigator-selection small{max-width:320px;font-size:8px}.sky-map-modal .navigator-message{top:135px}.sky-map-modal .navigator-bookmarks{left:12px;bottom:15px}.sky-map-modal .sky-map-credit{font-size:7px;right:12px}}
+@media(prefers-reduced-motion:reduce){.sky-map-modal[open],.sky-map-modal[open]::backdrop{animation:none}}
+.sky-map-modal .navigator-bookmarks{width:fit-content;max-width:240px}
+.sky-map-modal .navigator-bookmarks[open]{width:240px;max-height:245px;border-radius:14px}
+.sky-map-modal .navigator-bookmarks ul{padding:0;margin:10px 0 0;list-style:none}
+.sky-map-modal .navigator-bookmarks li{gap:6px;margin-top:6px}
+.sky-map-modal .navigator-bookmarks li button{padding:8px;min-height:30px;font-size:10px}
+.sky-map-modal .navigator-bookmarks li strong{font-size:10px}.sky-map-modal .navigator-bookmarks li small{font-size:9px}
+.sky-map-modal .navigator-about{position:absolute;bottom:18px;right:20px;z-index:6;color:#d6e4ef;font-size:10px;text-align:right}
+.sky-map-modal .navigator-about summary{display:inline-block;cursor:pointer;padding:8px 12px;border:1px solid #9ad5eb33;border-radius:18px;background:#071324d9;list-style:none}
+.sky-map-modal .navigator-about .sky-map-credit{position:static;max-width:270px;margin:8px 0 0;padding:12px;border:1px solid #9ad5eb33;border-radius:12px;background:#071324ed;font-size:10px;line-height:1.8;text-align:left;color:#c4d4df}
+@media(max-width:700px){.sky-map-modal .navigator-bookmarks{max-width:200px}.sky-map-modal .navigator-about{right:12px;bottom:15px}.sky-map-modal .navigator-about .sky-map-credit{max-width:230px}}
+/* A clean map edge: information and saved places sit below the close control. */
+.sky-map-modal .navigator-about{top:64px;right:20px;bottom:auto;text-align:right}
+.sky-map-modal .navigator-about summary{width:34px;height:34px;padding:0;display:grid;place-items:center;font:italic 18px Georgia,serif;border-radius:50%;color:#e0f2fc}
+.sky-map-modal .navigator-about .sky-map-credit{position:absolute;right:44px;top:0;width:260px;margin:0}
+.sky-map-modal .navigator-bookmarks,.sky-map-modal .navigator-bookmarks[open]{top:108px;right:20px;left:auto;bottom:auto;width:34px;max-width:none;max-height:none;padding:0;border:0;overflow:visible;background:none}
+.sky-map-modal .navigator-bookmarks summary{width:34px;height:34px;padding:8px;display:grid;place-items:center;border:1px solid #9ad5eb33;border-radius:50%;background:#071324d9;cursor:pointer;list-style:none}
+.sky-map-modal .navigator-bookmarks summary::marker{content:''}.sky-map-modal .navigator-bookmarks summary::-webkit-details-marker,.sky-map-modal .navigator-about summary::-webkit-details-marker{display:none}
+.sky-map-modal .navigator-bookmarks summary svg{width:17px;height:17px;color:#d7eefb}
+.navigator-bookmark-panel{position:absolute;right:44px;top:0;width:min(260px,calc(100vw - 100px));max-height:55vh;overflow:auto;padding:16px;background:#081426f5;border:1px solid #9ad5eb44;border-radius:14px;box-shadow:0 10px 35px #0006}
+.navigator-bookmark-panel h4{font-size:13px;margin:0 0 8px;color:#e2f4ff}
+.sky-map-modal .aladin-fov,.sky-map-modal .aladin-zoomControl{display:none!important}
+@media(max-width:700px){.sky-map-modal .navigator-about{right:14px;top:60px}.sky-map-modal .navigator-bookmarks,.sky-map-modal .navigator-bookmarks[open]{right:14px;top:104px}.sky-map-modal .navigator-toolbar>div:first-child{width:calc(100% - 48px);margin-left:0}.sky-map-modal .navigator-about .sky-map-credit{width:min(245px,calc(100vw - 100px))}}
+/* Consistent right-side icon rail; remove inherited details arrows and shells. */
+.sky-map-modal .navigator-toolbar .navigator-actions>.navigator-close{position:absolute;top:0;right:0;box-sizing:border-box;width:34px;height:34px;min-width:34px;min-height:34px;padding:0!important;border:1px solid #9ad5eb44!important;border-radius:50%!important;background:#071324cc!important;display:grid;place-items:center;line-height:1;font-size:22px!important}
+.sky-map-modal details.navigator-about,.sky-map-modal details.navigator-bookmarks,.sky-map-modal details.navigator-bookmarks[open]{position:absolute;right:20px;left:auto;bottom:auto;box-sizing:border-box;width:34px;min-width:0;max-width:34px;height:34px;max-height:none;margin:0;padding:0;border:0;border-radius:0;overflow:visible;background:transparent;box-shadow:none}
+.sky-map-modal details.navigator-about{top:64px}
+.sky-map-modal details.navigator-bookmarks,.sky-map-modal details.navigator-bookmarks[open]{top:108px}
+.sky-map-modal details.navigator-about>summary,.sky-map-modal details.navigator-bookmarks>summary{position:relative;box-sizing:border-box;display:grid;place-items:center;width:34px;height:34px;min-width:34px;min-height:34px;margin:0;padding:0;border:1px solid #9ad5eb44;border-radius:50%;background:#071324cc;color:#d7eefb;line-height:1;list-style:none;cursor:pointer;transform:none}
+.sky-map-modal details.navigator-about>summary::before,.sky-map-modal details.navigator-about>summary::after,.sky-map-modal details.navigator-bookmarks>summary::before,.sky-map-modal details.navigator-bookmarks>summary::after{content:none!important;display:none!important}
+.sky-map-modal details.navigator-about>summary::marker,.sky-map-modal details.navigator-bookmarks>summary::marker{content:'';font-size:0}
+.sky-map-modal details.navigator-about>summary::-webkit-details-marker,.sky-map-modal details.navigator-bookmarks>summary::-webkit-details-marker{display:none}
+.sky-map-modal details.navigator-about>summary span{display:block;font:italic 18px Georgia,serif;line-height:1;margin:0;padding:0}
+.sky-map-modal details.navigator-bookmarks>summary svg{display:block;width:16px;height:16px;margin:0;padding:0}
+.sky-map-modal .navigator-close:hover,.sky-map-modal details.navigator-about>summary:hover,.sky-map-modal details.navigator-bookmarks>summary:hover{background:#173047!important;border-color:#5bc0de99!important}
+@media(max-width:700px){.sky-map-modal details.navigator-about,.sky-map-modal details.navigator-bookmarks,.sky-map-modal details.navigator-bookmarks[open]{right:14px}.sky-map-modal details.navigator-about{top:60px}.sky-map-modal details.navigator-bookmarks,.sky-map-modal details.navigator-bookmarks[open]{top:104px}}
+/* Small coordinate readout anchored at the bottom, with the shared orange action. */
+.sky-map-modal .navigator-selection{bottom:16px;width:min(560px,calc(100% - 28px))}
+.sky-map-modal .navigator-selection .navigator-kind{font-size:8px;letter-spacing:.08em}
+.sky-map-modal .navigator-selection strong{font-size:10px}
+.sky-map-modal .navigator-selection dl{gap:6px 22px;margin:5px 0}
+.sky-map-modal .navigator-selection dt{font-size:7px}
+.sky-map-modal .navigator-selection dd{font-size:10px;margin:3px 0}
+.sky-map-modal .navigator-selection small{font-size:8px;line-height:1.4;margin-top:4px}
+.sky-map-modal .navigator-selection-actions{margin-top:8px}
+.sky-map-modal .navigator-selection-actions .primary-button{background:#d97706;border:1px solid #d97706;color:#101827;font-weight:600;box-shadow:0 3px 14px #d9770622}
+.sky-map-modal .navigator-selection-actions .primary-button:hover:not(:disabled){background:#ee8a12;border-color:#ee8a12}
+.sky-map-modal .navigator-selection-actions .primary-button:disabled{opacity:.45}
+.map-info-panel{position:absolute;right:46px;top:0;width:min(290px,calc(100vw - 110px));padding:20px;background:#0b1729f5;border:1px solid #7194ad44;border-radius:16px;box-shadow:0 15px 50px #0009;text-align:left;max-height:70vh;overflow:auto;color:#d6e4ef;backdrop-filter:blur(16px)}
+.map-info-panel .map-info-eyebrow{font-size:8px;letter-spacing:.16em;color:#5bc0de;margin:0 0 7px}
+.map-info-panel h4{font-size:15px;color:#eff7ff;font-weight:500;margin:0 0 17px}
+.map-info-panel dl{display:grid;gap:12px;margin:0 0 16px}.map-info-panel dl>div{display:flex;justify-content:space-between;gap:12px}.map-info-panel dt{font-size:10px;color:#8da8bd}.map-info-panel dd{font-size:10px;margin:0;color:#e4edf5;text-align:right}
+.map-info-panel p{font-size:10px;line-height:1.7;color:#b1c4d4;margin:0 0 12px}.map-info-panel a{display:inline-block;font-size:11px;color:#5bc0de;margin:0 0 12px}.map-info-panel small{display:block;font-size:9px;line-height:1.6;color:#869eb2;border-top:1px solid #7194ad33;padding-top:10px}
+.sky-map-modal .aladin-logo,.sky-map-modal .aladin-logo-container,.sky-map-modal .aladin-powered-by{display:none!important}
+@media(max-width:700px){.sky-map-modal .navigator-selection{bottom:12px}.sky-map-modal .navigator-selection dd{font-size:10px}.sky-map-modal .navigator-selection .navigator-kind{font-size:8px}}
+/* A more distinct, gently settling entrance for the sky window. */
+.sky-map-modal[open]{transform-origin:50% 62%;animation:sky-window-arrive .72s cubic-bezier(.16,1,.3,1) both;will-change:transform,opacity;box-shadow:0 30px 120px #000b,0 0 0 1px #5bc0de24}
+.sky-map-modal[open]::backdrop{animation:sky-window-dim .6s ease both}
+.sky-map-modal[open] .navigator-toolbar,.sky-map-modal[open] .navigator-about{animation:sky-tools-arrive .5s .32s ease both}
+.sky-map-modal[open] .navigator-selection{animation:sky-readout-arrive .55s .4s ease both}
+@keyframes sky-window-arrive{0%{opacity:0;transform:translateY(65px) scale(.84)}65%{opacity:1;transform:translateY(-3px) scale(1.005)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes sky-window-dim{from{background:#02061100;backdrop-filter:blur(0)}to{background:#020611e8;backdrop-filter:blur(7px)}}
+@keyframes sky-tools-arrive{from{opacity:0;translate:0 -10px}to{opacity:1;translate:0 0}}
+@keyframes sky-readout-arrive{from{opacity:0;translate:0 12px}to{opacity:1;translate:0 0}}
+@media(prefers-reduced-motion:reduce){.sky-map-modal[open],.sky-map-modal[open]::backdrop,.sky-map-modal[open] .navigator-toolbar,.sky-map-modal[open] .navigator-about,.sky-map-modal[open] .navigator-selection{animation:none;will-change:auto}}
+/* Reveal the fully sized atlas from a star flash; never scale its measuring surface. */
+.sky-map-modal[open]{transform:none;transform-origin:center;animation:sky-star-reveal .95s cubic-bezier(.16,.7,.2,1) both;will-change:clip-path,opacity}
+.sky-map-modal[open]::backdrop{animation:sky-window-dim .7s ease both}
+.sky-map-modal[open]::before{content:'';position:absolute;inset:0;z-index:30;pointer-events:none;background:radial-gradient(ellipse at center,#f1fdff 0%,#b6edff 2%,#5bc0de88 7%,#5bc0de18 22%,transparent 45%);animation:sky-star-flash .95s ease-out both}
+.sky-map-modal[open]::after{content:'';position:absolute;inset:0;z-index:31;pointer-events:none;background:linear-gradient(90deg,transparent 10%,#c8f4ff00 43%,#eaffffdd 50%,#c8f4ff00 57%,transparent 90%),linear-gradient(0deg,transparent 8%,#c8f4ff00 43%,#eaffffcc 50%,#c8f4ff00 57%,transparent 92%);mask-image:radial-gradient(ellipse at center,#000 0%,#000 8%,transparent 40%);animation:sky-star-rays .8s ease-out both}
+@keyframes sky-star-reveal{0%{opacity:0;clip-path:circle(0% at 50% 50%)}10%{opacity:1;clip-path:circle(3% at 50% 50%)}70%{opacity:1;clip-path:circle(85% at 50% 50%)}100%{opacity:1;clip-path:circle(150% at 50% 50%)}}
+@keyframes sky-star-flash{0%{opacity:0;transform:scale(.1)}14%{opacity:.95;transform:scale(.38)}42%{opacity:.45;transform:scale(1.2)}100%{opacity:0;transform:scale(2)}}
+@keyframes sky-star-rays{0%{opacity:0;transform:scale(.04) rotate(-8deg)}15%{opacity:.9;transform:scale(.4) rotate(-5deg)}55%{opacity:.2;transform:scale(1.35) rotate(0deg)}100%{opacity:0;transform:scale(1.9) rotate(2deg)}}
+.sky-map-modal[open] .navigator-toolbar,.sky-map-modal[open] .navigator-about{animation:sky-tools-arrive .4s .55s ease both}
+.sky-map-modal[open] .navigator-selection{animation:sky-readout-arrive .45s .6s ease both}
+.sky-map-modal .navigator-atlas-wrap,.sky-map-modal .sky-map-view{width:100%!important;height:100%!important;min-height:0!important}
+@media(prefers-reduced-motion:reduce){.sky-map-modal[open],.sky-map-modal[open]::before,.sky-map-modal[open]::after,.sky-map-modal[open]::backdrop,.sky-map-modal[open] .navigator-toolbar,.sky-map-modal[open] .navigator-about,.sky-map-modal[open] .navigator-selection{animation:none;clip-path:none;will-change:auto}.sky-map-modal[open]::before,.sky-map-modal[open]::after{display:none}}
+/* Keep the burst fluid: a continuous reveal and compositor-only light rays. */
+.sky-map-modal[open]{animation:sky-star-reveal-fluid 1.15s cubic-bezier(.22,.61,.36,1) both;will-change:clip-path,opacity}
+.sky-map-modal[open]::backdrop{background:#020611e0;backdrop-filter:none;animation:sky-backdrop-fluid .65s ease-out both}
+.sky-map-modal[open]::before{animation:sky-flash-fluid 1.2s cubic-bezier(.2,.6,.3,1) both;will-change:transform,opacity}
+.sky-map-modal[open]::after{animation:sky-rays-fluid 1.2s cubic-bezier(.2,.6,.3,1) both;will-change:transform,opacity}
+@keyframes sky-star-reveal-fluid{from{opacity:0;clip-path:circle(0% at 50% 50%)}to{opacity:1;clip-path:circle(120% at 50% 50%)}}
+@keyframes sky-backdrop-fluid{from{opacity:0}to{opacity:1}}
+@keyframes sky-flash-fluid{0%{opacity:0;transform:scale(.12)}22%{opacity:.7}100%{opacity:0;transform:scale(1.8)}}
+@keyframes sky-rays-fluid{0%{opacity:0;transform:scale(.08)}20%{opacity:.8}100%{opacity:0;transform:scale(1.65)}}
+.sky-map-modal[open] .navigator-toolbar,.sky-map-modal[open] .navigator-about{animation:sky-tools-arrive .55s .65s ease-out both}
+.sky-map-modal[open] .navigator-selection{animation:sky-readout-arrive .55s .7s ease-out both}
+@media(prefers-reduced-motion:reduce){.sky-map-modal[open],.sky-map-modal[open]::backdrop,.sky-map-modal[open]::before,.sky-map-modal[open]::after,.sky-map-modal[open] .navigator-toolbar,.sky-map-modal[open] .navigator-about,.sky-map-modal[open] .navigator-selection{animation:none;clip-path:none;will-change:auto}.sky-map-modal[open]::before,.sky-map-modal[open]::after{display:none}}

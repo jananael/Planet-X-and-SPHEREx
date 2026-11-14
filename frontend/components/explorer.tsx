@@ -7,6 +7,7 @@ import { MachineLearning } from "./machine-learning";
 import { locationKey, workspaceHref } from "../lib/workspace-navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import "./sky-map.css";
 import { StarryBackground } from "./starry-background";
 import { ObservationDetails } from "./observation-details";
 import type { Candidate } from "../lib/scientific-types";
@@ -111,6 +112,14 @@ export function Explorer() {
   const [difference, setDifference] = useState(false);
   const [compare, setCompare] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [entryMode, setEntryMode] = useState("");
+  useEffect(() => { setEntryMode(""); setShowMap(false); }, [pathname]);
+  const mapDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (showMap) mapDialog.current?.showModal();
+    else mapDialog.current?.close();
+  }, [showMap]);
+
   const [exporting, setExporting] = useState(false);
   const compareRef = useRef(false); compareRef.current = compare;
   const [split, setSplit] = useState(50);
@@ -352,8 +361,8 @@ export function Explorer() {
     catch { setShareError("Copy the address from your browser to share this position."); }
   }
 
-  return <div className="explorer-page">
-    <StarryBackground topOnly />
+  return <div className={`explorer-page${onExplorer && !entryMode ? " explorer-awaiting-choice" : ""}`}>
+    <StarryBackground topOnly={!onExplorer} />
     <a className="skip-link" href="#explorer">Skip to Explorer</a>
     <header className="site-header"><a href="/" className="explorer-logo" aria-label="SKYTRACE home"><img src="/skytrace/satellite-logo.png" alt="SKYTRACE satellite logo" width="1774" height="887" /></a><WorkspaceNavigation coordinates={coordinates} options={searchOptions.current} targetId={targetId} /><div className={`source-badge ${source === "mock" ? "mock" : ""}`}><span />{source === "mock" ? "MOCK DATA" : source === "real" ? "LIVE ARCHIVE" : "API NOT CONNECTED"}</div></header>
     <main id="explorer" className="explorer-shell">
@@ -365,19 +374,20 @@ export function Explorer() {
       {startupError && <div className="notice error" role="alert">{startupError}<button onClick={() => setStartupRetry(n => n + 1)}>Retry connection</button></div>}
       <div hidden={!onExplorer}>
       <div className="workspace explorer-flow">
-          <section className="panel target-panel" aria-labelledby="choose-title"><div className="section-heading"><span className="step-number">01</span><div><p className="eyebrow">YOUR STARTING POINT</p><h2 id="choose-title">Enter your sky coordinates</h2></div></div>
+          <div className="exploration-picker"><label htmlFor="exploration-method">How would you like to explore?</label><select id="exploration-method" value={entryMode} onChange={event => { const mode = event.target.value; setEntryMode(mode); setShowMap(mode === "map"); }}><option value="" disabled>Choose your way to explore</option><option value="stories">Explore with a guided story</option><option value="targets">Choose a suggested target</option><option value="map">Pick a point on the sky map</option><option value="coordinates">Enter sky coordinates</option></select><p>Choose one way to begin your journey.</p></div>
+          <section className="panel target-panel" hidden={!entryMode} aria-label="Selected exploration method"><div hidden={entryMode !== "coordinates"}><div className="section-heading"><span className="step-number">01</span><div><p className="eyebrow">YOUR STARTING POINT</p><h2 id="choose-title">Enter your sky coordinates</h2></div></div>
             <p className="section-hint">Enter the coordinates of the sky you want to explore. We will find the available images and dates for that location.</p>
             <div className="coordinate-entry">
             <form noValidate onSubmit={event => { event.preventDefault(); endStory(); try { void search(parseCoordinates(ra, dec), null, {}, true); } catch (error) { setSearchError((error as Error).message); } }}><div className="coordinate-grid"><label>Right ascension <span>RA · degrees</span><input aria-label="Right ascension in degrees" type="number" step="any" min="0" max="359.999999" placeholder="0 ≤ RA < 360" value={ra} onChange={event => setRa(event.target.value)} /></label><label>Declination <span>Dec · degrees</span><input aria-label="Declination in degrees" type="number" step="any" min="-90" max="90" placeholder="−90 to 90" value={dec} onChange={event => setDec(event.target.value)} /></label></div><button className="primary-button search-button" type="submit">{searching ? "Searching the sky…" : "Start exploring"}<span aria-hidden="true">↗</span></button></form>
             </div>
             {searchError && searchError !== startupError && <div className="notice error" role="alert">{searchError}{coordinates && <button onClick={() => void search(coordinates, targetId)}>Retry search</button>}</div>}
-            <button type="button" className="map-toggle" aria-expanded={showMap} onClick={() => setShowMap(v => !v)}>{showMap ? "Hide sky map" : "Or pick a point on the sky map"} <span aria-hidden="true">{showMap ? "▴" : "▾"}</span></button>
-            {showMap && <SkyMap center={mapCenter} onSelect={point => { setRa(String(point.ra)); setDec(String(point.dec)); setSearchError(""); }} onPick={point => { endStory(); void search(point, null, {}, true); }} />}
-            <details className="starting-alternative"><summary>Or choose a suggested target</summary>
+            </div>
+            <dialog ref={mapDialog} className="sky-map-modal" onCancel={() => { setShowMap(false); setEntryMode(""); }} onClose={() => { setShowMap(false); setEntryMode(""); }} aria-label="Sky Navigator">{showMap && <SkyMap onClose={() => { setShowMap(false); setEntryMode(""); }} center={mapCenter} onSelect={point => { setRa(String(point.ra)); setDec(String(point.dec)); setSearchError(""); }} onPick={point => { setShowMap(false); endStory(); void search(point, null, {}, true); }} />}</dialog>
+            {entryMode === "targets" && <section className="starting-alternative"><h2>Choose a suggested target</h2>
             <div className="target-list">{targets.map(target => <button key={target.id} className={`target-card ${targetId === target.id ? "selected" : ""}`} onClick={() => { endStory(); if (target.recommended_size_arcsec) setSize(target.recommended_size_arcsec); void search({ ra: target.ra, dec: target.dec }, target.id, targetSearch(target), true); }}><span className="target-icon" aria-hidden="true">{targetIcons[target.type]}</span><span><strong>{target.name}</strong><small>{target.type.replace("_", " ")}</small></span><span className="target-arrow" aria-hidden="true">↗</span></button>)}{!targets.length && <p className="muted">{startupError ? "Connect the backend to load demo targets, or enter coordinates below." : "Loading demo targets…"}</p>}</div>
             {selectedTarget && <p className="target-description">{selectedTarget.description}{selectedTarget.validation_note && <><br /><span className="muted">Target-view check ({selectedTarget.validation_status?.replace("_", " ")}): {selectedTarget.validation_note} This describes the target view, not candidate detection validation.</span></>}</p>}
-</details>
-            <details className="starting-alternative"><summary>Or explore with a guided story</summary>
+</section>}
+            {entryMode === "stories" && <div className="starting-alternative">
       <section className="stories" aria-labelledby="stories-title">
         <div className="stories-heading"><p className="eyebrow"><span />GUIDED STORIES</p><h2 id="stories-title">Not sure where to look? <span>Start with a story.</span></h2></div>
         <div className="story-list">{STORIES.map(s => {
@@ -388,7 +398,7 @@ export function Explorer() {
           </button>;
         })}</div>
       </section>
-</details>
+</div>}
           </section>
       </div>
       </div>

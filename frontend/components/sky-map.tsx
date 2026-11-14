@@ -37,7 +37,7 @@ async function loadCatalog(signal: AbortSignal): Promise<AtlasData> {
 const fmt = (value: number) => value.toFixed(5);
 const layerChoices = [["names", "Star names"], ["boundaries", "Constellation boundaries"], ["lines", "Constellation lines"], ["grid", "Equatorial grid"], ["survey", "DSS survey background"], ["bookmarks", "User bookmarks"]] as const;
 
-export function SkyMap({ center, onSelect, onPick, coverage }: { center: Coordinates | null; onSelect: (p: Coordinates) => void; onPick: (p: Coordinates) => void; coverage?: CoverageMetadata }) {
+export function SkyMap({ center, onSelect, onPick, coverage, onClose }: { onClose: () => void; center: Coordinates | null; onSelect: (p: Coordinates) => void; onPick: (p: Coordinates) => void; coverage?: CoverageMetadata }) {
   const root = useRef<HTMLDivElement>(null), box = useRef<HTMLDivElement>(null);
   const atlas = useRef<any>(null), lib = useRef<any>(null), layers = useRef<Record<string, any>>({});
   const data = useRef<AtlasData | null>(null), selected = useRef<SkyLocation | null>(null);
@@ -48,7 +48,7 @@ export function SkyMap({ center, onSelect, onPick, coverage }: { center: Coordin
   const [picked, setPicked] = useState<SkyLocation | null>(null), [query, setQuery] = useState("");
   const [resolving, setResolving] = useState(false), [catalogReady, setCatalogReady] = useState(false);
   const [bookmarks, setBookmarks] = useState<SkyBookmark[]>([]), [storageMessage, setStorageMessage] = useState("");
-  const [fullscreen, setFullscreen] = useState(false), [expanded, setExpanded] = useState(false);
+  const expanded = true;
   const [toggles, setToggles] = useState({ names: false, boundaries: false, lines: false, grid: false, survey: true, bookmarks: true, coverage: false });
   const choose = useCallback((point: Coordinates, name?: string, origin: SkyLocation["origin"] = "coordinate", recenter = false, notify = true) => {
     const location = { ...normalizeSkyPoint(point), name, origin };
@@ -64,9 +64,9 @@ export function SkyMap({ center, onSelect, onPick, coverage }: { center: Coordin
   useEffect(() => {
     try { setBookmarks(readBookmarks(localStorage.getItem(BOOKMARK_KEY))); } catch { setStorageMessage("Browser storage is unavailable. Bookmarks cannot persist here."); }
     const sync = (e: StorageEvent) => { if (e.key === BOOKMARK_KEY || e.key === null) setBookmarks(readBookmarks(e.newValue)); };
-    const full = () => setFullscreen(document.fullscreenElement === root.current);
-    window.addEventListener("storage", sync); document.addEventListener("fullscreenchange", full);
-    return () => { window.removeEventListener("storage", sync); document.removeEventListener("fullscreenchange", full); };
+
+    window.addEventListener("storage", sync);
+    return () => { window.removeEventListener("storage", sync); };
   }, []);
   useEffect(() => {
     if (!expanded) return;
@@ -81,11 +81,17 @@ export function SkyMap({ center, onSelect, onPick, coverage }: { center: Coordin
     let cancelled = false, view: any;
     const controller = new AbortController();
     setStatus("loading"); setMessage(""); setCatalogReady(false);
-    loadAladin().then(A => {
+    loadAladin().then(async A => {
+      // Let the dialog settle into its final layout before the atlas measures it.
+      // Entrance effects use clipping, never a scaled measuring surface.
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      // WebGL/catalog setup can block the main thread. Let the entrance finish
+      // before creating the atlas so its initialization cannot interrupt the burst.
+      await new Promise<void>(resolve => setTimeout(resolve, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1200));
       if (cancelled || !box.current) return;
       lib.current = A;
       const start = initialCenter.current ?? { ra: 10.6847, dec: 41.2690 };
-      view = A.aladin(box.current, { survey: SURVEY, fov: initialCenter.current ? 4 : 65, target: `${start.ra} ${start.dec}`, cooFrame: "ICRSd", showReticle: true, showZoomControl: true, showFullscreenControl: false, showLayersControl: false, showGotoControl: false, showShareControl: false, showSimbadPointerControl: false, showCooGridControl: false, showSettingsControl: false, showProjectionControl: false, showFrame: false, showContextMenu: false, hipsList: [], log: false });
+      view = A.aladin(box.current, { survey: SURVEY, fov: initialCenter.current ? 4 : 65, target: `${start.ra} ${start.dec}`, cooFrame: "ICRSd", showReticle: true, showZoomControl: false, showFullscreenControl: false, showLayersControl: false, showGotoControl: false, showShareControl: false, showSimbadPointerControl: false, showCooGridControl: false, showSettingsControl: false, showProjectionControl: false, showFrame: false, showContextMenu: false, hipsList: [], log: false });
       atlas.current = view;
       const selection = A.catalog({ name: "Selected position", sourceSize: 14, color: "#5BC0DE", shape: "circle" });
       const saved = A.catalog({ name: "User bookmarks (not discoveries)", sourceSize: 12, color: "#F4D6B0", shape: "cross" });
@@ -177,20 +183,12 @@ export function SkyMap({ center, onSelect, onPick, coverage }: { center: Coordin
     if (!picked || bookmarks.some(point => sameSkyPoint(point, picked))) return;
     persist([...bookmarks, { ra: picked.ra, dec: picked.dec, name: picked.name ?? `Sky at ${fmt(picked.ra)}, ${fmt(picked.dec)}`, id: crypto.randomUUID(), kind: "bookmark", createdAt: new Date().toISOString() }]);
   }
-  async function toggleFullscreen() {
-    try {
-      if (document.fullscreenElement === root.current) await document.exitFullscreen();
-      else if (expanded) setExpanded(false);
-      else if (root.current?.requestFullscreen) await root.current.requestFullscreen();
-      else setExpanded(true);
-    } catch { setExpanded(value => !value); }
-  }
   const region = picked && data.current ? skyRegion(picked, data.current.bounds, data.current.names) : null;
   const nearest = picked && data.current ? data.current.stars.map(star => ({ star, distance: angularDistance(picked, star) })).filter(hit => hit.distance < .1).sort((a, b) => a.distance - b.distance)[0] : null;
   const saved = picked && bookmarks.some(point => sameSkyPoint(point, picked));
 
-  return <div ref={root} tabIndex={-1} role={expanded ? "dialog" : undefined} aria-modal={expanded || undefined} aria-label="Sky Navigator" className={`sky-map sky-navigator${expanded ? " navigator-expanded" : ""}`} onKeyDown={event => {
-    if (event.key === "Escape" && expanded) setExpanded(false);
+  return <div ref={root} tabIndex={-1}  aria-label="Sky Navigator" className={`sky-map sky-navigator${expanded ? " navigator-expanded" : ""}`} onKeyDown={event => {
+    if (event.key === "Escape") onClose();
     if (event.key === "Tab" && expanded && root.current) {
       const controls = [...root.current.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), a[href], summary, [tabindex='0']")].filter(element => element.getClientRects().length > 0);
       const first = controls[0], last = controls.at(-1);
@@ -203,7 +201,7 @@ export function SkyMap({ center, onSelect, onPick, coverage }: { center: Coordin
       <div className="navigator-quick" aria-label="Suggested catalog searches">{[["M31", "Andromeda"], ["M42", "Orion Nebula"], ["M45", "Pleiades"]].map(([id, name]) => <button key={id} type="button" disabled={status !== "ready" || resolving} onClick={() => { setQuery(id); resolve(id); }}>{name}</button>)}</div></div>
       <div className="navigator-actions"><details className="navigator-layers"><summary>Layers</summary><div>{layerChoices.map(([key, label]) => <label key={key}><input type="checkbox" checked={toggles[key]} disabled={status !== "ready" || (["names", "boundaries", "lines"].includes(key) && !catalogReady)} onChange={event => { const checked = event.target.checked; setToggles(values => ({ ...values, [key]: checked })); }} />{label}</label>)}
         <label><input type="checkbox" disabled={!coverage?.regions.length || status !== "ready"} checked={toggles.coverage} onChange={event => { const checked = event.target.checked; setToggles(values => ({ ...values, coverage: checked })); }} />SPHEREx Observation Coverage</label><small>{coverage?.regions.length ? `${coverage.source} · ${coverage.release}` : "Coverage data not yet available. No coverage is inferred from this map."}</small></div></details>
-        <button type="button" onClick={() => void toggleFullscreen()} aria-label={fullscreen || expanded ? "Exit fullscreen sky navigator" : "Open fullscreen sky navigator"}>{fullscreen || expanded ? "Exit fullscreen" : "Fullscreen"}</button></div></div>
+        <button type="button" className="navigator-close" onClick={onClose} aria-label="Close Sky Navigator" title="Close Sky Navigator">×</button></div></div>
     <div className="navigator-atlas-wrap"><div className="sky-map-view" ref={box} role="group" tabIndex={0} aria-label="Astronomical sky atlas. Drag to pan, scroll or pinch to zoom. Arrow keys pan, plus and minus zoom, Enter selects the center." onKeyDown={event => {
       if (!atlas.current || status !== "ready") return;
       const view = atlas.current, [ra, dec] = view.getRaDec(), fov = view.getFov()[0];
@@ -213,9 +211,8 @@ export function SkyMap({ center, onSelect, onPick, coverage }: { center: Coordin
     }} />{status !== "ready" && <div className="navigator-loading" role="status"><strong>{status === "loading" ? "Opening the sky atlas…" : "The atlas is unavailable"}</strong><p>{status === "loading" ? "Loading Aladin Lite and the DSS optical survey. No SPHEREx backend is required." : message}</p>{status === "error" && <button type="button" onClick={() => setRetry(value => value + 1)}>Retry atlas</button>}</div>}</div>
     {message && status !== "error" && <p className="navigator-message" role="status">{message}</p>}
     <div className="navigator-selection"><div aria-live="polite">{picked ? <><span className="navigator-kind">{picked.origin === "catalog" ? "Catalog object · CDS / Hipparcos" : picked.origin === "bookmark" ? "User bookmark · not a discovery" : "Selected sky coordinates"}</span>{picked.name && <strong>{picked.name}</strong>}<dl><div><dt>RA / ICRS</dt><dd>{fmt(picked.ra)}°</dd></div><div><dt>Dec / ICRS</dt><dd>{fmt(picked.dec)}°</dd></div><div><dt>Sky region</dt><dd>{region ?? "Region unavailable"}</dd></div></dl>{nearest && <small>Nearby named star: {nearest.star.name} ({(nearest.distance * 60).toFixed(1)} arcmin away). Proximity does not identify the selected object.</small>}</> : <><strong>Choose your next patch of sky.</strong><p>Click or tap the map, find an object, or select the map center. Coordinates update the inputs above.</p></>}</div>
-      <div className="navigator-selection-actions"><button type="button" disabled={status !== "ready"} onClick={() => { const [ra, dec] = atlas.current.getRaDec(); choose({ ra, dec }); }}>Select map center</button><button type="button" disabled={!picked || !!saved} onClick={save}>{saved ? "Bookmarked" : "Save bookmark"}</button><button type="button" className="primary-button" disabled={!picked} onClick={() => picked && onPick({ ra: picked.ra, dec: picked.dec })}>Explore This Region</button></div></div>
-    <details className="navigator-bookmarks"><summary>Saved sky locations <span>{bookmarks.length}</span></summary><p>User bookmarks stored in this browser. These are not verified astronomical discoveries.</p><ul>{bookmarks.map(point => <li key={point.id}><button type="button" disabled={status !== "ready"} onClick={() => choose(point, point.name, "bookmark", true)}><strong>{point.name}</strong><small>{fmt(point.ra)}° / {fmt(point.dec)}°</small></button><button type="button" aria-label={`Remove bookmark ${point.name}`} onClick={() => persist(bookmarks.filter(item => item.id !== point.id))}>Remove</button></li>)}</ul>{!bookmarks.length && <p>No bookmarks yet. Select a position and save it above.</p>}</details>
+      <div className="navigator-selection-actions"><button type="button" className="navigator-icon" aria-label="Select map center" title="Select map center" disabled={status !== "ready"} onClick={() => { const [ra, dec] = atlas.current.getRaDec(); choose({ ra, dec }); }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="12" cy="12" r="6"/><path d="M12 2v6m0 8v6M2 12h6m8 0h6"/></svg><span className="navigator-tooltip">Select map center</span></button><button type="button" className="navigator-icon" aria-label={saved ? "Bookmarked" : "Save bookmark"} title={saved ? "Bookmarked" : "Save bookmark"} disabled={!picked || !!saved} onClick={save}><svg viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg><span className="navigator-tooltip">{saved ? "Bookmarked" : "Save bookmark"}</span></button><button type="button" className="primary-button" disabled={!picked} onClick={() => picked && onPick({ ra: picked.ra, dec: picked.dec })}>Explore This Region</button></div></div>
     {storageMessage && <p className="navigator-message" role="status">{storageMessage}</p>}
-    <p className="sky-map-credit">Atlas: Aladin Lite / CDS · Imagery: DSS optical survey, not SPHEREx · Star names: Hipparcos · Constellations: d3-celestial (J2000). Figure lines are guides, not boundaries. <a href="/skytrace/catalogs/README.txt" target="_blank" rel="noreferrer">Data sources</a>. Object search and survey imagery require internet access.</p>
+    <details className="navigator-about"><summary title="Map information" aria-label="Map information"><span aria-hidden="true">i</span></summary><div className="map-info-panel"><p className="map-info-eyebrow">ABOUT THIS VIEW</p><h4>Map information</h4><dl><div><dt>Sky atlas</dt><dd>Aladin Lite · CDS</dd></div><div><dt>Background imagery</dt><dd>DSS optical survey</dd></div><div><dt>Star names</dt><dd>Hipparcos catalog</dd></div><div><dt>Constellations</dt><dd>d3-celestial · J2000</dd></div></dl><p>This map shows optical imagery, not SPHEREx observations. Constellation lines are visual guides.</p><a href="/skytrace/catalogs/README.txt" target="_blank" rel="noreferrer">View data sources ↗</a><small>Object search and imagery need an internet connection.</small></div></details>
   </div>;
 }
