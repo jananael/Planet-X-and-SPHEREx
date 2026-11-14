@@ -23,7 +23,11 @@ frontend 82, tsc OK. **Commit/push only when Jana says. Update this file after e
   "Simple explanation" (night-sky story), no console errors.
 - Free Render sleeps after ~15 min (first request ~1 min) and loses its cache; open `/api/health` ~10 min before a
   demo. `astroquery` was missing from `backend/requirements.txt`: added before deploy.
-Next: slides and the Space Apps page (public link above).
+**Slides done (2026-11-14, night):** `docs/SKYTRACE-Pitch-v4.pptx` (7 slides, reworked from Jana's v3 against the
+BZU "Space Apps 7" criteria: title+tagline+names, problem through "Lina" (illustrative) + 358 real SPHEREx images of
+Barnard's Star (live IRSA search) + why now, what's new, NASA data IDs + method (SNR >= 5), demo with public link + QR,
+impact groups, limits + AI disclosure). Speaker script + judges' Q&A in `docs/pitch-script.md` (also in slide notes).
+Next: Space Apps project page (description, data, AI disclosure), optional 30 s video.
 
 ---
 
