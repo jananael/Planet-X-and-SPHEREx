@@ -38,40 +38,32 @@ test("visualization fixture is self-contained, labeled, typed, and internally bo
   assert.equal(DEMO_IMAGE_PIXELS.length, 48);
   assert.ok(DEMO_IMAGE_PIXELS.every(row => row.length === 48 && row.every(Number.isFinite)));
   assert.equal(DEMO_OBSERVATIONS.length, 3);
-  assert.deepEqual(Object.keys(MODE_EXPLANATIONS).sort(), ["bands", "image", "sky", "space", "spectrum", "time"]);
+  assert.deepEqual(Object.keys(MODE_EXPLANATIONS).sort(), ["bands", "image", "space", "spectrum", "time"]);
 });
 
 test("Visualization page renders every mode, demo warning, learning and scientific limitations", () => {
   const Workspace = workspaceComponent();
   const html = renderToStaticMarkup(createElement(Workspace));
-  for (const label of ["3D space", "Sky map", "Spectrum", "Image", "Bands", "Timeline"]) assert.match(html, new RegExp(label));
+  for (const label of ["3D space", "Spectrum", "Image", "Bands", "Timeline"]) assert.match(html, new RegExp(label));
+  assert.doesNotMatch(html, /Sky map/);
   assert.match(html, /DATA MODES/);
-  assert.match(html, /Catalog-based · 2D/);
-  assert.match(html, /Coordinate sky map: catalog-based/);
-  assert.match(html, /3D, spectrum, image, bands, and timeline views remain illustrative demo views/);
+  assert.match(html, /3D, spectrum, image, bands and timeline views use illustrative demo data/);
   assert.match(html, /Turn on learning mode/);
   assert.match(html, /Start guided exploration/);
   assert.doesNotMatch(html, /Planet X discovery|validated moving object/i);
 });
 
-test("coordinate sky view uses catalog API and explains its real-data limits", () => {
+test("the coordinate sky map was removed from the Learning lab", () => {
   const source = readFileSync(new URL("../components/visualization-workspace.tsx", import.meta.url), "utf8");
   assert.match(source, /DEMO_DATA_NOTICE/);
-  assert.match(source, /\/api\/sky-objects/);
-  assert.match(source, /Gaia DR3/);
-  assert.match(source, /SkyBoT/);
-  assert.match(source, /proper motion only/);
-  assert.match(source, /not a physical 3D model/);
-  assert.match(source, /geocenter, not the SPHEREx spacecraft/);
-  assert.match(source, /What can’t we conclude\?/);
-  assert.match(source, /drag to rotate/);
+  assert.doesNotMatch(source, /\/api\/sky-objects|CoordinateSkyView/);
 });
 
 test("the Learning lab receives the dashboard's currently selected coordinates and epoch filters", () => {
   const dashboard = readFileSync(new URL("../components/data-dashboard.tsx", import.meta.url), "utf8");
   const page = readFileSync(new URL("../components/visualization-page.tsx", import.meta.url), "utf8");
   assert.match(dashboard, /onLearningLab\(place\)/);
-  assert.match(dashboard, /Coordinate sky map & learning lab/);
+  assert.match(dashboard, /Learning lab \(demo\)/);
   assert.match(page, /place\.point\.ra/);
   assert.match(page, /place\.point\.dec/);
   assert.match(page, /place\.start/);

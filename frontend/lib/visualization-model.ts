@@ -1,4 +1,4 @@
-export type VisualizationMode = "space" | "sky" | "spectrum" | "image" | "bands" | "time";
+export type VisualizationMode = "space" | "spectrum" | "image" | "bands" | "time";
 export type DemoSource = {
   id: string;
   name: string;
@@ -42,7 +42,6 @@ export const DEMO_IMAGE_PIXELS: number[][] = Array.from({ length: 48 }, (_, y) =
 
 export const MODE_EXPLANATIONS: Record<VisualizationMode, { title: string; what: string; unit: string; use: string; conclude: string; not: string }> = {
   space: { title: "A navigable 3D illustration", what: "Colored spheres are simulated objects positioned in a small 3D scene.", unit: "Scene units; not physical distance units.", use: "Depth and camera movement help explain how a 3D view differs from a flat sky map.", conclude: "You can explore how perspective and layers change the view.", not: "This is not an observed star field, scale model, or NASA data product." },
-  sky: { title: "Positions on a sky map", what: "Dots show illustrative right ascension (RA) and declination (Dec) coordinates.", unit: "RA in degrees and Dec in degrees for this demo.", use: "Coordinates describe direction on the celestial sphere.", conclude: "The points have different directions in this example.", not: "These positions are not verified astronomical catalog entries." },
   spectrum: { title: "Brightness across wavelength", what: "Points show illustrative flux measurements at several infrared wavelengths.", unit: "Wavelength: micrometers (μm). Flux: illustrative arbitrary units.", use: "A spectrum shows how measured brightness can vary with wavelength.", conclude: "The example curve rises and falls across its sampled wavelengths.", not: "Do not interpret the values as calibrated SPHEREx flux or a real object's spectrum." },
   image: { title: "An illustrative detector image", what: "Pixel colors are generated from a fixed demo matrix with a bright center and background texture.", unit: "Pixel value: illustrative arbitrary units.", use: "Image stretches change how bright and faint pixels are displayed.", conclude: "You can see how a display stretch reveals different contrast.", not: "The image is not a FITS file and pixel values are not measurements." },
   bands: { title: "Comparing wavelength bands", what: "Each panel represents a different illustrative infrared band and brightness value.", unit: "Band labels and arbitrary brightness units.", use: "Comparisons across bands can reveal color and spectral differences when measurements are available.", conclude: "The demo values differ between its three bands.", not: "The panels are not real exposures and do not imply a source changed." },

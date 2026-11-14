@@ -1,0 +1,45 @@
+/* Visualization uses the Explorer's look: shared header/footer, navy panels, cyan accents, beige headings.
+   The page's own headers/footers are hidden; its purple palette is mapped onto the Explorer variables. */
+.viz-themed .viz-header, .viz-themed .dash-header, .viz-themed .viz-footer > span:first-child, .viz-themed .dash-footer { display: none; }
+.viz-themed .viz-page, .viz-themed .dash-page { background: none; color: var(--text); max-width: 1440px; padding-inline: 52px; }
+.viz-themed .dash-back-bar { max-width: 1440px; padding: 12px 52px 0; }
+.viz-themed .dash-back-bar button { color: var(--bright); background: var(--panel); border-color: var(--line); }
+
+/* Headings, kickers and copy */
+.viz-themed .viz-kicker, .viz-themed .dash-kicker { color: var(--purple); }
+.viz-themed .viz-page-title h1, .viz-themed .dash-title h1 { color: var(--text); }
+.viz-themed .viz-page-title h1 span { background: linear-gradient(95deg, var(--text) 5%, var(--bright) 60%, var(--purple)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.viz-themed .viz-page-title > div > p:last-child, .viz-themed .dash-title p:not(.dash-kicker), .viz-themed .dash-note, .viz-themed .viz-inline-note,
+.viz-themed .viz-explanation-grid p, .viz-themed .viz-selection-box > p:not(.viz-side-label), .viz-themed .dash-loading { color: var(--copy); }
+.viz-themed .viz-side-label, .viz-themed .dash-kpis dt, .viz-themed .dash-card h3, .viz-themed .dash-legend small, .viz-themed .dash-file { color: var(--muted); }
+.viz-themed h2, .viz-themed h3, .viz-themed .dash-card h2, .viz-themed .viz-explanation-grid b, .viz-themed .dash-kpis dd { color: var(--text); }
+
+/* Panels and cards */
+.viz-themed .viz-side-panel, .viz-themed .viz-main-panel, .viz-themed .dash-card {
+  background: var(--panel); border: 1px solid var(--line); box-shadow: 0 12px 32px #0005; }
+.viz-themed .viz-scene-panel, .viz-themed .viz-sky-panel, .viz-themed .viz-chart-panel, .viz-themed .viz-image-panel, .viz-themed .viz-band-panel,
+.viz-themed .viz-time-panel, .viz-themed .dash-kpis div, .viz-themed .dash-sky { background: var(--bg); border-color: var(--line); }
+.viz-themed .viz-explanation, .viz-themed .viz-demo-callout, .viz-themed .viz-guide { background: #d877060f; border-color: #d8770660; }
+.viz-themed .viz-demo-callout > span, .viz-themed .viz-illustrative-chip { color: var(--action); border-color: #d8770670; background: #d8770615; }
+.viz-themed .viz-side-icon, .viz-themed .viz-explanation-mark { background: var(--bg); color: var(--bright); border-color: var(--line); }
+.viz-themed .dash-card h2 i { background: var(--purple); box-shadow: 0 0 10px var(--purple); }
+
+/* Buttons and controls */
+.viz-themed button { background: var(--bg); border-color: var(--line); color: var(--copy); }
+.viz-themed button:hover:not(:disabled) { border-color: var(--bright); background: var(--panel); }
+.viz-themed .viz-mode-list button { background: transparent; border-color: transparent; color: var(--copy); }
+.viz-themed .viz-mode-list button > span, .viz-themed .viz-mode-list button > i { color: var(--purple); }
+.viz-themed .viz-mode-list button.active, .viz-themed .viz-object-strip button.active, .viz-themed .viz-timeline button.active, .viz-themed .viz-band-grid article.selected,
+.viz-themed .viz-learn-toggle.on { background: #5bc0de18; border-color: var(--purple); color: var(--text); }
+.viz-themed .viz-learn-toggle span, .viz-themed .viz-return-link span { color: var(--bright); }
+.viz-themed .viz-guide-launch, .viz-themed .dash-lab { background: var(--bg); border-color: var(--purple); color: var(--bright); }
+.viz-themed .primary-button { border-color: var(--action); background: #d8770620; color: var(--text); box-shadow: none; }
+.viz-themed select, .viz-themed input { background: var(--bg); border-color: var(--line); color: var(--text); }
+.viz-themed .viz-layer-menu input, .viz-themed .viz-band-intro input { accent-color: var(--purple); }
+.viz-themed .dash-open { color: var(--bright); }
+.viz-themed .viz-footer { color: var(--muted); }
+
+/* Footer copy and tables */
+.viz-themed .dash-table th { color: var(--muted); border-color: var(--line); }
+.viz-themed .dash-table td { border-color: #3a506b55; color: var(--copy); }
+@media (max-width: 760px) { .viz-themed .viz-page, .viz-themed .dash-page { padding-inline: 18px; } .viz-themed .dash-back-bar { padding-inline: 18px; } }
