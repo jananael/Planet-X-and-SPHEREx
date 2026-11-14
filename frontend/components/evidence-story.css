@@ -1,0 +1,72 @@
+.explorer-shell .evidence-story { --story-muted: #b5c7d5; padding: clamp(24px, 4vw, 52px); background: #101b33; border-block: 1px solid #3a506b; color: #f4d6b0; }
+.explorer-shell .story-masthead { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 20px; padding-bottom: 28px; }
+.explorer-shell .story-masthead h2 { font-size: clamp(28px, 3vw, 40px); line-height: 1.1; margin: 12px 0 0; letter-spacing: -1px; }
+.explorer-shell .story-masthead h2 span { display: block; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; margin-top: 14px; color: #5bc0de; }
+.explorer-shell .story-source { color: var(--story-muted); font-size: 11px; max-width: 240px; line-height: 1.7; }
+.explorer-shell .investigation-desk { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(24px, 4vw, 52px); align-items: center; }
+.explorer-shell .investigation-lens { min-width: 0; margin: 0; position: relative; background: #0b132b; }
+.explorer-shell .lens-images { display: grid; min-height: 300px; aspect-ratio: 1.08; }
+.explorer-shell .lens-images.with-reference { grid-template-columns: 1fr 1fr; aspect-ratio: 1.3; }
+.explorer-shell .lens-images img { width: 100%; height: 100%; min-height: 0; object-fit: contain; background: #080f20; }
+.explorer-shell .investigation-lens figcaption { padding: 14px 16px; border-top: 1px solid #3a506b; color: var(--story-muted); font-size: 10px; line-height: 1.8; overflow-wrap: anywhere; }
+.explorer-shell .investigation-lens figcaption span { display: block; }
+.explorer-shell .investigation-lens figcaption time { color: #f4d6b0; font-size: 12px; }
+.explorer-shell .lens-empty { min-height: 320px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 30px; }
+.explorer-shell .lens-empty > span { font-size: 70px; color: #3a506b; line-height: 1; margin-bottom: 25px; }
+.explorer-shell .lens-empty strong { font-size: 17px; font-weight: 500; }
+.explorer-shell .lens-empty p { font-size: 12px; line-height: 1.8; max-width: 280px; color: var(--story-muted); margin-top: 14px; }
+.explorer-shell .story-question { display: block; color: #5bc0de; font-size: 10px; letter-spacing: .14em; line-height: 1.8; }
+.explorer-shell .story-phase { display: inline-block; margin: 18px 0 12px; color: var(--story-muted); text-transform: uppercase; font-size: 10px; letter-spacing: .12em; }
+.explorer-shell .scientific-verdict h3 { font-size: clamp(25px, 3vw, 38px); line-height: 1.2; letter-spacing: -.7px; font-weight: 500; }
+.explorer-shell .scientific-verdict > p[role=status] { margin: 18px 0 24px; font-size: 13px; line-height: 1.8; color: var(--story-muted); }
+.explorer-shell .story-limitation { color: var(--story-muted); font-size: 11px; line-height: 1.8; margin-top: 16px; }
+.explorer-shell .story-caution { color: #f4d6b0; border-left: 2px solid #d97706; padding-left: 12px; font-size: 12px; line-height: 1.8; margin-block: 18px; }
+.explorer-shell .story-evidence { margin-top: 40px; }
+.explorer-shell .evidence-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 18px; border-block: 1px solid #3a506b; }
+.explorer-shell .evidence-strip button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 20px 14px; text-align: left; background: transparent; color: #d1dbe3; min-width: 0; cursor: pointer; }
+.explorer-shell .evidence-strip button + button { border-left: 1px solid #3a506b; }
+.explorer-shell .evidence-strip button[aria-selected=true] { border-bottom-color: #5bc0de; background: #5bc0de09; color: #5bc0de; }
+.explorer-shell .evidence-strip small { display: block; color: var(--story-muted); margin-top: 10px; font-size: 10px; }
+.explorer-shell .evidence-strip small.needs-review { color: #e5ac65; }
+.explorer-shell .evidence-shared-detail { padding: 24px 4px; min-height: 190px; }
+.explorer-shell .evidence-shared-detail h3 { font-size: 18px; margin-bottom: 14px; }
+.explorer-shell .evidence-shared-detail p { font-size: 12px; color: var(--story-muted); line-height: 1.9; margin: 10px 0; overflow-wrap: anywhere; }
+.explorer-shell .evidence-shared-detail p strong { color: #f4d6b0; font-weight: 500; }
+.explorer-shell .story-detail-reference { border-top: 1px solid #3a506b; padding-top: 14px; }
+.explorer-shell .story-next { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; border-block: 1px solid #3a506b; padding: 24px 0; }
+.explorer-shell .story-next p { font-size: 16px; line-height: 1.8; }
+.explorer-shell .candidate-dossiers { scroll-margin-top: 24px; margin-top: 36px; }
+.explorer-shell .dossier-heading { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 24px; }
+.explorer-shell .dossier-heading h3 { font-size: 20px; font-weight: 500; }
+.explorer-shell .dossier-heading > span { font-size: 11px; color: var(--story-muted); }
+.explorer-shell .candidate-dossier { display: grid; grid-template-columns: 32px 100px minmax(0, 1fr); gap: 20px; padding: 24px 0; border-top: 1px solid #3a506b; transition: background-color .2s; }
+.explorer-shell .candidate-dossier.selected { border-top-color: #5bc0de; background: #5bc0de05; }
+.explorer-shell .dossier-number { font-size: 12px; color: #5bc0de; padding-top: 8px; }
+.explorer-shell .dossier-preview { aspect-ratio: 1; background: #0b132b; display: grid; place-items: center; align-self: start; }
+.explorer-shell .dossier-preview img { width: 100%; aspect-ratio: 1; object-fit: contain; }
+.explorer-shell .dossier-preview > span { font-size: 10px; color: var(--story-muted); text-align: center; padding: 10px; }
+.explorer-shell .dossier-select { display: flex; flex-wrap: wrap; gap: 14px; text-align: left; background: transparent; color: #f4d6b0; padding: 0; border: 0; cursor: pointer; }
+.explorer-shell .dossier-select > span { font-size: 17px; overflow-wrap: anywhere; }
+.explorer-shell .dossier-select small { font-size: 10px; color: #5bc0de; padding-block: 4px; }
+.explorer-shell .dossier-content { min-width: 0; }
+.explorer-shell .dossier-content p { font-size: 12px; line-height: 1.8; margin: 8px 0; overflow-wrap: anywhere; }
+.explorer-shell .dossier-ids { color: var(--story-muted); }
+.explorer-shell .story-advanced { margin-top: 32px; border-top: 1px solid #3a506b; }
+.explorer-shell .story-advanced > summary { cursor: pointer; padding: 22px 0; color: #5bc0de; font-size: 14px; }
+.explorer-shell .story-advanced > p { color: var(--story-muted); font-size: 12px; line-height: 1.8; }
+.explorer-shell .story-advanced .scientific-panel { background: transparent; border: 0; padding: 20px 0; }
+.explorer-shell .evidence-detail-content { animation: evidence-reveal .2s ease-out; }
+@keyframes evidence-reveal { from { opacity: .3; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@media(max-width: 760px) {
+  .explorer-shell .investigation-desk { grid-template-columns: 1fr; }
+  .explorer-shell .evidence-strip { display: flex; overflow-x: auto; }
+  .explorer-shell .evidence-strip button { flex: 0 0 150px; }
+  .explorer-shell .story-next { grid-template-columns: 1fr; gap: 12px; }
+  .explorer-shell .candidate-dossier { grid-template-columns: 24px 65px minmax(0, 1fr); gap: 10px; }
+  .explorer-shell .lens-images { min-height: 240px; }
+  .explorer-shell .scientific-verdict .primary-button { width: 100%; }
+}
+@media(prefers-reduced-motion: reduce) {
+  .explorer-shell .evidence-detail-content { animation: none; }
+  .explorer-shell .candidate-dossier { transition: none; }
+}

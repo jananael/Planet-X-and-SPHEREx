@@ -9,6 +9,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { StarryBackground } from "./starry-background";
 import { ObservationDetails } from "./observation-details";
+import type { Candidate } from "../lib/scientific-types";
+import { resolveSupportingObservations } from "../lib/evidence-story";
 import { ScientificEvidence } from "./scientific-evidence";
 import { ExplainPlayer } from "./explain-player";
 import { explainUrl, type ExplainFacts } from "../lib/explain";
@@ -119,6 +121,7 @@ export function Explorer() {
   const [story, setStory] = useState<{ id: string; step: number } | null>(null);
   const storyAutoplayed = useRef<string | null>(null);
   const searchController = useRef<AbortController | null>(null);
+  const evidenceController = useRef<AbortController | null>(null);
   const frameController = useRef<AbortController | null>(null);
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const selectedTarget = targets.find(t => t.id === targetId);
@@ -129,6 +132,7 @@ export function Explorer() {
 
   // opts: time window + preferred band, for moving objects that are only in a few images.
   const search = useCallback(async (position: Coordinates, id: string | null = null, opts: SearchOptions = {}, preview = false, navigate = true) => {
+    evidenceController.current?.abort();
     lastSearch.current = locationKey(position, opts); searchOptions.current = opts;
     searchController.current?.abort(); frameController.current?.abort();
     const controller = new AbortController(); searchController.current = controller;
@@ -181,7 +185,7 @@ export function Explorer() {
   }, [pathname, search]);
   // On unmount the search is cancelled, so forget it too: otherwise the next mount (React StrictMode mounts
   // twice in development) thinks this location was already searched and waits forever.
-  useEffect(() => () => { searchController.current?.abort(); frameController.current?.abort(); lastSearch.current = null; }, []);
+  useEffect(() => () => { searchController.current?.abort(); frameController.current?.abort(); evidenceController.current?.abort(); lastSearch.current = null; }, []);
   const hrefFor = (path: string) => workspaceHref(path, coordinates, searchOptions.current, targetId);
 
   // A shared link (?ra=&dec=) carries only coordinates: re-highlight the matching demo target.
@@ -194,9 +198,32 @@ export function Explorer() {
   const selectedObservations = useMemo(() => observations.filter(o => selected.includes(o.id)), [observations, selected]);
   function focusViewer() {
     if (!selected.length || searching) return;
+    setSkyStory(null); setJourney(null); setExplain(null);
     const viewer = document.getElementById("sky-viewer-section");
     viewer?.focus({ preventScroll: true });
     viewer?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
+  }
+  useEffect(() => { evidenceController.current?.abort(); }, [selected, source]);
+  async function viewCandidateEvidence(candidate: Candidate): Promise<string | null> {
+    if (!coordinates || searching) return "Choose a sky location and wait for its observation search to finish.";
+    evidenceController.current?.abort();
+    const request = new AbortController(); evidenceController.current = request;
+    try {
+      const records = await resolveSupportingObservations(candidate, observations, id => getJson<Observation>(`/api/observations/${encodeURIComponent(id)}`, request.signal), request.signal);
+      setObservations(current => [...current, ...records.filter(o => !current.some(existing => existing.id === o.id))]);
+      if (records.every(o => o.band === records[0].band)) setBand(records[0].band);
+      setSkyStory(null); setJourney(null); setExplain(null);
+      setViewMode("images"); setPlaying(false); setCompare(false); setDifference(false); setIndex(0);
+      setSelected(records.map(o => o.id));
+      requestAnimationFrame(() => {
+        const viewer = document.getElementById("sky-viewer-section");
+        viewer?.focus({ preventScroll: true });
+        viewer?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
+      });
+      return null;
+    } catch (error) {
+      return request.signal.aborted ? "Evidence selection cancelled." : "The associated observations could not be retrieved. Your current image selection is unchanged. " + errorMessage(error);
+    }
   }
   const visits = useMemo(() => groupVisits(observations), [observations]);
   const dates = useMemo(() => observationDates(observations, band), [observations, band]);
@@ -447,8 +474,8 @@ export function Explorer() {
         </section>
 
       </div>
-      <section className="scientific-route-section" aria-labelledby="evidence-section-title" hidden={!coordinates}><div className="section-heading"><span className="step-number">03</span><h2 id="evidence-section-title">Scientific Evidence &amp; Data Reliability</h2></div>
-        <ScientificEvidence coordinates={coordinates} observations={selectedObservations} frames={frames} source={source} searching={searching} noCoverage={searched && observations.length === 0} searchFailed={!!searchError} loadingImages={loadingFrames} />      </section>
+      <section className="scientific-route-section" aria-labelledby="evidence-section-title" hidden={!coordinates}><div className="section-heading"><span className="step-number">03</span><h2 id="evidence-section-title">Follow the evidence</h2></div>
+        <ScientificEvidence coordinates={coordinates} observations={selectedObservations} frames={frames} source={source} searching={searching} noCoverage={searched && observations.length === 0} searchFailed={!!searchError} loadingImages={loadingFrames} currentFrame={frame} referenceFrame={(showCompare || showDifference) ? frames[0] : undefined} onViewEvidence={viewCandidateEvidence} onCancelEvidence={() => evidenceController.current?.abort()} onCompare={focusViewer} />      </section>
       </div>
       <div hidden={pathname !== "/machine-learning"}><MachineLearning coordinates={coordinates} targetName={selectedTarget?.name} source={source} changeLocationHref={hrefFor("/explore")} /></div>
       <section className="explore-note"><span aria-hidden="true">✦</span><p><strong>Explore with curiosity. Compare with care.</strong> These observations help you investigate changes, not confirm discoveries. A quiet-looking sky can still tell a story.</p></section>

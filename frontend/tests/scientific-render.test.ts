@@ -19,6 +19,7 @@ function component(name: string) {
     if (specifier.startsWith(".")) {
       const target = resolve(dirname(filename), specifier);
       if (existsSync(target + ".ts")) return nativeRequire(target + ".ts");
+      if (existsSync(target + ".tsx")) return component(specifier.slice(2));
     }
     return nativeRequire(specifier);
   };
@@ -58,6 +59,19 @@ test("initial scientific summary reports Not analyzed instead of zero candidates
   assert.match(html, /Scientific Evidence Summary/); assert.match(html, /Not analyzed/); assert.match(html, /Quality checks unavailable/);
   assert.doesNotMatch(html, /Candidate records returned: 0/);
   assert.doesNotMatch(html, /Verified Measurement/);
+});
+
+test("Evidence Story renders one shared evidence panel, honest empty lens and preserved advanced details", () => {
+  const { EvidenceStory } = component("evidence-story");
+  const html = renderToStaticMarkup(createElement(EvidenceStory, { outcome: { phase: "unavailable", retry: false, message: "Scientific engine unavailable" }, candidates: [], frames: [], source: "mock", loading: false, canAnalyze: true, onAnalyze: () => {}, advanced: createElement("p", null, "Scientific provenance retained") }));
+  assert.match(html, /Evidence Story/); assert.match(html, /Follow the Evidence/);
+  assert.match(html, /Scientific results are currently unavailable/);
+  assert.match(html, /No image available/);
+  assert.equal((html.match(/role="tabpanel"/g) ?? []).length, 1);
+  assert.equal((html.match(/role="tab"/g) ?? []).length, 4);
+  assert.match(html, /Advanced Scientific Details/); assert.match(html, /Scientific provenance retained/);
+  assert.match(html, /Synthetic demo data/);
+  assert.doesNotMatch(html, /<img/);
 });
 
 test("machine learning renders without a location or backend and disables prediction actions", () => {

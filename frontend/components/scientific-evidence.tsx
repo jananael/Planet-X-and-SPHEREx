@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { EvidenceStory } from "./evidence-story";
 import { ApiFailure, getCandidateAnalysis } from "../lib/api";
 import { aggregateEvidence, analysisError, analysisOutcome, analysisSelectionKey, candidateFlags, candidateQuality, candidateStatus, classificationLabels, evidenceForCandidate, evidenceLabels, explainFlag, imageReliability, matchingAnalysis, measurementAvailability, uncertaintyAvailability } from "../lib/scientific-evidence";
 import { dataSourceLabel, finiteNumber, formatUtc, NOT_AVAILABLE, numberValue, textValue, measurementValue, uncertaintyValue } from "../lib/scientific-format";
@@ -42,7 +43,7 @@ export function CandidateCard({ candidate, selectedIds }: { candidate: Candidate
     {photometryFailed && <p className="scientific-alert" role="status">{explainFlag("photometry_failed").explanation}</p>}
     <details className="scientific-details"><summary>Supporting observations, measurements &amp; limitations</summary>
       <p><strong>Associated Observation IDs:</strong> {candidate.observation_ids.length ? candidate.observation_ids.join(", ") : NOT_AVAILABLE}</p>
-      <div className="scientific-table-wrap"><table><caption>Per-observation measurements reported by the backend</caption><thead><tr><th>Observation / UTC time</th><th>RA / Dec (°)</th><th>SNR</th><th>Flux</th><th>Flux uncertainty</th><th>Quality</th></tr></thead><tbody>{candidate.detections.map(d => <tr key={d.observation_id}><td>{textValue(d.observation_id)}<small>{formatUtc(d.observation_time)}</small><small>Band {textValue(d.band)} · {numberValue(d.wavelength_um, "µm")}</small></td><td>{numberValue(d.ra_deg)} / {numberValue(d.dec_deg)}</td><td>{numberValue(d.snr)}</td><td>{measurementValue(d.flux, d.flux_error, d.flux_unit ?? "")}<small>{d.flux != null && !d.flux_unit && "Unit: Not available"}</small></td><td>{d.flux == null ? "Not available ? no flux measurement" : uncertaintyValue(d.flux_error, d.flux_unit ?? "")}</td><td>{d.quality_flags?.length ? d.quality_flags.map(f => explainFlag(f).title).join("; ") : Array.isArray(d.quality_flags) ? "No issues reported; checks not certified" : "Quality checks unavailable"}</td></tr>)}</tbody></table></div>
+      <div className="scientific-table-wrap"><table><caption>Per-observation measurements reported by the backend</caption><thead><tr><th>Observation / UTC time</th><th>RA / Dec (°)</th><th>SNR</th><th>Flux</th><th>Flux uncertainty</th><th>Quality</th></tr></thead><tbody>{candidate.detections.map(d => <tr key={d.observation_id}><td>{textValue(d.observation_id)}<small>{formatUtc(d.observation_time)}</small><small>Band {textValue(d.band)} · {numberValue(d.wavelength_um, "µm")}</small></td><td>{numberValue(d.ra_deg)} / {numberValue(d.dec_deg)}</td><td>{numberValue(d.snr)}</td><td>{measurementValue(d.flux, d.flux_unit ? d.flux_error : null, d.flux_unit ?? "")}<small>{d.flux != null && !d.flux_unit && "Unit: Not available"}</small></td><td>{d.flux == null ? "Not available ? no flux measurement" : uncertaintyValue(d.flux_error, d.flux_unit ?? "")}</td><td>{d.quality_flags?.length ? d.quality_flags.map(f => explainFlag(f).title).join("; ") : Array.isArray(d.quality_flags) ? "No issues reported; checks not certified" : "Quality checks unavailable"}</td></tr>)}</tbody></table></div>
       <dl className="scientific-metadata">
         <div><dt>Median / minimum SNR</dt><dd>{numberValue(candidate.median_snr)} / {numberValue(candidate.min_snr)}</dd></div>
         <div><dt>Angular displacement</dt><dd>{measurementValue(candidate.motion?.angular_displacement_arcsec, null, "arcsec")}</dd></div>
@@ -61,16 +62,26 @@ export function CandidateCard({ candidate, selectedIds }: { candidate: Candidate
   </article>;
 }
 
-export function ScientificEvidence({ coordinates, observations, frames, source, searching, noCoverage, searchFailed, loadingImages }: {
+export function ScientificEvidence({ coordinates, observations, frames, source, searching, noCoverage, searchFailed, loadingImages, currentFrame, referenceFrame, onViewEvidence, onCancelEvidence, onCompare }: {
   coordinates: Coordinates | null; observations: Observation[]; frames: BlinkFrame[]; source: string | null;
   searching: boolean; noCoverage: boolean; searchFailed: boolean; loadingImages: boolean;
+  currentFrame?: BlinkFrame; referenceFrame?: BlinkFrame; onViewEvidence?: (candidate: Candidate) => Promise<string | null>; onCompare?: () => void; onCancelEvidence?: () => void;
 }) {
   const key = analysisSelectionKey(coordinates, observations.map(o => o.id), source);
   const [stored, setStored] = useState<Stored | null>(null);
   const controller = useRef<AbortController | null>(null);
   const findingsPanel = useRef<HTMLDetailsElement>(null);
-  useEffect(() => { controller.current?.abort(); setStored(null); return () => controller.current?.abort(); }, [key, searching]);
-  const current = matchingAnalysis(stored, key, searching);
+  const evidenceHandoff = useRef<string | null>(null);
+  useEffect(() => {
+    controller.current?.abort();
+    if (!searching && evidenceHandoff.current === key) {
+      setStored(previous => previous ? { ...previous, key } : null);
+    } else { evidenceHandoff.current = null; setStored(null); }
+    return () => controller.current?.abort();
+  }, [key, searching]);
+  // Only the explicit candidate-to-viewer action can carry a regional result to
+  // its exact supporting selection. Ordinary edits still invalidate old results.
+  const current = matchingAnalysis(stored, key, searching) ?? (!searching && evidenceHandoff.current === key ? stored : null);
   const response = current?.response ?? null;
   const outcome = searching ? { ...initial, message: "Observation search is in progress. Previous candidate results have been cleared." }
     : noCoverage ? { phase: "not_analyzed" as const, retry: false, message: "No observations were returned for the current search and filters. Scientific candidate analysis was not performed; this does not establish that no changes exist." }
@@ -99,10 +110,19 @@ export function ScientificEvidence({ coordinates, observations, frames, source, 
       if (!request.signal.aborted) setStored({ key, response: null, outcome: analysisError(error instanceof ApiFailure ? error.code : undefined) });
     }
   }
-  return <section className="panel scientific-panel evidence-organized" aria-labelledby="scientific-summary-title">
+  async function viewSupportingEvidence(candidate: Candidate) {
+    if (!onViewEvidence) return "Evidence viewing is unavailable.";
+    evidenceHandoff.current = analysisSelectionKey(coordinates, candidate.observation_ids, source);
+    try {
+      const message = await onViewEvidence(candidate);
+      if (message !== null) evidenceHandoff.current = null;
+      return message;
+    } catch (error) { evidenceHandoff.current = null; throw error; }
+  }
+  const advanced = <section className="panel scientific-panel evidence-organized" aria-labelledby="scientific-summary-title">
     <div className="scientific-card-heading"><div><p className="eyebrow">UNDERSTAND THE EVIDENCE</p><h2 id="scientific-summary-title">Scientific Evidence Summary</h2></div><span className="scientific-status">{evidenceLabels[usableEvidence.state]}</span></div>
     <p className="scientific-limitation">{usableEvidence.explanation}</p>
-    <div className="evidence-next-step"><div role="status"><strong>{phaseLabels[outcome.phase]}</strong><p>{outcome.message}</p></div><button type="button" className="share-button" disabled={!coordinates || !observations.length || searching || noCoverage || searchFailed || outcome.phase === "requesting"} onClick={() => void analyze()}>{outcome.phase === "requesting" ? "Requesting…" : outcome.retry ? "Retry candidate request" : "Load candidate analysis"}</button></div>
+    <div className="evidence-next-step"><div role="status"><strong>{phaseLabels[outcome.phase]}</strong><p>{outcome.message}</p></div></div>
     <dl className="evidence-at-a-glance">
       <div><dt>Selected observations</dt><dd>{observations.length ? `${observations.length} selected / ${loadingImages ? "images loading" : `${frames.length} loaded`}` : "No observations selected"}</dd></div>
       <div><dt>Candidate records (regional)</dt><dd>{response ? response.count : "Not available"}</dd></div>
@@ -141,4 +161,5 @@ export function ScientificEvidence({ coordinates, observations, frames, source, 
       <p className="scientific-limitation">Individual reported values and uncertainties are in each candidate's supporting measurements under Findings &amp; candidates. An available measurement is not a confirmed discovery.</p>
     </div></details>
   </section>;
+  return <EvidenceStory key={analysisSelectionKey(coordinates, [], source)} outcome={outcome} candidates={candidates} frames={frames} currentFrame={currentFrame} referenceFrame={referenceFrame} source={source} loading={loadingImages || searching} canAnalyze={!!coordinates && !!observations.length && !searching && !noCoverage && !searchFailed} onAnalyze={() => void analyze()} onViewEvidence={onViewEvidence ? viewSupportingEvidence : undefined} onCancelEvidence={onCancelEvidence} onCompare={onCompare} advanced={advanced} />;
 }
