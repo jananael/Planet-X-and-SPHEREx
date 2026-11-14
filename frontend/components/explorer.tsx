@@ -12,7 +12,7 @@ import type { Candidate } from "../lib/scientific-types";
 import { resolveSupportingObservations } from "../lib/evidence-story";
 import { ScientificEvidence } from "./scientific-evidence";
 import { ExplainPlayer } from "./explain-player";
-import { explainUrl, type ExplainFacts } from "../lib/explain";
+import { explainUrl, summarize, type ExplainFacts } from "../lib/explain";
 import { JourneyPlayer } from "./journey-player";
 import { SkyStoryPlayer } from "./sky-story-player";
 import { LocationStoryPlayer } from "./location-story-player";
@@ -109,6 +109,17 @@ export function Explorer() {
     catch (error) { setExplainError(errorMessage(error)); }
     finally { setExplainLoading(false); }
   }
+  // Always-visible plain summary under the images (same facts as "Explain the data", fetched quietly).
+  const [summaryFacts, setSummaryFacts] = useState<ExplainFacts | null>(null);
+  useEffect(() => {
+    setSummaryFacts(null);
+    if (!coordinates || !frames.length || loadingFrames) return;
+    const controller = new AbortController();
+    getJson<ExplainFacts>(explainUrl(coordinates.ra, coordinates.dec, size, frames.map(f => f.obs.id)), controller.signal)
+      .then(setSummaryFacts, () => { /* the summary still shows what, when and light without it */ });
+    return () => controller.abort();
+  }, [frames, loadingFrames, coordinates, size]);
+  const summary = loadingFrames ? [] : summarize(summaryFacts, frames);
   const [viewMode, setViewMode] = useState<"images" | "video">("images");
   const [speed, setSpeed] = useState(0.7);
   const [difference, setDifference] = useState(false);
@@ -474,6 +485,10 @@ export function Explorer() {
           <div className="playback" role="group" aria-label="Playback controls"><div className="transport"><button aria-label="Previous frame" disabled={loadingFrames || frames.length < 2} onClick={() => { setPlaying(false); step(-1); }}>◀</button><button className="play-button" aria-label={playing ? "Pause playback" : "Play comparison"} disabled={loadingFrames || frames.length < 2} onClick={() => { if (!playing) setViewMode("video"); setPlaying(p => !p); }}>{playing ? "Ⅱ" : "▶"}</button><button aria-label="Next frame" disabled={loadingFrames || frames.length < 2} onClick={() => { setPlaying(false); step(1); }}>▶</button></div><label className="speed-control" htmlFor="speed">Interval <input id="speed" type="range" min="0.2" max="2" step="0.1" value={speed} onChange={event => setSpeed(Number(event.target.value))} /><span>{speed.toFixed(1)}s</span></label></div>
           {viewMode === "video" && <div className="video-timeline"><label htmlFor="video-frame">Video sequence <span>{frames.length ? `Frame ${index + 1} of ${frames.length} / ${playing ? "Playing" : "Paused"}` : "Choose images below to begin"}</span></label><input id="video-frame" type="range" min="0" max={Math.max(0, frames.length - 1)} value={index} disabled={loadingFrames || frames.length < 2} aria-label="Seek to observation frame" aria-valuetext={frame ? utc(frame.obs.obs_time) : "No frames loaded"} onChange={event => { setPlaying(false); setIndex(Number(event.target.value)); }} /></div>}
           <div className="frame-dots" aria-label="Select a frame">{frames.map((f, i) => <button key={f.obs.id} aria-label={`Show frame ${i + 1}`} aria-pressed={i === index} onClick={() => { setPlaying(false); setIndex(i); }} />)}</div>
+          {summary.length > 0 && <section className="data-summary" aria-label="What you are seeing">
+            <p className="eyebrow">WHAT YOU ARE SEEING</p>
+            <dl>{summary.map(l => <div key={l.label} className={`data-summary-row ${l.label === "Change" ? "is-change" : ""}`}><dt>{l.label}</dt><dd>{l.text}</dd></div>)}</dl>
+          </section>}
           {failures.length > 0 && <div className="notice error" role="alert"><strong>{failures.length} {failures.length === 1 ? "image unavailable" : "images unavailable"}</strong><ul>{failures.map(f => <li key={f.observation.id}>{utc(f.observation.obs_time)}: {f.message}</li>)}</ul><button onClick={() => setFrameRetry(n => n + 1)}>Retry images</button></div>}
           <details className="explorer-options"><summary>Image settings &amp; downloads</summary><div className="viewer-settings"><div className="image-adjustments"><p className="control-caption">Image settings<span>Adjust how observations appear</span></p><div className="adjustment-fields"><label>Display stretch<select value={stretch} onChange={event => setStretch(event.target.value as Stretch)}><option value="asinh">Asinh</option><option value="zscale">Zscale</option><option value="linear">Linear</option></select></label><label>Field of view<select value={size} onChange={event => setSize(Number(event.target.value))}><option value="120">120″ · closer</option><option value="240">240″</option><option value="300">300″ · standard</option><option value="450">450″</option><option value="600">600″ · wider</option><option value="900">900″ · widest</option></select></label></div></div><div className="export-actions"><p className="control-caption">Save &amp; share<span>Take your comparison with you</span></p><div className="export-buttons"><button className="share-button" disabled={loadingFrames || frames.length < 2 || exporting} onClick={() => void exportGif()}>{exporting ? "Making GIF…" : "Download GIF ↓"}</button><button className="share-button" disabled={!coordinates} onClick={() => void share()}>{copied ? "Link copied ✓" : "Share position ↗"}</button></div></div></div>
           </details>

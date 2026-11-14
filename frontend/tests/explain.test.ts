@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildScenes, explainUrl, formatDuration, type ExplainFacts } from "../lib/explain.ts";
+import { buildScenes, explainUrl, formatDuration, summarize, type ExplainFacts } from "../lib/explain.ts";
 
 const frame = (id: string, x: number | null, y: number | null, t = "2026-07-13T15:57:52Z") =>
   ({ observation_id: id, obs_time: t, band: "D2", release: "QR3", x, y, inside: x !== null });
@@ -49,4 +49,24 @@ test("a variable star is told as a brightness change, a slow star as a creep", (
 
 test("explain URL carries the frames shown", () => {
   assert.equal(explainUrl(22.5, 1.36, 450, ["a", "b"]), "/api/explain?ra=22.5&dec=1.36&size=450&ids=a%2Cb");
+});
+
+test("summary under the images: what, when, light, change, never a discovery", () => {
+  const frames = [
+    { obs: { obs_time: "2026-07-13T15:57:52Z", band: "D2" }, wavelengthUm: 1.1073 },
+    { obs: { obs_time: "2026-07-13T19:07:09Z", band: "D2" }, wavelengthUm: 1.1101 },
+  ];
+  const lines = summarize(vesta, frames);
+  assert.deepEqual(lines.map(l => l.label), ["What", "When", "Light", "Change", "Remember"]);
+  assert.match(lines[1].text, /2026-07-13 15:57 UTC to 2026-07-13 19:07 UTC: 3\.2 hours apart/);
+  assert.match(lines[2].text, /1\.11 micrometres \(detector D2\)/);
+  assert.match(lines[3].text, /\(4\) Vesta moved about 20 pixels \(124″\) towards the east in 3\.2 hours/);
+  const unknown = summarize({ ...vesta, kind: "no_known_object", object: null }, frames);
+  assert.match(unknown[3].text, /does not measure changes automatically/);
+  assert.match(unknown[4].text, /a clue, not a discovery/);
+  assert.match(summarize(null, frames.slice(0, 1))[3].text, /Only one picture/);
+  const apart = [{ ...frames[0], wavelengthUm: 1.11, bandwidthUm: 0.026 }, { ...frames[1], wavelengthUm: 1.52, bandwidthUm: 0.037 }];
+  assert.match(summarize(vesta, apart)[2].text, /different infrared colours/);
+  assert.doesNotMatch(lines[2].text, /different infrared colours/);
+  for (const l of [...lines, ...unknown]) assert.doesNotMatch(l.text, /we discovered|new object found/i);
 });

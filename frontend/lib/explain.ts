@@ -1,3 +1,4 @@
+import { spectralMismatch } from "./observations.ts";
 // "Explain it simply": turns the facts from /api/explain into short scenes played over the REAL frames.
 // Every number in a caption comes from the facts; nothing is invented. Text is plain English for
 // students with no astronomy background. Wording to be reviewed by the science team (Yazan).
@@ -97,4 +98,45 @@ export function buildScenes(facts: ExplainFacts): Scene[] {
 export function explainUrl(ra: number, dec: number, size: number, ids: string[]): string {
   const q = new URLSearchParams({ ra: String(ra), dec: String(dec), size: String(size), ids: ids.join(",") });
   return `/api/explain?${q}`;
+}
+
+export interface SummaryLine { label: string; text: string }
+const fmtDate = (iso: string) => new Date(iso).toISOString().replace("T", " ").slice(0, 16) + " UTC";
+
+/**
+ * Always-visible plain-language summary under the images: what, when, which light, and what changed.
+ * Same rule as the scenes: every number comes from the facts or the loaded frames; no change is claimed
+ * for an unknown patch (nothing is measured there yet) and nothing is called a discovery.
+ */
+export function summarize(facts: ExplainFacts | null, frames: { obs: { obs_time: string; band: string }; wavelengthUm: number | null; bandwidthUm?: number | null }[]): SummaryLine[] {
+  if (!frames.length) return [];
+  const n = frames.length, name = facts?.object?.name ?? null;
+  const times = frames.map(f => f.obs.obs_time).sort();
+  const hours = (Date.parse(times[n - 1]) - Date.parse(times[0])) / 3.6e6;
+  const lines: SummaryLine[] = [];
+  lines.push({ label: "What", text: `${plural(n, "real picture")} from NASA's SPHEREx space telescope of ${name ? `${name}, ${TYPE_WORDS[facts!.object!.type] ?? facts!.object!.type}` : "this patch of sky"}. Same place, same brightness scale, north up.` });
+  lines.push({ label: "When", text: n === 1 ? `Taken on ${fmtDate(times[0])}.` : `From ${fmtDate(times[0])} to ${fmtDate(times[n - 1])}: ${formatDuration(Math.max(hours, 1 / 60))} apart.` });
+  const wl = frames.map(f => f.wavelengthUm).filter((w): w is number => w !== null);
+  const bands = [...new Set(frames.map(f => f.obs.band))].join(", ");
+  if (wl.length) {
+    const lo = Math.min(...wl), hi = Math.max(...wl);
+    lines.push({ label: "Light", text: `Infrared, ${hi - lo < 0.01 ? `${lo.toFixed(2)}` : `${lo.toFixed(2)}–${hi.toFixed(2)}`} micrometres (detector ${bands}). Our eyes only see up to about 0.7.${
+      spectralMismatch(frames.map(f => ({ wavelengthUm: f.wavelengthUm, bandwidthUm: f.bandwidthUm ?? null })))
+        ? " Careful: these pictures were taken in different infrared colours, so a brightness difference can come from that, not from a real change." : ""}` });
+  }
+  let change: string;
+  if (n < 2) change = "Only one picture: choose at least two moments to compare.";
+  else if (!facts || facts.kind === "no_known_object" || !facts.object)
+    change = "No known moving or changing object is expected here, and SKYTRACE does not measure changes automatically yet. Play the pictures or use Difference: what stayed the same disappears, anything that changed remains.";
+  else if (facts.kind === "brightness")
+    change = `${name} stays in the same place; what changes is its brightness. Compare the size of its glow between pictures.`;
+  else if (facts.kind === "moves")
+    change = `${name} moved about ${plural(Math.round(facts.displacement_pixels ?? 0), "pixel")} (${Math.round(facts.displacement_arcsec ?? 0)}″)${facts.direction ? ` towards the ${facts.direction}` : ""} in ${formatDuration(facts.elapsed_hours ?? hours)}, while the stars stayed still. This matches its known path (${facts.object.position_source}).`;
+  else {
+    const px = facts.displacement_pixels ?? 0;
+    change = `${name} moved only ${px < 1 ? "a fraction of a pixel" : `about ${plural(Math.round(px * 10) / 10, "pixel")}`} (${(facts.displacement_arcsec ?? 0).toFixed(1)}″) in ${formatDuration(facts.elapsed_hours ?? hours)}: too small to see in a flip. Turn on Difference to reveal it.`;
+  }
+  lines.push({ label: "Change", text: change });
+  lines.push({ label: "Remember", text: facts?.object ? "This is a known object, not a discovery." : "A change seen here is a clue, not a discovery: it needs more pictures and checks." });
+  return lines;
 }
