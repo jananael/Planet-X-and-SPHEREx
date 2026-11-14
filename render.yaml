@@ -1,0 +1,26 @@
+# Render Blueprint for the SKYTRACE API (free plan, native Python: no Docker needed).
+# Render dashboard -> New -> Blueprint -> pick this repository. The frontend goes on Vercel (see docs/deploy.md).
+services:
+  - type: web
+    name: skytrace-api
+    runtime: python
+    plan: free
+    # Built from the repository root so docs/inventory (SPHEREx moments for the journeys) is available.
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn --app-dir backend app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: false
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: DATA_SOURCE
+        value: real
+      # Free instances sleep after ~15 min and lose their disk: refill the demo cache in the background at startup.
+      - key: WARM_ON_START
+        value: "true"
+      # The Vercel address of the frontend, e.g. https://skytrace.vercel.app (set after the first Vercel deploy).
+      - key: CORS_ORIGINS
+        sync: false
+      # Optional: allow Vercel preview deployments too, e.g. ^https://skytrace.*\.vercel\.app$
+      - key: CORS_ORIGIN_REGEX
+        sync: false

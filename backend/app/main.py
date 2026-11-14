@@ -14,6 +14,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
+        allow_origin_regex=settings.cors_origin_regex or None,
         allow_credentials=False,
         allow_methods=["GET"],
         allow_headers=["*"],
@@ -23,6 +24,13 @@ def create_app() -> FastAPI:
 
     for r in (health.router, targets.router, observations.router, search.router, candidates.router, explain.router, journey.router, resolve.router, hips.router, sky_objects.router, gaia_stars.router, spectrum.router):
         app.include_router(r, prefix="/api")
+
+    if settings.data_source == "real" and settings.warm_on_start:
+        @app.on_event("startup")
+        def _warm_demo_cache() -> None:  # background thread: the API answers immediately
+            from app.services.data_source import get_data_source
+            from app.services.warmup import warm_in_background
+            warm_in_background(get_data_source())
     return app
 
 

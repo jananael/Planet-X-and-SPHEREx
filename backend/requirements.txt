@@ -10,3 +10,5 @@ requests>=2.31
 # Windows: keep the venv on a short path, astropy fails to load DLLs from very long paths.
 astropy>=6.0
 pyvo>=1.5
+# JPL Horizons (journey, known objects, explain positions)
+astroquery>=0.4.7

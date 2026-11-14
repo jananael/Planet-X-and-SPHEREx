@@ -12,7 +12,10 @@ Last updated: **2026-11-14 (evening)** · `main` = GitHub. Yazan's engine (PR #2
 OK), plus Taqwa's S2-T4, Yazan's visualization workspace + catalog sky map (PR #6), Sadeel's Evidence Story and new
 Explorer design, and the "Learning lab". **Production build checked: no errors.** Tests: backend 131 passed / 5 skipped,
 frontend 82, tsc OK. **Commit/push only when Jana says. Update this file after every step** (Jana's rule).
-Next: **deploy** (Vercel frontend + Render/Railway backend, Jana's accounts), warm the cache, slides, Space Apps page.
+Next: **deploy** on **Render free (backend, chosen by Jana) + Vercel (frontend)**: `render.yaml` (native Python, no
+Docker), `WARM_ON_START=true` refills the demo cache in the background after each wake-up (free plan sleeps after
+~15 min and loses its disk), steps in `docs/deploy.md`. `astroquery` was missing from `backend/requirements.txt`
+(journeys/Horizons would have failed on the server): added. Then slides and the Space Apps page.
 
 ---
 

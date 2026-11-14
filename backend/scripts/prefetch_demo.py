@@ -12,36 +12,13 @@ from __future__ import annotations
 
 import argparse
 import sys
-import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import get_settings  # noqa: E402
-from app.errors import ApiError  # noqa: E402
+from app.services.warmup import warm  # noqa: E402
 from app.services.real_source import RealSource  # noqa: E402
-
-VISIT_GAP_DAYS = 30  # same rule as the frontend (lib/observations.ts)
-
-
-def visits(observations):
-    groups, last = [], None
-    for o in sorted(observations, key=lambda o: o.mjd):
-        if last is None or o.mjd - last > VISIT_GAP_DAYS:
-            groups.append([])
-        groups[-1].append(o); last = o.mjd
-    return groups
-
-
-def default_selection(observations, band=None):
-    groups = visits(observations)
-    if band is None:  # band present in the most visits; ties -> alphabetical (frontend rule)
-        bands = sorted({o.band for o in observations})
-        band = max(bands, key=lambda b: (sum(any(o.band == b for o in g) for g in groups), -bands.index(b)))
-    per_visit = [next(o for o in g if o.band == band) for g in groups if any(o.band == band for o in g)]
-    if len(per_visit) >= 2:
-        return band, per_visit
-    return band, sorted((o for o in observations if o.band == band), key=lambda o: o.mjd)
 
 
 def main():
@@ -52,28 +29,7 @@ def main():
     a = ap.parse_args()
     s = get_settings()
     src = RealSource(s.mock_dir / "targets.v0.json", s.cache_dir)
-    for t in src.list_targets():
-        t0 = time.time()
-        obs = src.search(t.ra, t.dec, 0)
-        if t.search_start or t.search_end:  # moving object: only its time window
-            obs = [o for o in obs if (not t.search_start or o.obs_time >= t.search_start)
-                   and (not t.search_end or o.obs_time <= t.search_end)]
-        bands = sorted({o.band for o in obs}) if a.all_bands else [t.preferred_band if any(o.band == t.preferred_band for o in obs) else None]
-        sizes = a.sizes or sorted({t.recommended_size_arcsec, 300})
-        print(f"== {t.name} ({t.validation_status}) at {t.ra:.5f}, {t.dec:.5f}: {len(obs)} images, "
-              f"{len(visits(obs))} visits ({time.time() - t0:.1f}s)", flush=True)
-        for b in bands:
-            band, frames = default_selection(obs, b)
-            for size in sizes:
-                for o in frames:
-                    t1 = time.time()
-                    try:
-                        cut = src.get_cutout(o.id, t.ra, t.dec, size)
-                        wl = cut.observation.wavelength_um
-                        print(f"   {band} {size}\" {o.obs_time:%Y-%m-%d} {o.release} {o.id}: ok "
-                              f"lambda={wl} ({time.time() - t1:.1f}s)", flush=True)
-                    except ApiError as e:
-                        print(f"   {band} {size}\" {o.obs_time:%Y-%m-%d} {o.id}: {e.code.value} {e.message}", flush=True)
+    warm(src, sizes=a.sizes, all_bands=a.all_bands, say=lambda line: print(line, flush=True))
 
 
 if __name__ == "__main__":

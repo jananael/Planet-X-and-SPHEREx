@@ -15,7 +15,7 @@ docker compose up --build
 DATA_SOURCE=real docker compose up --build
 ```
 
-> ما جربنا الـ Docker على جهازنا لأنه مش منزّل. الملفات مكتوبة على الطريقة المعتادة، بس لازم تنجرب قبل أول نشر.
+> ما جربنا الـ Docker على جهازنا لأنه مش منزّل. **للتسليم منستعمل Render + Vercel بدون Docker** (تحت).
 
 ## الإعدادات
 
@@ -42,6 +42,36 @@ python scripts/prefetch_demo.py           # صور أهداف الديمو
 
 بالـ Docker: شغّلهم جوا الكونتينر (`docker compose exec api python scripts/prefetch_demo.py`)، والكاش بينحفظ
 بالـ volume `skytrace-cache` وما بيروح لما نعيد التشغيل.
+
+## النشر للتسليم: Render (الباك إند، مجاني) + Vercel (الفرونت، مجاني)
+
+بدون Docker: نفس الأوامر اللي جربناها على الجهاز. الإعدادات بـ [`render.yaml`](../render.yaml).
+
+**1. الباك إند على Render**
+1. Render → **New → Blueprint** → اختاري الريبو `Planet-X-and-SPHEREx`. بيقرأ `render.yaml` لحاله:
+   - build: `pip install -r backend/requirements.txt`
+   - start: `uvicorn --app-dir backend app.main:app --host 0.0.0.0 --port $PORT`
+   - `DATA_SOURCE=real`، `WARM_ON_START=true`، Python 3.12.
+2. `CORS_ORIGINS` بيضل فاضي لحد ما نعرف عنوان Vercel (خطوة 3).
+3. بعد ما يخلص: `https://<اسم-الخدمة>.onrender.com/api/health` لازم يرجّع `"data_source":"real"`.
+
+**2. الفرونت على Vercel**
+1. Vercel → **Add New → Project** → الريبو → **Root Directory = `frontend`** (Next.js بيتعرّف لحاله).
+2. Environment Variables:
+   - `NEXT_PUBLIC_API_BASE_URL` = عنوان Render (بدون `/` بالآخر)
+   - `NEXT_PUBLIC_SITE_URL` = عنوان Vercel نفسه (بعد أول نشر، وبعدين Redeploy)
+3. Deploy.
+
+**3. ربطهم**
+- على Render: `CORS_ORIGINS` = عنوان Vercel بالضبط (مثلاً `https://skytrace.vercel.app`)، وبعدين Manual Deploy.
+- لو بدنا روابط الـ preview تبعت Vercel كمان: `CORS_ORIGIN_REGEX` = `^https://skytrace.*\.vercel\.app$`.
+
+**حدود Render المجاني (لازم نعرفها قبل العرض)**
+- **بينام بعد ~15 دقيقة** بدون زوار، وأول طلب بعدها بياخد **حوالي دقيقة** ليصحى.
+- **بيمسح الكاش** لما ينام أو يعيد التشغيل. لهيك `WARM_ON_START=true`: لما يصحى بيحمّل صور الأهداف والقصص ورحلات
+  فيستا و 3I/ATLAS بالخلفية (بتبيّن بالـ log كـ `== (4) Vesta ...`).
+- **قبل العرض بـ 10 دقائق:** افتحي `/api/health` ليصحى، واستني لحد ما الـ log يخلّص التسخين.
+- اختياري: خدمة "ping" مجانية (مثلاً cron-job.org أو UptimeRobot) تفتح `/api/health` كل 10 دقائق، عشان ما ينام.
 
 ## الاستضافة
 

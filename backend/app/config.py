@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     cache_dir: Path = APP_DIR.parent / ".cache"  # RealSource: search records + cutout FITS
     # Next dev server binds 127.0.0.1 (see frontend/package.json); browsers may use either name.
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    # Optional regex for extra allowed origins, e.g. Vercel preview URLs: ^https://skytrace.*\.vercel\.app$
+    cors_origin_regex: str | None = None
+    # Real mode on a host that sleeps and loses its disk: refill the demo cache in the background at startup.
+    warm_on_start: bool = False
 
     @property
     def cors_origin_list(self) -> list[str]:
