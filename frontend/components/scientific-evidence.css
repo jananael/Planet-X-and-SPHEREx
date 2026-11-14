@@ -1,4 +1,26 @@
 /* Scientific transparency additions only; existing Explorer and homepage stay intact. */
+.explorer-shell .evidence-next-step { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; padding: 18px; margin: 20px 0; border-left: 3px solid #5bc0de; background: #5bc0de08; }
+.explorer-shell .evidence-next-step > div { flex: 1 1 300px; }
+.explorer-shell .evidence-next-step p { margin-top: 8px; color: #b5c7d5; }
+.explorer-shell .evidence-at-a-glance { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin: 24px 0; }
+.explorer-shell .evidence-at-a-glance > div { padding-right: 18px; border-right: 1px solid #3a506b; }
+.explorer-shell .evidence-at-a-glance > div:last-child { border: 0; }
+.explorer-shell .evidence-at-a-glance dt { color: #b5c7d5; font-size: 12px; }
+.explorer-shell .evidence-at-a-glance dd { margin: 10px 0 0; color: #f4d6b0; font-size: 14px; line-height: 1.7; }
+.explorer-shell .evidence-help { color: #b5c7d5; margin: 24px 0 12px; }
+.explorer-shell .evidence-section { border-top: 1px solid #3a506b; }
+.explorer-shell .evidence-section > summary { display: list-item; padding: 20px 4px; cursor: pointer; color: #5bc0de; }
+.explorer-shell .evidence-section > summary > span { display: inline-flex; flex-direction: column; gap: 6px; vertical-align: top; max-width: calc(100% - 24px); }
+.explorer-shell .evidence-section > summary strong { color: #f4d6b0; font-size: 15px; font-weight: 500; }
+.explorer-shell .evidence-section > summary small { color: #b5c7d5; font-size: 12px; line-height: 1.7; }
+.explorer-shell .evidence-section > summary:focus-visible { outline: 2px solid #5bc0de; outline-offset: 3px; }
+.explorer-shell .evidence-section-body { padding: 0 4px 20px; }
+.explorer-shell .evidence-organized .evidence-section-body.scientific-quality, .explorer-shell .evidence-organized .evidence-section-body.scientific-findings { border: 0; margin: 0; padding-top: 0; }
+@media (max-width: 600px) {
+  .explorer-shell .evidence-at-a-glance { grid-template-columns: 1fr; gap: 14px; }
+  .explorer-shell .evidence-at-a-glance > div { border: 0; padding: 0; }
+  .explorer-shell .evidence-next-step .share-button { width: 100%; }
+}
 .explorer-shell .scientific-panel { padding: clamp(22px, 3vw, 34px); }
 .explorer-shell .scientific-card-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 18px; }
 .explorer-shell .scientific-card-heading h2 { font-size: 23px; margin-top: 8px; }

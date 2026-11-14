@@ -1,4 +1,35 @@
 /* The reference palette is scoped to Explorer, including its header and footer. */
+.explorer-page [hidden] { display: none !important; }
+.explorer-shell .viewer-display-frame { min-width: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.explorer-shell .viewer-display-frame .viewer-stage { border: 0; border-radius: 0 0 12px 12px; }
+.explorer-shell .stage-toolbar { position: relative; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--bg); border-radius: 12px 12px 0 0; border-bottom: 1px solid var(--line); }
+.explorer-shell .stage-comparison { margin-left: auto; }
+.explorer-shell .observation-info { display: flex; align-items: center; }
+.explorer-shell .observation-info-button { width: 36px; height: 36px; padding: 0; border: 1px solid var(--line); border-radius: 50%; color: var(--bright); background: var(--panel); font: 600 20px Georgia, serif; cursor: pointer; }
+.explorer-shell .observation-info-button[aria-expanded="true"] { border-color: var(--bright); }
+.explorer-shell .observation-info-panel { position: absolute; top: 100%; right: 0; z-index: 40; width: min(440px, calc(100vw - 76px)); max-height: min(65vh, 600px); overflow: auto; overscroll-behavior: contain; padding: 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: 0 12px 32px #0006; }
+.explorer-shell .observation-info-panel .metadata { border: 0; padding: 0; }
+.explorer-shell .stage-time { color: var(--text); font-size: 12px; }
+.explorer-shell .stage-comparison .comparison-options { display: flex; gap: 8px; margin: 0; }
+.explorer-shell .stage-comparison .difference-toggle { min-width: 0; padding: 8px 10px; gap: 7px; font-size: 12px; background: var(--panel); }
+.explorer-shell .stage-comparison .difference-toggle:has(input:checked) { border-color: var(--bright); color: var(--bright); }
+@media (max-width: 600px) {
+  .explorer-shell .stage-toolbar { flex-wrap: wrap; gap: 8px; }
+  .explorer-shell .stage-time { flex-basis: 100%; font-size: 11px; }
+}
+.explorer-shell .selection-confirmation { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; padding-top: 24px; margin-top: 24px; border-top: 1px solid var(--line); }
+.explorer-shell .selection-confirmation p { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 8px 0 0; }
+.explorer-shell .workspace-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.explorer-shell .workspace-heading h2 { margin: 8px 0; }
+.explorer-shell .workspace-heading p { color: var(--muted); font-size: 13px; line-height: 1.8; }
+.explorer-shell .explorer-options { margin-block: 18px; border-top: 1px solid var(--line); }
+.explorer-shell .explorer-options > summary { padding: 18px 0; color: var(--bright); cursor: pointer; font-size: 13px; }
+.explorer-shell .ml-placeholder { max-width: 760px; padding: clamp(24px, 5vw, 56px); }
+.explorer-shell .ml-placeholder h2 { font-size: clamp(24px, 4vw, 36px); margin: 12px 0 20px; }
+.explorer-shell .ml-placeholder p:not(.eyebrow) { color: var(--muted); line-height: 1.9; margin-block: 24px; }
+@media (max-width: 600px) {
+  .explorer-shell .workspace-heading { align-items: stretch; flex-direction: column; gap: 12px; }
+}
 .explorer-page {
   --bg: #0b132b;
   --panel: #1c2541;
@@ -287,7 +318,7 @@
 .explorer-shell .explorer-flow .viewer-stage { min-height: 320px; height: clamp(320px, 42vw, 530px); aspect-ratio: auto; }
 .explorer-shell .explorer-flow .viewer-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, .4fr); column-gap: 32px; }
 .explorer-shell .explorer-flow .viewer-panel > * { grid-column: 1 / -1; }
-.explorer-shell .explorer-flow .viewer-panel > .comparison-modes { grid-column: 1; }
+.explorer-shell .explorer-flow .viewer-panel > .comparison-modes { grid-column: 1 / -1; padding: 16px; margin-bottom: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
 .explorer-shell .explorer-flow .viewer-panel > .metadata { grid-column: 2; grid-row: auto; }
 .explorer-shell .viewer-availability { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; margin-bottom: 20px; border: 1px solid #5bc0de66; border-radius: 10px; background: #5bc0de0d; font-size: 13px; }
 .explorer-shell .viewer-availability a, .explorer-shell .availability-actions a { color: var(--purple); text-underline-offset: 4px; }
@@ -329,3 +360,6 @@
   .explorer-shell .archive-availability { padding: 20px; }
   .explorer-shell .archive-availability h3 { font-size: 21px; }
 }
+
+/* Shared workspace routes. */
+.explorer-page .workspace-navigation{display:flex;flex-wrap:wrap;gap:12px 22px;align-items:center}.explorer-page .workspace-navigation [aria-current=page]{color:var(--bright);border-bottom:2px solid var(--bright)}.explorer-shell .workspace-heading h1{font-size:clamp(24px,4vw,38px);letter-spacing:-1px;margin:8px 0}.explorer-shell .scientific-route-section{margin-top:32px}.explorer-shell .scientific-route-section>.section-heading{margin-bottom:20px}.explorer-shell #sky-viewer-section{scroll-margin-top:24px}.explorer-shell .ml-placeholder{max-width:900px;margin-inline:auto}.explorer-shell .ml-placeholder h1{font-size:clamp(28px,4vw,42px);letter-spacing:-1px;line-height:1.2;margin:24px 0}.explorer-shell .prediction-controls{display:grid;gap:18px;padding:24px 0;border:0;margin-top:24px}.explorer-shell .prediction-controls label{display:grid;gap:10px}.explorer-shell .prediction-controls input{min-height:44px;padding:10px;background:var(--bg);color:var(--muted);border:1px solid var(--line);border-radius:8px}.explorer-page .share-button{display:inline-block}.explorer-page .site-footer{flex-wrap:wrap}@media(max-width:1050px){.explorer-page .site-header{flex-wrap:wrap;gap:16px}.explorer-page .site-header .workspace-navigation{order:3;width:100%;justify-content:center;font-size:13px}.explorer-page .site-footer .workspace-navigation{width:100%;justify-content:center}}

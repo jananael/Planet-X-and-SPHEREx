@@ -6,8 +6,9 @@
 > keep code/identifiers in English. She prefers short, direct answers. She often pastes teammates'
 > messages or task cards: answer what they ask of HER, and give her ready-to-send messages when useful.
 
-Last updated: **2026-11-14** · local `main` = GitHub `main` (`0f97e30`). Open PRs: **#2** (Yazan's engine,
-not mergeable yet) and **#3** (Jana's fixes into #2). **Commit/push only when Jana says.**
+Last updated: **2026-11-14 (afternoon)** · `feat/explain-mode` (two display modes, orbit journey, sky story) merged into
+`main` together with Sadeel's workspace restructure and Haneen's uploads. Open PRs: **#2** (Yazan's engine, not mergeable
+yet) and **#3** (Jana's fixes into #2). **Commit/push only when Jana says. Update this file after every step** (Jana's rule).
 
 ---
 
@@ -168,6 +169,24 @@ Errors: BAD_REQUEST 400, NOT_FOUND 404, NO_COVERAGE 404, UPSTREAM_ERROR 502, NOT
   3 guided stories (texts checked against real data), mobile layout, error/no-coverage/loading states.
 - S2-T1 (data releases), S2-T2 (inventory; WISE 0855 + Mira verified by Taqwa against IRSA), S2-T3 contract 0.2.
 - Homepage fixes on Sadeel's page (credit, "Exploration", dead dialog removed), `CREDITS.md` draft.
+- **Two display modes** in the viewer (`/observations`, Sadeel's new workspace routes `/explore` · `/observations` ·
+  `/machine-learning`):
+  - 🔬 **Scientific view**: images (blink/compare/difference, Sadeel's toolbar) + ONE button **"Explain the data"**:
+    for objects with a journey (Vesta, 3I/ATLAS) it plays the **orbit journey** (`components/journey-player.tsx`:
+    Solar System from above with JPL Horizons orbits, SPHEREx visits, sky track, then the real images with
+    predicted-position circles); otherwise the step-by-step walkthrough (`explain-player.tsx`, `/api/explain`).
+  - ✨ **Simple explanation** (demo: Vesta): **sky story** (`components/sky-story-player.tsx`): the object travels
+    through the REAL night sky 2020–2030 on an oval all-sky map (Hammer-Aitoff), real Hipparcos stars + IAU
+    constellations (d3-celestial catalogs), Milky Way on the real galactic plane, constellation behind the object
+    computed live (`skyRegion`), SPHEREx mentioned only at real exposure dates, **past solid / future dotted
+    "predicted"** with a "TODAY" marker, full screen.
+  - Backend: `/api/explain` (facts + predicted positions) and `/api/journey/{target}` (Horizons vectors, sky track,
+    10-year `sky_years`, SPHEREx visits from `docs/inventory`; cached in `.cache/journey`; 502 if Horizons is down).
+  - All of it is our own code and real data. No external video tool (a Kling AI clip was generated once, 30 credits,
+    and dropped; nothing downloaded).
+- Fixed a dev-mode bug in Sadeel's restructure: the search was cancelled by React StrictMode's double mount and never
+  restarted (`lastSearch` now cleared on unmount). If the dev server shows hydration mismatches after a merge,
+  stop it and delete `frontend/.next`.
 
 ### In review
 - **PR #2** `codex/y2-source-detection` (Yazan's peak detector): **not mergeable** (team decision). Scientific
@@ -187,8 +206,10 @@ Errors: BAD_REQUEST 400, NOT_FOUND 404, NO_COVERAGE 404, UPSTREAM_ERROR 502, NOT
 1. **Deploy** (`docs/deploy.md`; Dockerfiles untested; Jana's accounts; decide host). Submission is 15 Nov.
 2. **Warm the cache before the demo** (`backend/scripts/prefetch_demo.py`, include 3I/ATLAS).
 3. **Demo video** (1–2 min).
-4. Idea under discussion: two display modes after choosing a location — **Scientific view** and
-   **"Explain it to me"** for non-expert students. Recommended design: an in-browser player built from the
-   REAL frames + facts (template text reviewed by Yazan; optional AI text checked against the facts; TTS later),
-   AI illustrations only when labelled "AI illustration, not real data". Not started; team to decide.
+4. Explain modes, next: voice/narration, Arabic captions (constellations.json has Arabic names), a "Download video"
+   button, the sky story for 3I/ATLAS (backend ready, not tried in the browser), Yazan to review all caption texts
+   (`lib/explain.ts`, `lib/journey.ts`, `lib/sky-story.ts`).
 5. Small: `processing_version` missing for moving targets in the inventory (from `check_moving_targets.py`).
+6. Advice given to the team: Yazan should not use ML to predict orbits (physics/Horizons is exact); ML fits
+   real-vs-artifact classification or linking. IRSA already has a Source Discovery Tool (single-frame detection):
+   focus the engine on cross-epoch linking/motion and on excluding known objects.

@@ -1,0 +1,3 @@
+Comparison,Common_Sources,Mean_Residual_px,Median_Residual_px,95th_Percentile_px,Maximum_Residual_px,Mean_dx_px,Mean_dy_px
+Reference vs 0116_2,150,0.151942,0.133808,0.307808,0.448431,0.059717,-0.012092
+Reference vs 0138_1,150,0.138056,0.121204,0.266109,0.857422,-0.04766,0.023887
