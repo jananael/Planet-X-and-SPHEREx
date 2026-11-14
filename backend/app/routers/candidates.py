@@ -13,7 +13,7 @@ router = APIRouter(tags=["candidates"], responses={400: {"model": ErrorResponse}
 def list_candidates(
     ra: Annotated[float, Query(ge=0, lt=360, description="Right ascension, degrees (ICRS)")],
     dec: Annotated[float, Query(ge=-90, le=90, description="Declination, degrees")],
-    radius: Annotated[float, Query(gt=0, le=5, description="Search radius, degrees")] = 0.5,
+    radius: Annotated[float, Query(gt=0, le=5, description="Search radius, degrees. Real data: at most 0.25 (one 1800\" cutout per frame)")] = 0.25,
     band: Annotated[str | None, Query(pattern="^D[1-6]$", description="SPHEREx band to analyze")]=None,
     pipeline: Annotated[str | None, Query(pattern="^v\\d+$", description="Processing pipeline, e.g. v27")]=None,
     ds: DataSource = Depends(get_data_source),

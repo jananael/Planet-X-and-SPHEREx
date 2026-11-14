@@ -9,6 +9,8 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
+import re
 import time
 from dataclasses import asdict
 from pathlib import Path
@@ -38,6 +40,14 @@ def propagate(target: Target, epoch: float) -> Target:
     return target.model_copy(update={"ra": round(ra, 6), "dec": round(dec, 6), "position_epoch": epoch})
 
 
+# The engine analyses one 1800" cutout per frame, centred on the query. Detections can only come from
+# inside it, so a larger radius would silently return partial results: refuse it instead.
+CANDIDATE_CUTOUT_ARCSEC = 1800.0
+MAX_CANDIDATE_RADIUS_DEG = CANDIDATE_CUTOUT_ARCSEC / 2 / 3600  # 0.25 deg
+
+_SAFE_ID = re.compile(r"[A-Za-z0-9_.+-]{1,200}")
+
+
 class RealSource(DataSource):
     name = "real"
 
@@ -50,7 +60,10 @@ class RealSource(DataSource):
         self._cutout_dir = cache_dir / "cutouts"
         self._search_dir = cache_dir / "search"
         self._cal_dir = cache_dir / "cal"  # spectral-WCS calibration files (scripts/download_spectral_wcs.py)
-        self._candidate_results: dict[str, Candidate] = {}
+        # Engine results live on disk (one JSON per candidate), not in memory: they survive a restart and
+        # every worker sees the same results. Candidate ids are deterministic (observation ids + position).
+        self._candidate_dir = cache_dir / "candidates"
+        self._candidate_dir.mkdir(parents=True, exist_ok=True)
         self._search_dir.mkdir(parents=True, exist_ok=True)
         self._obs_dir.mkdir(parents=True, exist_ok=True)
         self._cutout_dir.mkdir(parents=True, exist_ok=True)
@@ -225,6 +238,9 @@ class RealSource(DataSource):
         from app.services.engine import EngineFrame, EngineRequest, pipeline_of
         from app.services.source_detection import SourceDetectionEngine
 
+        if radius > MAX_CANDIDATE_RADIUS_DEG:
+            raise BadRequest(f"radius {radius} deg is larger than the analysed area: candidates come from one "
+                             f"{CANDIDATE_CUTOUT_ARCSEC:.0f}\" cutout per frame, so use radius <= {MAX_CANDIDATE_RADIUS_DEG} deg")
         observations = self.search(ra, dec, radius)
         if not observations:
             return []
@@ -256,7 +272,7 @@ class RealSource(DataSource):
             indexes = sorted({0, (len(records) - 1) // 2, len(records) - 1})
             records = [records[index] for index in indexes]
 
-        cutout_arcsec = 1800.0
+        cutout_arcsec = CANDIDATE_CUTOUT_ARCSEC
         request_size = cutout_arcsec * irsa.ROTATION_MARGIN
         frames = []
         for record in records:
@@ -283,8 +299,11 @@ class RealSource(DataSource):
                 archive_id=record.publisher_did or None,
             ))
 
+        # Known-object predictions are prepared HERE (contract: the engine never calls Horizons/Gaia).
+        from app.services.known_objects import known_objects_for
+        known, known_notes = known_objects_for(self._targets, frames, ra, dec, radius, self._cutout_dir.parent / "horizons")
         try:
-            request = EngineRequest(ra_deg=ra, dec_deg=dec, radius_deg=radius, frames=frames)
+            request = EngineRequest(ra_deg=ra, dec_deg=dec, radius_deg=radius, frames=frames, known_objects=known)
         except ValueError as exc:
             raise BadRequest(f"Selected SPHEREx frames cannot be compared: {exc}") from exc
         try:
@@ -297,12 +316,28 @@ class RealSource(DataSource):
             candidate.evidence["selected_band"] = records[0].band
             candidate.evidence["selected_pipeline"] = pipeline_of(records[0].processing_version)
             candidate.evidence["input_frame_count"] = len(records)
+            candidate.evidence["known_objects_checked"] = sorted({k.name for k in known})
+            if known_notes:
+                candidate.evidence["known_objects_unavailable"] = known_notes
             candidate.evidence["frame_sampling"] = "first, middle, last" if len(records) == 3 else "all available frames (up to 3)"
-        self._candidate_results.update({candidate.candidate_id: candidate for candidate in result})
+        for candidate in result:
+            path = self._candidate_path(candidate.candidate_id)
+            if path is None:
+                continue
+            tmp = path.with_suffix(f".{os.getpid()}.tmp")  # atomic write: another worker never reads half a file
+            tmp.write_text(candidate.model_dump_json(), encoding="utf-8")
+            os.replace(tmp, path)
         return result
 
+    def _candidate_path(self, candidate_id: str) -> Path | None:
+        """Disk location of a stored candidate; None for ids that are not safe file names."""
+        if not _SAFE_ID.fullmatch(candidate_id):
+            return None
+        return self._candidate_dir / f"{candidate_id}.json"
+
     def get_candidate(self, candidate_id: str) -> Candidate:
-        candidate = self._candidate_results.get(candidate_id)
+        path = self._candidate_path(candidate_id)
+        candidate = Candidate.model_validate_json(path.read_text(encoding="utf-8")) if path and path.exists() else None
         if candidate is None:
             raise NotFound(f"No candidate with id '{candidate_id}'. Run /api/candidates first.")
         return candidate
