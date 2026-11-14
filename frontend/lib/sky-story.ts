@@ -75,3 +75,32 @@ export function decRange(track: Sample[]): [number, number] {
   const lo = Math.min(...decs), hi = Math.max(...decs), mid = (lo + hi) / 2, half = Math.max(30, (hi - lo) / 2 + 12);
   return [Math.max(-90, mid - half), Math.min(90, mid + half)];
 }
+
+const RAD = Math.PI / 180;
+
+/** Signed RA offset from the map centre, -180..180 (positive = east = drawn to the left). */
+export const raOffset = (ra: number, raCenter: number) => ((ra - raCenter + 540) % 360) - 180;
+
+/**
+ * Hammer-Aitoff all-sky projection (the classic oval sky map), east to the left.
+ * Returns canvas x, y for a map of `width` x `height` with a small margin.
+ */
+export function hammer(ra: number, dec: number, width: number, height: number, raCenter: number): [number, number] {
+  const lam = -raOffset(ra, raCenter) * RAD, phi = dec * RAD;
+  const z = Math.sqrt(1 + Math.cos(phi) * Math.cos(lam / 2));
+  const x = (2 * Math.SQRT2 * Math.cos(phi) * Math.sin(lam / 2)) / z, y = (Math.SQRT2 * Math.sin(phi)) / z;
+  const s = Math.min((width - 40) / (4 * Math.SQRT2), (height - 40) / (2 * Math.SQRT2));
+  return [width / 2 + x * s, height / 2 - y * s];
+}
+
+/** True when a line between two RA values would cross the map's back seam (so it must be broken). */
+export const crossesSeam = (ra1: number, ra2: number, raCenter: number) => Math.abs(raOffset(ra1, raCenter) - raOffset(ra2, raCenter)) > 180;
+
+/** Galactic (l, b) -> equatorial J2000 (RA, Dec), degrees. Used to draw the Milky Way where it really is. */
+export function galacticToEquatorial(l: number, b: number): [number, number] {
+  const raNgp = 192.85948 * RAD, decNgp = 27.12825 * RAD, lNcp = 122.93192 * RAD;
+  const L = l * RAD, B = b * RAD;
+  const sinDec = Math.sin(decNgp) * Math.sin(B) + Math.cos(decNgp) * Math.cos(B) * Math.cos(lNcp - L);
+  const ra = raNgp + Math.atan2(Math.cos(B) * Math.sin(lNcp - L), Math.cos(decNgp) * Math.sin(B) - Math.sin(decNgp) * Math.cos(B) * Math.cos(lNcp - L));
+  return [((ra / RAD) % 360 + 360) % 360, Math.asin(sinDec) / RAD];
+}

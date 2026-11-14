@@ -4,7 +4,7 @@
 // Path: JPL Horizons. SPHEREx flashes: real exposure dates. No decorative or invented stars.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { positionAt, type JourneyData } from "../lib/journey";
-import { duringVisit, isFuture, phaseAt, project, skyCaption, timeline, todayIso, yearsOf } from "../lib/sky-story";
+import { crossesSeam, duringVisit, galacticToEquatorial, hammer, isFuture, phaseAt, skyCaption, timeline, todayIso, yearsOf } from "../lib/sky-story";
 import { skyRegion, type SkyFeature } from "../lib/sky-navigation";
 import "./explain-player.css";
 
@@ -36,7 +36,6 @@ export function SkyStoryPlayer({ data, onClose }: { data: JourneyData; onClose: 
   const track = data.sky_years?.length ? data.sky_years : data.sky_track;
   const years = useMemo(() => yearsOf(track), [track]);
   const tl = useMemo(() => timeline(years.length), [years.length]);
-  const [decMin, decMax] = [-90, 90]; // the whole sky, pole to pole
   const raCenter = useMemo(() => {
     const x = track.reduce((s, p) => s + Math.cos(p[1] * Math.PI / 180), 0), y = track.reduce((s, p) => s + Math.sin(p[1] * Math.PI / 180), 0);
     return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
@@ -77,126 +76,166 @@ export function SkyStoryPlayer({ data, onClose }: { data: JourneyData; onClose: 
     const ctx = canvas.current?.getContext("2d");
     if (!ctx || !catalog) return;
     ctx.setTransform(K, 0, 0, K, 0, 0);
-    const P = (ra: number, dec: number) => project(ra, dec, W, H, decMin, decMax, raCenter);
-    const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, "#020613"); sky.addColorStop(1, "#0a1230");
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
-    const text = (s: string, x: number, y: number, color: string, size: number, align: CanvasTextAlign = "left", weight = 400) => {
-      ctx.fillStyle = color; ctx.font = `${weight} ${size}px 'DM Sans', Arial, sans-serif`; ctx.textAlign = align; ctx.fillText(s, x, y);
+    const P = (ra: number, dec: number) => hammer(ra, dec, W, H, raCenter);
+    const seam = (a: number, b: number) => crossesSeam(a, b, raCenter);
+    const spaced = ctx as CanvasRenderingContext2D & { letterSpacing?: string };
+    const text = (s: string, x: number, y: number, color: string, size: number, align: CanvasTextAlign = "left", weight = 400, spacing = 0) => {
+      ctx.fillStyle = color; ctx.font = `${weight} ${size}px 'DM Sans', Arial, sans-serif`; ctx.textAlign = align;
+      spaced.letterSpacing = `${spacing}px`; ctx.fillText(s, x, y); spaced.letterSpacing = "0px";
+    };
+    const pill = (s: string, x: number, y: number, fg: string, bg: string, size = 12) => {
+      ctx.font = `600 ${size}px 'DM Sans', Arial, sans-serif`;
+      const w = ctx.measureText(s).width + 14, h = size + 8;
+      ctx.fillStyle = bg; ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, h / 2); ctx.fill();
+      text(s, x, y + size * 0.36, fg, size, "center", 600);
+    };
+    // [ra, dec] pairs as one line, broken where it would cross the back seam of the oval.
+    const polyline = (pts: [number, number][]) => {
+      ctx.beginPath();
+      pts.forEach(([ra, dec], k) => { const [x, y] = P(ra, dec); if (!k || seam(pts[k - 1][0], ra)) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
     };
     const currentId = current ? Object.entries(catalog.names).find(([, n]) => n === current)?.[0] : null;
 
+    // Deep space around the oval, then the oval sky itself (Hammer-Aitoff: the classic all-sky map).
+    const sRad = Math.min((W - 40) / (4 * Math.SQRT2), (H - 40) / (2 * Math.SQRT2));
+    const ex = 2 * Math.SQRT2 * sRad, ey = Math.SQRT2 * sRad;
+    ctx.fillStyle = "#01030a"; ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(W / 2, H / 2, ex, ey, 0, 0, Math.PI * 2);
+    const bg = ctx.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, ex);
+    bg.addColorStop(0, "#15224d"); bg.addColorStop(0.6, "#0b1534"); bg.addColorStop(1, "#060b1f");
+    ctx.fillStyle = bg; ctx.fill();
+    ctx.shadowColor = "#4f7cff66"; ctx.shadowBlur = 26; ctx.strokeStyle = "#6f93e066"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(W / 2, H / 2, ex, ey, 0, 0, Math.PI * 2); ctx.clip();
+
+    // The Milky Way along the real galactic plane, brighter towards the galactic centre.
+    for (const [width, alpha] of [[46, 0.035], [26, 0.05], [12, 0.07]] as const) {
+      for (let l = 0; l < 360; l += 3) {
+        const a = galacticToEquatorial(l, 0), b = galacticToEquatorial(l + 3, 0);
+        if (seam(a[0], b[0])) continue;
+        const [x1, y1] = P(a[0], a[1]), [x2, y2] = P(b[0], b[1]);
+        const bright = 0.45 + 0.55 * (1 + Math.cos(l * Math.PI / 180)) / 2;
+        ctx.strokeStyle = `rgba(190,205,255,${alpha * bright})`; ctx.lineWidth = width; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      }
+    }
+    { const g = galacticToEquatorial(0, 0), [gx, gy] = P(g[0], g[1]); text("MILKY WAY", gx, gy + 34, "#c9d6ff77", 10, "center", 600, 2.5); }
+
     // Reference lines: celestial equator and the ecliptic (where the Sun and planets travel).
-    const curve = (decOf: (ra: number) => number, color: string, label: string, labelRa: number) => {
-      ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash([6, 6]); ctx.beginPath();
-      for (let ra = 0, first = true, prevX = 0; ra <= 360; ra += 2) {
-        const [x, y] = P(ra % 360, decOf(ra));
-        if (first || Math.abs(x - prevX) > W / 2) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        first = false; prevX = x;
-      }
-      ctx.stroke(); ctx.restore();
-      const [lx, ly] = P(labelRa, decOf(labelRa)); text(label, lx, ly - 6, color, 11, "center");
-    };
-    curve(() => 0, "#ffffff33", "celestial equator", (raCenter + 150) % 360);
     const eps = 23.44 * Math.PI / 180;
-    curve(ra => Math.atan(Math.sin(ra * Math.PI / 180) * Math.tan(eps)) * 180 / Math.PI, "#ffd16655", "ecliptic: path of the Sun and planets", (raCenter + 100) % 360);
-    // Constellation figures (break lines that wrap around the edges).
+    const ecl = (ra: number) => Math.atan(Math.sin(ra * Math.PI / 180) * Math.tan(eps)) * 180 / Math.PI;
+    const ring = (decOf: (ra: number) => number) => Array.from({ length: 181 }, (_, k) => [k * 2, decOf(k * 2)] as [number, number]);
+    ctx.save(); ctx.setLineDash([3, 7]); ctx.lineWidth = 1;
+    ctx.strokeStyle = "#ffffff26"; polyline(ring(() => 0)); ctx.stroke();
+    ctx.strokeStyle = "#ffd16659"; polyline(ring(ecl)); ctx.stroke();
+    ctx.restore();
+    { const r = (raCenter + 120) % 360, [x, y] = P(r, ecl(r)); text("ECLIPTIC · PATH OF THE SUN AND PLANETS", x, y - 8, "#ffd16699", 9, "center", 600, 1.5); }
+
+    // Constellation figures, the current one glowing.
     for (const f of catalog.lines) {
-      const highlight = f.id === currentId;
-      ctx.strokeStyle = highlight ? "#7fc8ffee" : "#6f93d677"; ctx.lineWidth = highlight ? 2 : 1;
-      for (const line of f.geometry.coordinates) {
-        ctx.beginPath();
-        line.forEach(([lon, lat], i) => {
-          const [x, y] = P((lon + 360) % 360, lat);
-          const prev = i ? P((line[i - 1][0] + 360) % 360, line[i - 1][1]) : null;
-          if (!prev || Math.abs(x - prev[0]) > W / 2) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
+      const on = f.id === currentId;
+      ctx.save();
+      ctx.strokeStyle = on ? "#a9dcff" : "#7d9be055"; ctx.lineWidth = on ? 1.8 : 0.9;
+      if (on) { ctx.shadowColor = "#7fc8ff"; ctx.shadowBlur = 8; }
+      for (const line of f.geometry.coordinates) { polyline(line.map(([lon, lat]) => [(lon + 360) % 360, lat] as [number, number])); ctx.stroke(); }
+      ctx.restore();
+    }
+    // Real stars: size by brightness, a soft halo on the brightest, a gentle twinkle.
+    catalog.stars.forEach((st, k) => {
+      const [x, y] = P(st.ra, st.dec);
+      const base = Math.max(0.7, 3 - st.mag * 0.6), r = base * (1 + 0.12 * Math.sin(t * 2.1 + k * 1.7));
+      if (st.mag < 1.6) {
+        const halo = ctx.createRadialGradient(x, y, 0, x, y, r * 5); halo.addColorStop(0, "#ffffff55"); halo.addColorStop(1, "#ffffff00");
+        ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(x, y, r * 5, 0, Math.PI * 2); ctx.fill();
       }
-    }
-    // Real stars, size by brightness.
-    for (const s of catalog.stars) {
-      if (s.dec < decMin - 2 || s.dec > decMax + 2) continue;
-      const [x, y] = P(s.ra, s.dec), r = Math.max(0.8, 3.2 - s.mag * 0.6);
-      ctx.fillStyle = "#ffffffd9"; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-    }
-    // Constellation names.
+      ctx.globalAlpha = Math.min(1, 0.55 + (4 - st.mag) * 0.12); ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+    });
+    // Constellation names in small capitals, the current one bright.
     for (const l of catalog.labels) {
-      if (l.dec < decMin || l.dec > decMax) continue;
-      const [x, y] = P(l.ra, l.dec), on = l.id === currentId;
-      text(catalog.names[l.id] ?? l.id, x, y, on ? "#bfe6ff" : "#9fb8e099", on ? 17 : 11, "center", on ? 600 : 400);
+      const [x, y] = P(l.ra, l.dec), on = l.id === currentId, name = (catalog.names[l.id] ?? l.id).toUpperCase();
+      if (on) text(name, x, y, "#d4ecff", 15, "center", 600, 2.5);
+      else text(name, x, y, "#a8bde670", 8.5, "center", 500, 1.2);
     }
 
-    // The object's path: finished years dimmer, the current year drawn up to now.
+    // The object's path: past solid and glowing, future dotted (a prediction).
     const upto = phase.kind === "intro" ? -1 : phase.kind === "outro" ? years.length : phase.index;
     years.forEach((seg, i) => {
       if (i > upto) return;
       const pts = i === upto && phase.kind === "year" ? seg.points.slice(0, Math.max(2, Math.ceil(seg.points.length * phase.progress))) : seg.points;
-      const alpha = i === upto ? 1 : Math.max(0.25, 0.7 - (upto - i) * 0.08);
-      // Past (up to today): solid. Future: dotted and fainter, it is a prediction.
+      const alpha = i === upto ? 1 : Math.max(0.3, 0.75 - (upto - i) * 0.08);
       for (const future of [false, true]) {
-        ctx.save();
-        ctx.strokeStyle = future ? `rgba(200,220,255,${alpha * 0.75})` : `rgba(255,209,102,${alpha})`;
-        ctx.lineWidth = i === upto ? 3.5 : 2.5;
-        if (future) ctx.setLineDash([2, 6]);
-        ctx.beginPath();
-        let open = false;
-        pts.forEach((p, k) => {
-          // The dotted (future) line also takes the last past point, so the two lines join at "today".
-          const include = future ? isFuture(p[0], today) || (k + 1 < pts.length && isFuture(pts[k + 1][0], today)) : !isFuture(p[0], today);
-          if (!include) { open = false; return; }
-          const [x, y] = P(p[1], p[2]); const prev = k ? P(pts[k - 1][1], pts[k - 1][2]) : null;
-          if (!open || !prev || Math.abs(x - prev[0]) > W / 2) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-          open = true;
-        });
-        ctx.stroke(); ctx.restore();
+        // The dotted part also takes the last past point, so both lines meet at "today".
+        const part = pts.filter((p, k) => future ? isFuture(p[0], today) || (k + 1 < pts.length && isFuture(pts[k + 1][0], today)) : !isFuture(p[0], today));
+        if (part.length < 2) continue;
+        ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round";
+        if (future) { ctx.setLineDash([1, 7]); ctx.strokeStyle = `rgba(214,228,255,${alpha * 0.85})`; ctx.lineWidth = i === upto ? 3 : 2.2; }
+        else { ctx.strokeStyle = `rgba(255,209,102,${alpha})`; ctx.lineWidth = i === upto ? 3.2 : 2.2; ctx.shadowColor = "#ffb84d"; ctx.shadowBlur = i === upto ? 10 : 4; }
+        polyline(part.map(p => [p[1], p[2]] as [number, number])); ctx.stroke(); ctx.restore();
       }
       const [lx, ly] = P(seg.points[0][1], seg.points[0][2]);
       const predicted = isFuture(seg.points[0][0], today);
-      text(predicted ? `${seg.year} · predicted` : String(seg.year), lx, ly - 10,
-        predicted ? (i === upto ? "#dce8ff" : "#c8dcff88") : (i === upto ? "#ffe2a0" : "#ffd16699"), i === upto ? 15 : 12, "center", 600);
-      // SPHEREx moments in this year (only the ones already reached).
+      pill(predicted ? `${seg.year} · predicted` : String(seg.year), lx, ly - 14, predicted ? "#0b1020" : "#1a1206",
+        predicted ? (i === upto ? "#dce8ff" : "#dce8ff99") : (i === upto ? "#ffd166" : "#ffd16699"), i === upto ? 12 : 10);
+      // SPHEREx moments already reached in this year.
       const reached = pts[pts.length - 1][0];
       for (const e of data.spherex_exposures) {
         if (!e.utc.startsWith(String(seg.year)) || e.utc.slice(0, 10) > reached) continue;
-        const p = positionAt(seg.points, e.utc); if (!p) continue;
-        const [x, y] = P(p[0], p[1]);
-        ctx.fillStyle = "#5bc0de"; ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+        const pos = positionAt(seg.points, e.utc); if (!pos) continue;
+        const [x, y] = P(pos[0], pos[1]);
+        ctx.save(); ctx.shadowColor = "#5bc0de"; ctx.shadowBlur = 8; ctx.fillStyle = "#8fe3ff";
+        ctx.beginPath(); ctx.arc(x, y, 2.6, 0, Math.PI * 2); ctx.fill(); ctx.restore();
       }
     });
-    // "Today": where the object is now, the border between what happened and what is predicted.
+    // "Today": the border between what happened and what is predicted.
     const drawnUntil = phase.kind === "outro" ? years[years.length - 1]?.points.at(-1)?.[0] : nowPoint?.[0];
     if (drawnUntil && !isFuture(today, drawnUntil)) {
-      const p = positionAt(track, today);
-      if (p) {
-        const [x, y] = P(p[0], p[1]);
-        ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(x, y - 9); ctx.lineTo(x, y - 30); ctx.stroke();
-        const label = `Today · ${new Date(today + "T00:00:00Z").toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" })}`;
-        ctx.fillStyle = "#020613dd"; ctx.fillRect(x - 58, y - 52, 116, 20);
-        text(label, x, y - 37, "#ffffff", 13, "center", 600);
+      const pos = positionAt(track, today);
+      if (pos) {
+        const [x, y] = P(pos[0], pos[1]);
+        ctx.save(); ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.8; ctx.shadowColor = "#ffffff"; ctx.shadowBlur = 8;
+        ctx.beginPath(); ctx.arc(x, y, 6.5, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, y - 8); ctx.lineTo(x, y - 24); ctx.stroke(); ctx.restore();
+        const when = new Date(today + "T00:00:00Z").toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" }).toUpperCase();
+        pill(`TODAY · ${when}`, x, y - 34, "#0b1020", "#ffffffee", 11);
       }
     }
-    // The object itself.
+    // The object: a glowing body with a short tail along its path.
     if (phase.kind !== "intro") {
       const seg = years[Math.min(upto, years.length - 1)];
       const pts = phase.kind === "year" ? seg.points.slice(0, Math.max(2, Math.ceil(seg.points.length * phase.progress))) : seg.points;
+      const tail = pts.slice(-7);
+      tail.forEach((p, k) => {
+        if (!k || seam(tail[k - 1][1], p[1])) return;
+        const [x1, y1] = P(tail[k - 1][1], tail[k - 1][2]), [x2, y2] = P(p[1], p[2]);
+        ctx.strokeStyle = `rgba(255,236,190,${(k / tail.length) * 0.9})`; ctx.lineWidth = 1 + k * 0.9; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      });
       const last = pts[pts.length - 1], [x, y] = P(last[1], last[2]);
-      const glow = ctx.createRadialGradient(x, y, 0, x, y, 16); glow.addColorStop(0, "#fff3c4"); glow.addColorStop(1, "#ffd16600");
-      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI * 2); ctx.fill();
-      text(data.target.name, x + 14, y + 4, "#ffe2a0", 13, "left", 600);
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, 22);
+      glow.addColorStop(0, "#ffffff"); glow.addColorStop(0.25, "#fff1c2"); glow.addColorStop(1, "#ffd16600");
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, 22, 0, Math.PI * 2); ctx.fill();
+      text(data.target.name, x + 16, y + 4, "#fff1c2", 13, "left", 600);
       if (duringVisit(data, last[0])) {
-        ctx.strokeStyle = "#5bc0de"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 22 + 4 * Math.sin(t * 8), 0, Math.PI * 2); ctx.stroke();
-        text("📷 SPHEREx", x, y - 28, "#9fe3f5", 13, "center", 600);
+        ctx.save(); ctx.strokeStyle = "#8fe3ff"; ctx.lineWidth = 2; ctx.shadowColor = "#5bc0de"; ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.arc(x, y, 26 + 5 * Math.sin(t * 7), 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+        pill("📷 SPHEREx is photographing it", x, y - 40, "#04202a", "#8fe3ff", 11);
       }
     }
-    // Headline.
-    ctx.fillStyle = "#020613cc"; ctx.fillRect(12, 12, 300, 54);
+    ctx.restore(); // end of the oval clip
+
+    // Headline card.
     const headlineFuture = !!nowPoint && isFuture(nowPoint[0], today) && phase.kind === "year";
-    text(year !== null && phase.kind !== "intro" ? (headlineFuture ? `${year} · prediction` : String(year)) : "The night sky", 24, 46,
-      headlineFuture ? "#dce8ff" : "#f3f2fb", headlineFuture ? 22 : 26, "left", 600);
-    if (current) text(`in ${current}`, 300, 46, "#bfe6ff", 15, "right");
-    text("Real stars (Hipparcos) · path: JPL Horizons · solid = past, dotted = predicted · east to the left", W - 14, H - 12, "#8aa6d6aa", 11, "right");
-  }, [t, catalog, years, phase.kind, phase.index, phase.progress, decMin, decMax, raCenter, current, data, year, today, track, nowPoint]);
+    ctx.fillStyle = "#050a1ccc"; ctx.beginPath(); ctx.roundRect(14, 14, 250, 62, 12); ctx.fill();
+    text(year !== null && phase.kind !== "intro" ? String(year) : "The night sky", 28, 52, headlineFuture ? "#dce8ff" : "#ffffff", 30, "left", 700);
+    if (headlineFuture) text("PREDICTION", 28, 68, "#dce8ffaa", 9, "left", 600, 2);
+    if (current) { text("IN FRONT OF", 250, 36, "#9fb8e0", 9, "right", 600, 2); text(current, 250, 56, "#d4ecff", 16, "right", 600); }
+    text("Real stars (Hipparcos) · Milky Way along the galactic plane · path: JPL Horizons · solid = past, dotted = predicted · east to the left",
+      W / 2, H - 6, "#8aa6d699", 9.5, "center");
+  }, [t, catalog, years, phase.kind, phase.index, phase.progress, raCenter, current, data, year, today, track, nowPoint]);
+
   return (
     <section className="explain-player" aria-label={`${data.target.name} travelling through the night sky`}>
       <div className="explain-badge">Real stars and constellations · path from JPL Horizons · SPHEREx moments from real observations</div>

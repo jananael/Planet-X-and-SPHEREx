@@ -51,3 +51,15 @@ test("after today the caption says prediction, never an observation", () => {
   assert.equal(isFuture("2026-11-15", "2026-11-14"), true);
   assert.equal(isFuture("2026-11-14", "2026-11-14"), false);
 });
+
+test("all-sky oval map and a Milky Way in its real place", async () => {
+  const { hammer, galacticToEquatorial, crossesSeam } = await import("../lib/sky-story.ts");
+  const [cx, cy] = hammer(100, 0, 960, 480, 100);
+  assert.ok(Math.abs(cx - 480) < 1e-6 && Math.abs(cy - 240) < 1e-6);            // centre of the map
+  assert.ok(hammer(130, 0, 960, 480, 100)[0] < cx);                               // east (larger RA) to the left
+  assert.ok(hammer(100, 89.9, 960, 480, 100)[1] < 40);                            // north pole at the top
+  const [ra, dec] = galacticToEquatorial(0, 0);                                    // galactic centre, Sagittarius A*
+  assert.ok(Math.abs(ra - 266.405) < 0.1 && Math.abs(dec + 28.936) < 0.1);
+  assert.equal(crossesSeam(275, 285, 100), true);                                 // the seam is at RA 280 here
+  assert.equal(crossesSeam(90, 110, 100), false);
+});
