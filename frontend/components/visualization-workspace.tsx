@@ -1,0 +1,174 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Brand } from "./brand";
+import { DEMO_DATA_NOTICE, DEMO_IMAGE_PIXELS, DEMO_OBSERVATIONS, DEMO_SOURCES, DEMO_SPECTRUM, MODE_EXPLANATIONS, type DemoSource, type VisualizationMode } from "../lib/visualization-model";
+import "./visualization-workspace.css";
+
+const MODES: { id: VisualizationMode; label: string; icon: string }[] = [
+  { id: "space", label: "3D space", icon: "◉" }, { id: "sky", label: "Sky map", icon: "✧" },
+  { id: "spectrum", label: "Spectrum", icon: "⌁" }, { id: "image", label: "Image", icon: "▧" },
+  { id: "bands", label: "Bands", icon: "◫" }, { id: "time", label: "Timeline", icon: "◷" },
+];
+const IMAGE_SIDE = DEMO_IMAGE_PIXELS.length;
+
+type Camera = { yaw: number; pitch: number; zoom: number; panX: number; panY: number };
+type Projected = { source: DemoSource; x: number; y: number; radius: number; depth: number };
+const INITIAL_CAMERA: Camera = { yaw: -0.38, pitch: 0.18, zoom: 1, panX: 0, panY: 0 };
+
+function project3d(source: DemoSource, camera: Camera, width: number, height: number): Projected {
+  const ra = source.raDeg * Math.PI / 180; const dec = source.decDeg * Math.PI / 180;
+  const r = 1.2 + source.distanceLy / 82;
+  let x = Math.cos(dec) * Math.sin(ra) * r;
+  let y = Math.sin(dec) * r;
+  let z = Math.cos(dec) * Math.cos(ra) * r;
+  const cy = Math.cos(camera.yaw); const sy = Math.sin(camera.yaw);
+  [x, z] = [x * cy - z * sy, x * sy + z * cy];
+  const cp = Math.cos(camera.pitch); const sp = Math.sin(camera.pitch);
+  [y, z] = [y * cp - z * sp, y * sp + z * cp];
+  const perspective = 4.6 / (4.6 + z);
+  const scale = Math.min(width, height) * 0.27 * camera.zoom;
+  return { source, x: width / 2 + camera.panX + x * scale * perspective, y: height / 2 + camera.panY - y * scale * perspective, radius: Math.max(4, source.radius * perspective * camera.zoom * 4.2), depth: z };
+}
+
+function SpaceScene({ selected, onSelect, onSelectSource }: { selected: string; onSelect: (id: string) => void; onSelectSource: (source: DemoSource) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null); const drag = useRef<{ x: number; y: number; camera: Camera } | null>(null);
+  const projected = useRef<Projected[]>([]);
+  const [camera, setCamera] = useState(INITIAL_CAMERA);
+  const [layers, setLayers] = useState({ stars: true, paths: true, labels: true });
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const rect = canvas.getBoundingClientRect(); const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(rect.width * dpr); canvas.height = Math.round(rect.height * dpr);
+    const ctx = canvas.getContext("2d"); if (!ctx) return; ctx.scale(dpr, dpr);
+    const w = rect.width; const h = rect.height;
+    const bg = ctx.createRadialGradient(w * .52, h * .48, 5, w * .52, h * .48, Math.max(w, h) * .78);
+    bg.addColorStop(0, "#101a32"); bg.addColorStop(.55, "#080e1c"); bg.addColorStop(1, "#040710"); ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+    if (layers.stars) {
+      for (let i = 0; i < 170; i++) {
+        const x = ((i * 97.31) % 997) / 997 * w; const y = ((i * 233.17) % 991) / 991 * h;
+        const radius = i % 19 === 0 ? 1.35 : .55; ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = i % 6 === 0 ? "rgba(181,194,255,.72)" : "rgba(231,238,255,.55)"; ctx.fill();
+      }
+    }
+    if (layers.paths) {
+      ctx.beginPath(); ctx.ellipse(w / 2 + camera.panX, h / 2 + camera.panY, w * .31 * camera.zoom, h * .12 * camera.zoom, -.12, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(141,119,199,.28)"; ctx.setLineDash([3, 8]); ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+    }
+    const points = DEMO_SOURCES.map(source => project3d(source, camera, w, h)).sort((a, b) => b.depth - a.depth); projected.current = points;
+    for (const point of points) {
+      const active = point.source.id === selected; const radius = point.radius * (active ? 1.25 : 1);
+      const glow = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius * 4.5);
+      glow.addColorStop(0, `${point.source.color}a8`); glow.addColorStop(1, `${point.source.color}00`);
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(point.x, point.y, radius * 4.5, 0, Math.PI * 2); ctx.fill();
+      const sphere = ctx.createRadialGradient(point.x - radius * .42, point.y - radius * .5, radius * .05, point.x + radius * .25, point.y + radius * .3, radius * 1.7);
+      sphere.addColorStop(0, "#ffffff"); sphere.addColorStop(.2, point.source.color); sphere.addColorStop(1, "#222039");
+      ctx.fillStyle = sphere; ctx.beginPath(); ctx.arc(point.x, point.y, radius, 0, Math.PI * 2); ctx.fill();
+      if (active) { ctx.strokeStyle = "#f5eaff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(point.x, point.y, radius + 4, 0, Math.PI * 2); ctx.stroke(); }
+      if (layers.labels) { ctx.font = "11px DM Sans, sans-serif"; ctx.fillStyle = active ? "#fff" : "#b7c0d7"; ctx.fillText(point.source.name, point.x + radius + 8, point.y + 4); }
+    }
+    ctx.fillStyle = "rgba(226,231,248,.55)"; ctx.font = "10px DM Sans, sans-serif"; ctx.fillText("SIMULATED OBJECTS · DEPTH VIEW", 18, h - 18);
+  }, [camera, layers, selected]);
+  useEffect(() => { draw(); const observer = new ResizeObserver(draw); if (canvasRef.current) observer.observe(canvasRef.current); return () => observer.disconnect(); }, [draw]);
+  const pointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId); drag.current = { x: event.clientX, y: event.clientY, camera };
+  };
+  const pointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drag.current) return; const dx = event.clientX - drag.current.x; const dy = event.clientY - drag.current.y; const start = drag.current.camera;
+    if (event.shiftKey || event.button === 1) setCamera({ ...start, panX: start.panX + dx, panY: start.panY + dy });
+    else setCamera({ ...start, yaw: start.yaw + dx * .008, pitch: Math.max(-1.3, Math.min(1.3, start.pitch + dy * .008)) });
+  };
+  const pointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (drag.current) {
+      const distance = Math.hypot(event.clientX - drag.current.x, event.clientY - drag.current.y);
+      if (distance < 5) {
+        const rect = event.currentTarget.getBoundingClientRect(); const hit = [...projected.current].reverse().find(p => Math.hypot(p.x - (event.clientX - rect.left), p.y - (event.clientY - rect.top)) < p.radius + 12);
+        if (hit) { onSelect(hit.source.id); onSelectSource(hit.source); }
+      }
+    }
+    drag.current = null;
+  };
+  const changeZoom = (factor: number) => setCamera(c => ({ ...c, zoom: Math.max(.6, Math.min(2.5, c.zoom * factor)) }));
+  const toggleLayer = (key: keyof typeof layers) => setLayers(v => ({ ...v, [key]: !v[key] }));
+  const perspective = (yaw: number, pitch: number) => setCamera(c => ({ ...c, yaw, pitch }));
+  return <section className="viz-scene-panel" aria-label="Interactive three-dimensional scene">
+    <div className="viz-scene-toolbar"><div><span className="viz-live-dot" /> Simulated local scene <span className="viz-scene-meta">· drag to rotate · shift-drag to pan · scroll to zoom</span></div><div className="viz-perspectives"><button onClick={() => perspective(0, 0)}>Front</button><button onClick={() => perspective(1.4, 0)}>Side</button><button onClick={() => perspective(0, 1.1)}>Top</button><button onClick={() => setCamera(INITIAL_CAMERA)}>Reset</button></div></div>
+    <div className="viz-scene-canvas-wrap"><canvas ref={canvasRef} aria-label="Interactive 3D illustrative space scene. Drag to rotate and select an object." onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onWheel={e => { e.preventDefault(); changeZoom(e.deltaY < 0 ? 1.08 : .92); }} />
+      <div className="viz-canvas-controls"><button aria-label="Zoom in" onClick={() => changeZoom(1.15)}>+</button><button aria-label="Zoom out" onClick={() => changeZoom(.87)}>−</button><button aria-label="Reset camera" onClick={() => setCamera(INITIAL_CAMERA)}>⌂</button></div>
+      <div className="viz-layer-menu">{(["stars", "paths", "labels"] as const).map(key => <label key={key}><input type="checkbox" checked={layers[key]} onChange={() => toggleLayer(key)} />{key === "paths" ? "Guide path" : key[0].toUpperCase() + key.slice(1)}</label>)}</div>
+    </div>
+    <div className="viz-object-strip">{DEMO_SOURCES.map(source => <button key={source.id} className={source.id === selected ? "active" : ""} onClick={() => { onSelect(source.id); onSelectSource(source); }}><i style={{ background: source.color }} />{source.name}<span>→</span></button>)}</div>
+  </section>;
+}
+
+function SkyMap({ selected, onSelectSource }: { selected: string; onSelectSource: (source: DemoSource) => void }) {
+  const [zoom, setZoom] = useState(1);
+  const points = DEMO_SOURCES.map(source => ({ source, x: (source.raDeg / 150) * 100, y: ((55 - source.decDeg) / 110) * 100 }));
+  return <section className="viz-sky-panel" aria-label="Illustrative RA and Dec sky map"><div className="viz-sky-toolbar"><span>Coordinates: RA / Dec · degrees</span><div><button onClick={() => setZoom(v => Math.min(2.8, v * 1.2))}>Zoom +</button><button onClick={() => setZoom(v => Math.max(.7, v / 1.2))}>Zoom −</button><button onClick={() => setZoom(1)}>Reset</button></div></div>
+    <svg className="viz-sky-map" viewBox="0 0 1000 640" role="img" aria-label="Illustrative sky map with selectable demo points"><defs><radialGradient id="skyglow"><stop stopColor="#17264a" /><stop offset="1" stopColor="#070b16" /></radialGradient></defs><rect width="1000" height="640" fill="url(#skyglow)" />
+      {Array.from({ length: 9 }, (_, i) => <g key={`grid-${i}`}><line x1={i * 125} y1="0" x2={i * 125} y2="640" stroke="#ffffff12" /><line x1="0" y1={i * 80} x2="1000" y2={i * 80} stroke="#ffffff12" /></g>)}
+      <g transform={`translate(500 320) scale(${zoom}) translate(-500 -320)`}>{points.map(({ source, x, y }) => <g key={source.id} onClick={() => onSelectSource(source)} role="button" tabIndex={0} aria-label={`Select ${source.name}, RA ${source.raDeg} degrees, Dec ${source.decDeg} degrees`} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onSelectSource(source); }} className="viz-sky-point"><circle cx={x * 10} cy={y * 6.4} r={source.id === selected ? 13 : 9} fill={`${source.color}44`} /><circle cx={x * 10} cy={y * 6.4} r="4" fill={source.color} /><text x={x * 10 + 12} y={y * 6.4 - 10}>{source.name}</text></g>)}</g>
+      <text x="500" y="625" textAnchor="middle" className="viz-axis-label">Right ascension (RA) · degrees</text><text transform="translate(22 320) rotate(-90)" textAnchor="middle" className="viz-axis-label">Declination (Dec) · degrees</text>
+    </svg><p className="viz-inline-note">Every plotted coordinate is illustrative demo data, not an astronomical catalog position.</p>
+  </section>;
+}
+
+function Spectrum({ onSelect }: { onSelect: (index: number) => void }) {
+  const [hovered, setHovered] = useState<number | null>(null); const [zoom, setZoom] = useState(1); const [panX, setPanX] = useState(0); const [index, setIndex] = useState(3);
+  const selected = hovered ?? index; const left = 82; const right = 775; const top = 42; const bottom = 405;
+  const point = (i: number) => ({ x: left + panX + (DEMO_SPECTRUM[i]!.wavelengthUm - .5) / 4.3 * right / zoom, y: bottom - DEMO_SPECTRUM[i]!.flux / 10 * (bottom - top) });
+  return <section className="viz-chart-panel"><div className="viz-chart-top"><div><strong>Illustrative source spectrum</strong><small>Hover or select a point to inspect the sample value.</small></div><div className="viz-chart-controls"><button aria-label="Pan spectrum left" onClick={() => setPanX(v => v - 28)}>← Pan</button><button aria-label="Pan spectrum right" onClick={() => setPanX(v => v + 28)}>Pan →</button><button onClick={() => setZoom(v => Math.min(1.8, v * 1.15))}>Zoom +</button><button onClick={() => setZoom(v => Math.max(.7, v / 1.15))}>Zoom −</button><button onClick={() => { setZoom(1); setPanX(0); }}>Reset</button></div></div>
+    <svg viewBox="0 0 900 480" className="viz-spectrum" role="img" aria-label="Interactive illustrative spectrum plot">
+      {[0, 2, 4, 6, 8, 10].map(y => <g key={y}><line x1={left} y1={bottom - y / 10 * (bottom - top)} x2="830" y2={bottom - y / 10 * (bottom - top)} stroke="#ffffff12" /><text x={left - 18} y={bottom - y / 10 * (bottom - top) + 4} textAnchor="end">{y}</text></g>)}
+      {DEMO_SPECTRUM.map((d, i) => { const p = point(i); const err = d.uncertainty / 10 * (bottom - top); return <g key={d.wavelengthUm} className="viz-spectrum-point" onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} onClick={() => { setIndex(i); onSelect(i); }} role="button" tabIndex={0} aria-label={`Select ${d.wavelengthUm} micrometer point, illustrative flux ${d.flux}`} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { setIndex(i); onSelect(i); } }}><line x1={p.x} x2={p.x} y1={p.y - err} y2={p.y + err} stroke="#d6b7ff" strokeWidth="2"/><line x1={p.x - 5} x2={p.x + 5} y1={p.y - err} y2={p.y - err} stroke="#d6b7ff"/><line x1={p.x - 5} x2={p.x + 5} y1={p.y + err} y2={p.y + err} stroke="#d6b7ff"/><circle cx={p.x} cy={p.y} r={i === selected ? 8 : 5} fill={i === selected ? "#fff" : "#bd83f2"} stroke="#120b20" strokeWidth="2"/></g>; })}
+      <polyline points={DEMO_SPECTRUM.map((_, i) => { const p = point(i); return `${p.x},${p.y}`; }).join(" ")} fill="none" stroke="#ba84fa" strokeWidth="3" />
+      <text x="430" y="462" textAnchor="middle" className="viz-axis-label">Wavelength · μm</text><text transform="translate(24 225) rotate(-90)" textAnchor="middle" className="viz-axis-label">Illustrative flux · arbitrary units</text>
+      {[1, 2, 3, 4, 5].map(x => <text key={x} x={left + (x - .5) / 4.3 * right / zoom} y="430" textAnchor="middle">{x}</text>)}
+    </svg><div className="viz-selected-measure"><b>{DEMO_SPECTRUM[selected]!.wavelengthUm.toFixed(1)} μm</b><span>Flux {DEMO_SPECTRUM[selected]!.flux.toFixed(1)} ± {DEMO_SPECTRUM[selected]!.uncertainty.toFixed(2)} demo units</span><small>Illustrative uncertainty bar only; not a measured uncertainty.</small></div>
+  </section>;
+}
+
+function ImageView() {
+  const canvasRef = useRef<HTMLCanvasElement>(null); const dragging = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null); const [stretch, setStretch] = useState<"linear" | "sqrt" | "log">("sqrt"); const [pixel, setPixel] = useState<{ x: number; y: number; value: number } | null>(null); const [zoom, setZoom] = useState(1); const [pan, setPan] = useState({ x: 0, y: 0 });
+  useEffect(() => { const canvas = canvasRef.current; const ctx = canvas?.getContext("2d"); if (!canvas || !ctx) return; const cell = 8; const max = Math.max(...DEMO_IMAGE_PIXELS.flat()); ctx.clearRect(0, 0, canvas.width, canvas.height); DEMO_IMAGE_PIXELS.forEach((row, y) => row.forEach((value, x) => { const normalized = Math.min(1, value / max); const mapped = stretch === "linear" ? normalized : stretch === "sqrt" ? Math.sqrt(normalized) : Math.log1p(normalized * 9) / Math.log(10); const hue = 220 - mapped * 140; ctx.fillStyle = `hsl(${hue} 78% ${7 + mapped * 64}%)`; ctx.fillRect(x * cell, y * cell, cell + 1, cell + 1); })); }, [stretch]);
+  return <section className="viz-image-panel"><div className="viz-image-top"><div><strong>Demo detector frame</strong><small>Generated pixel field · no source image loaded</small></div><div className="viz-image-tools"><label>Display stretch<select value={stretch} onChange={e => setStretch(e.target.value as typeof stretch)}><option value="linear">Linear</option><option value="sqrt">Square root</option><option value="log">Logarithmic</option></select></label><button onClick={() => setZoom(v => Math.min(2.4, v * 1.2))}>Zoom +</button><button onClick={() => setZoom(v => Math.max(.8, v / 1.2))}>Zoom −</button><button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>Reset</button></div></div>
+    <div className="viz-image-wrap" onPointerMove={e => { if (dragging.current) setPan({ x: dragging.current.panX + e.clientX - dragging.current.x, y: dragging.current.panY + e.clientY - dragging.current.y }); }}><canvas ref={canvasRef} width="384" height="384" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }} onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); dragging.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y }; }} onPointerUp={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); dragging.current = null; }} onMouseMove={e => { const rect = e.currentTarget.getBoundingClientRect(); const x = Math.max(0, Math.min(47, Math.floor((e.clientX - rect.left) / rect.width * IMAGE_SIDE))); const y = Math.max(0, Math.min(47, Math.floor((e.clientY - rect.top) / rect.height * IMAGE_SIDE))); setPixel({ x, y, value: DEMO_IMAGE_PIXELS[y]![x]! }); }} onMouseLeave={() => setPixel(null)} aria-label="Illustrative image with pixel hover values" />
+      <div className="viz-colorbar"><span>High</span><i /><span>Low</span></div></div><div className="viz-pixel-readout">{pixel ? <>Pixel x {pixel.x}, y {pixel.y} · value {pixel.value.toFixed(2)} demo units</> : "Move over the image to inspect a pixel"}</div>
+  </section>;
+}
+
+function BandCompare({ active }: { active: string }) {
+  const [split, setSplit] = useState(50);
+  return <section className="viz-band-panel"><div className="viz-band-intro"><div><strong>Compare illustrative infrared bands</strong><small>Brightness values are demo units, not calibrated flux.</small></div><label>Swipe comparison<input type="range" min="15" max="85" value={split} onChange={e => setSplit(Number(e.target.value))} aria-label="Adjust band comparison divider" /></label></div><div className="viz-band-grid">{DEMO_OBSERVATIONS.map((obs, i) => <article key={obs.id} className={obs.id === active ? "selected" : ""}><div className="viz-band-art" style={{ "--band-tone": obs.tone, "--band-size": `${32 + obs.value * 2}px` } as React.CSSProperties}><div className="viz-band-wipe" style={{ width: `${split}%` }} /><span>DEMO {i + 1}</span></div><strong>{obs.band}</strong><small>Illustrative brightness {obs.value.toFixed(1)} units</small></article>)}</div><p className="viz-inline-note">Real multi-band comparison requires compatible observations, verified timestamps, and calibrated measurements.</p></section>;
+}
+
+function TimeCompare({ active, onSelect }: { active: string; onSelect: (id: string) => void }) {
+  const selected = DEMO_OBSERVATIONS.find(obs => obs.id === active) ?? DEMO_OBSERVATIONS[0]!;
+  return <section className="viz-time-panel"><div className="viz-time-header"><div><strong>Observation timeline</strong><small>Three illustrative snapshots · no real exposure times</small></div><span>{selected.time}</span></div><div className="viz-timeline">{DEMO_OBSERVATIONS.map((obs, i) => <button key={obs.id} className={obs.id === active ? "active" : ""} onClick={() => onSelect(obs.id)}><span className="viz-time-dot" style={{ background: obs.tone }} /><b>{obs.time}</b><small>{obs.band}</small><i style={{ height: `${24 + obs.value * 13}px`, background: `linear-gradient(${obs.tone},#7863ac33)` }} /><em>Frame {i + 1}</em></button>)}</div><div className="viz-time-description"><b>{selected.band}</b><span>Demo brightness {selected.value.toFixed(1)} arbitrary units</span><p>This control changes which illustrative snapshot is highlighted. It does not show real time evolution or source motion.</p></div></section>;
+}
+
+export function VisualizationWorkspace() {
+  const [mode, setMode] = useState<VisualizationMode>("space"); const [selected, setSelected] = useState(DEMO_SOURCES[0]!.id);
+  const [selectedSource, setSelectedSource] = useState(DEMO_SOURCES[0]!); const [educational, setEducational] = useState(false);
+  const [selectedObservation, setSelectedObservation] = useState(DEMO_OBSERVATIONS[0]!.id); const [spectrumIndex, setSpectrumIndex] = useState(3); const [guided, setGuided] = useState(false); const [guideStep, setGuideStep] = useState(0);
+  const explanation = MODE_EXPLANATIONS[mode];
+  const guide = useMemo(() => ["Start in 3D space: drag the scene and select a colored object.", "Open the sky map to see how coordinates describe direction.", "Inspect a spectrum: each point samples brightness at a wavelength.", "Try image stretches and compare bands; this demo is illustrative."], []);
+  const nextSource = (delta: number) => { const index = DEMO_SOURCES.findIndex(item => item.id === selectedSource.id); const source = DEMO_SOURCES[(index + delta + DEMO_SOURCES.length) % DEMO_SOURCES.length]!; setSelected(source.id); setSelectedSource(source); };
+  return <main className="viz-page">
+    <header className="viz-header"><Brand /><nav aria-label="Main navigation"><Link href="/">Home</Link><Link href="/explore">Explorer</Link><Link href="/visualization" aria-current="page">Visualization</Link></nav><span className="viz-dataset-tag"><i /> {DEMO_DATA_NOTICE}</span></header>
+    <section className="viz-page-title"><div><p className="viz-kicker">A SPACE YOU CAN EXPLORE</p><h1>See the data.<br /><span>Understand the universe.</span></h1><p>Move from a sky position to the measurements behind it. Start with a guided, interactive demo.</p></div><button className={`viz-learn-toggle ${educational ? "on" : ""}`} onClick={() => setEducational(v => !v)}>{educational ? "Learning mode on" : "Turn on learning mode"}<span>✦</span></button></section>
+    {guided && <section className="viz-guide"><div><p className="viz-kicker">GUIDED EXPLORATION · STEP {guideStep + 1} OF {guide.length}</p><p>{guide[guideStep]}</p></div><div><button onClick={() => setGuideStep(v => (v - 1 + guide.length) % guide.length)}>Back</button><button onClick={() => setGuideStep(v => (v + 1) % guide.length)}>Next step →</button><button className="viz-guide-close" onClick={() => setGuided(false)}>Exit</button></div></section>}
+    <div className="viz-workspace"><aside className="viz-side-panel"><div className="viz-side-heading"><span className="viz-side-icon">⌖</span><div><p className="viz-kicker">YOUR WORKSPACE</p><h2>Explore a dataset</h2></div></div><div className="viz-demo-callout"><span>DEMO MODE</span><p>{DEMO_DATA_NOTICE}</p><small>No live astronomy products are loaded in this visualization.</small></div><p className="viz-side-label">VISUALIZATION MODE</p><div className="viz-mode-list">{MODES.map(item => <button key={item.id} className={mode === item.id ? "active" : ""} onClick={() => setMode(item.id)} aria-pressed={mode === item.id}><span>{item.icon}</span>{item.label}<i>→</i></button>)}</div><div className="viz-selection-box"><p className="viz-side-label">SELECTED OBJECT</p><div className="viz-selected-name"><i style={{ background: selectedSource.color }} /><strong>{selectedSource.name}</strong></div><p>{selectedSource.description}</p><div className="viz-coord-pair"><span><small>RA · demo</small>{selectedSource.raDeg.toFixed(1)}°</span><span><small>DEC · demo</small>{selectedSource.decDeg.toFixed(1)}°</span></div><div className="viz-side-actions"><button onClick={() => nextSource(-1)} aria-label="Previous object">← Previous</button><button onClick={() => nextSource(1)}>Next →</button></div></div><button className="viz-guide-launch" onClick={() => { setGuided(true); setGuideStep(0); }}>▷ Start guided exploration</button><Link className="viz-return-link" href="/explore">Open real SPHEREx Explorer <span>↗</span></Link></aside>
+      <section className="viz-main-panel"><div className="viz-main-heading"><div><p className="viz-kicker">{MODES.find(item => item.id === mode)?.label.toUpperCase()}</p><h2>{mode === "space" ? "Navigate the scene" : mode === "sky" ? "Map the sky" : mode === "spectrum" ? "Explore a spectrum" : mode === "image" ? "Read an image" : mode === "bands" ? "Compare wavelengths" : "Explore observations over time"}</h2></div><div className="viz-main-actions"><span className="viz-illustrative-chip">Illustrative</span><button onClick={() => { setMode("space"); setSelected(DEMO_SOURCES[0]!.id); setSelectedSource(DEMO_SOURCES[0]!); setSelectedObservation(DEMO_OBSERVATIONS[0]!.id); }}>Reset workspace</button></div></div>
+        {mode === "space" && <SpaceScene selected={selected} onSelect={setSelected} onSelectSource={setSelectedSource} />}
+        {mode === "sky" && <SkyMap selected={selected} onSelectSource={source => { setSelected(source.id); setSelectedSource(source); }} />}
+        {mode === "spectrum" && <Spectrum onSelect={setSpectrumIndex} />}
+        {mode === "image" && <ImageView />}
+        {mode === "bands" && <BandCompare active={selectedObservation} />}
+        {mode === "time" && <TimeCompare active={selectedObservation} onSelect={setSelectedObservation} />}
+        <section className="viz-explanation"><div className="viz-explanation-mark">i</div><div className="viz-explanation-copy"><div className="viz-explanation-title"><p className="viz-kicker">WHAT THIS VIEW MEANS</p><h3>{explanation.title}</h3></div><div className="viz-explanation-grid"><p><b>What am I looking at?</b>{explanation.what}</p><p><b>Unit</b>{explanation.unit}</p><p><b>Why is it useful?</b>{explanation.use}</p><p><b>What can we conclude?</b>{explanation.conclude}</p><p><b>What can’t we conclude?</b>{explanation.not}</p><p><b>Data source</b>SKYTRACE local visualization fixture · {DEMO_DATA_NOTICE}</p></div>{educational && <div className="viz-learning-tip"><span>✦ A little science</span><p>RA and Dec work like longitude and latitude on the sky. A coordinate tells you a direction; by itself it does not tell you how far away an object is.</p></div>}</div></section>
+      </section>
+    </div><footer className="viz-footer"><span>SKYTRACE · Learn through exploration</span><span>Illustrations are labeled; no scientific observation is implied.</span><div><button onClick={() => setEducational(v => !v)}>{educational ? "Hide learning tips" : "Show learning tips"}</button>{mode === "spectrum" && <span>Selected sample {spectrumIndex + 1} / {DEMO_SPECTRUM.length}</span>}</div></footer>
+  </main>;
+}

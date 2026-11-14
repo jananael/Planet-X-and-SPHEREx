@@ -1,5 +1,7 @@
 # SKYTRACE: ملف تسليم لجلسة Claude جديدة
 
+> Historical handoff. The current product direction is visualization-first; see `docs/workspace-navigation.md`. `/machine-learning` is a legacy redirect only, not an active dashboard or capability.
+
 > **للمستخدم:** أعطي هالملف لـ Claude بالجلسة الجديدة، وقوليله: "اقرأ docs/HANDOFF.md وكمّل من هون".
 > **To Claude:** this is the full context of the project so far. Read it before touching anything.
 > The user (Jana, backend developer on the team) writes in **Palestinian Arabic**. Reply in Arabic,

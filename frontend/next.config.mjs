@@ -1,6 +1,6 @@
 /** Serve the supplied standalone homepage, keeping Explorer in the Next.js app. */
 const nextConfig = {
-  // The Machine Learning tab was removed before the submission; old links go to the Explorer.
+  // Keep older bookmarks working while the ML screen is no longer an active product route.
   async redirects() {
     return [{ source: "/machine-learning", destination: "/explore", permanent: false }];
   },

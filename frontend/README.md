@@ -2,7 +2,7 @@
 
 Next.js App Router + TypeScript. The Explorer lives at `/explore` and follows
 [`explorer-spec.md`](../docs/explorer-spec.md) and [`api-contract.md`](../docs/api-contract.md).
-The dark background, purple accents, orbital brand, and pill controls follow Batool’s SKYTRACE design reference.
+The dark background, purple accents, orbital brand, and pill controls follow Batool’s SKYTRACE design reference. The Visualization workspace lives at `/visualization`; its local fixture is labeled illustrative and does not use live NASA data.
 The Home page (`/`) is Batool’s design, ported from her Vite/React version: `components/home-page.tsx` + `app/home.css`. A small still SPHEREx telescope sits by the Earth; the large one fades in (framer-motion, once) when “See What Time Reveals” scrolls into view. Her images live in `public/skytrace/` (WebP). `/explorer` redirects to `/explore`.
 
 ## Run locally
@@ -39,6 +39,8 @@ Stop this process before starting FastAPI on the same port. The homepage is unaf
 
 - `app/explore/page.tsx`: Explorer route.
 - `components/explorer.tsx`: target form, results, playback, loading and errors.
+- `app/visualization/page.tsx` and `components/visualization-workspace.tsx`: the separate educational visualization workspace and its interactive modes.
+- `lib/visualization-model.ts`: typed illustrative sources, measurements, pixel values and explanations.
 - `components/brand.tsx`: shared SKYTRACE wordmark in HTML/SVG (from Batool’s logo; font: Michroma), used by both pages.
 - `app/globals.css`: shared theme and mobile layout.
 - `lib/types.ts`: TypeScript data shapes corresponding to the API contract.

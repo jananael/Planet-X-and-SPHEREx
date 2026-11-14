@@ -24,9 +24,6 @@
 .explorer-shell .workspace-heading p { color: var(--muted); font-size: 13px; line-height: 1.8; }
 .explorer-shell .explorer-options { margin-block: 18px; border-top: 1px solid var(--line); }
 .explorer-shell .explorer-options > summary { padding: 18px 0; color: var(--bright); cursor: pointer; font-size: 13px; }
-.explorer-shell .ml-placeholder { max-width: 760px; padding: clamp(24px, 5vw, 56px); }
-.explorer-shell .ml-placeholder h2 { font-size: clamp(24px, 4vw, 36px); margin: 12px 0 20px; }
-.explorer-shell .ml-placeholder p:not(.eyebrow) { color: var(--muted); line-height: 1.9; margin-block: 24px; }
 @media (max-width: 600px) {
   .explorer-shell .workspace-heading { align-items: stretch; flex-direction: column; gap: 12px; }
 }
@@ -362,4 +359,4 @@
 }
 
 /* Shared workspace routes. */
-.explorer-page .workspace-navigation{display:flex;flex-wrap:wrap;gap:12px 22px;align-items:center}.explorer-page .workspace-navigation [aria-current=page]{color:var(--bright);border-bottom:2px solid var(--bright)}.explorer-shell .workspace-heading h1{font-size:clamp(24px,4vw,38px);letter-spacing:-1px;margin:8px 0}.explorer-shell .scientific-route-section{margin-top:32px}.explorer-shell .scientific-route-section>.section-heading{margin-bottom:20px}.explorer-shell #sky-viewer-section{scroll-margin-top:24px}.explorer-shell .ml-placeholder{max-width:900px;margin-inline:auto}.explorer-shell .ml-placeholder h1{font-size:clamp(28px,4vw,42px);letter-spacing:-1px;line-height:1.2;margin:24px 0}.explorer-shell .prediction-controls{display:grid;gap:18px;padding:24px 0;border:0;margin-top:24px}.explorer-shell .prediction-controls label{display:grid;gap:10px}.explorer-shell .prediction-controls input{min-height:44px;padding:10px;background:var(--bg);color:var(--muted);border:1px solid var(--line);border-radius:8px}.explorer-page .share-button{display:inline-block}.explorer-page .site-footer{flex-wrap:wrap}@media(max-width:1050px){.explorer-page .site-header{flex-wrap:wrap;gap:16px}.explorer-page .site-header .workspace-navigation{order:3;width:100%;justify-content:center;font-size:13px}.explorer-page .site-footer .workspace-navigation{width:100%;justify-content:center}}
+.explorer-page .workspace-navigation{display:flex;flex-wrap:wrap;gap:12px 22px;align-items:center}.explorer-page .workspace-navigation [aria-current=page]{color:var(--bright);border-bottom:2px solid var(--bright)}.explorer-shell .workspace-heading h1{font-size:clamp(24px,4vw,38px);letter-spacing:-1px;margin:8px 0}.explorer-shell .scientific-route-section{margin-top:32px}.explorer-shell .scientific-route-section>.section-heading{margin-bottom:20px}.explorer-shell #sky-viewer-section{scroll-margin-top:24px}.explorer-page .share-button{display:inline-block}.explorer-page .site-footer{flex-wrap:wrap}@media(max-width:1050px){.explorer-page .site-header{flex-wrap:wrap;gap:16px}.explorer-page .site-header .workspace-navigation{order:3;width:100%;justify-content:center;font-size:13px}.explorer-page .site-footer .workspace-navigation{width:100%;justify-content:center}}
