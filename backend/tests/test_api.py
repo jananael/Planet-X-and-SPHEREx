@@ -257,3 +257,25 @@ def test_search_time_window():
     assert naive["count"] == 2
     assert_error(client.get("/api/search", params={**base, "start": "2025-08-15T00:00:00Z", "end": "2025-08-14T00:00:00Z"}),
                  400, "BAD_REQUEST")
+
+
+def test_resolve_known_objects_offline():
+    r = client.get("/api/resolve", params={"name": "  Andromeda "})
+    assert r.status_code == 200 and r.json()["name"].startswith("M31") and abs(r.json()["ra"] - 10.6847) < 1e-3
+    assert client.get("/api/resolve", params={"name": "M42"}).json()["dec"] < -5
+    assert client.get("/api/resolve", params={"name": "12.5"}).status_code == 400
+
+
+def test_resolve_uses_sesame_and_reports_unknown(monkeypatch):
+    from app.routers import resolve as res
+
+    class Resp:
+        def __init__(self, text): self.text = text
+        def raise_for_status(self): pass
+    found = "<Sesame><oname>NGC 1976</oname><jradeg>83.8221</jradeg><jdedeg>-5.3911</jdedeg></Sesame>"
+    res._sesame.cache_clear()
+    monkeypatch.setattr(res.requests, "get", lambda url, timeout: Resp(found if "ngc" in url.lower() else "<Sesame/>"))
+    r = client.get("/api/resolve", params={"name": "NGC 1976"})
+    assert r.status_code == 200 and r.json()["name"] == "NGC 1976" and "Sesame" in r.json()["source"]
+    assert client.get("/api/resolve", params={"name": "Nothing Here"}).status_code == 404
+    res._sesame.cache_clear()

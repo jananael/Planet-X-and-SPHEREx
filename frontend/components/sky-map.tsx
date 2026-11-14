@@ -3,11 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { angularDistance, BOOKMARK_KEY, normalizeSkyPoint, readBookmarks, sameSkyPoint, skyRegion, type CoverageMetadata, type SkyBookmark, type SkyFeature, type SkyLocation } from "../lib/sky-navigation";
 import type { Coordinates } from "../lib/types";
+import { errorMessage, getJson } from "../lib/api";
 import "./sky-map.css";
 
 // Keep the existing pinned atlas. Its survey now connects directly to CDS.
 const SCRIPT = "https://cdn.jsdelivr.net/npm/aladin-lite@3.8.2/dist/aladin.js";
 const SURVEY = "https://cdn.skies.esac.esa.int/DSSColor";
+// Quick buttons: J2000 positions from SIMBAD, so they work instantly and offline.
+const QUICK_OBJECTS = [
+  { id: "M31", label: "Andromeda", name: "M31 · Andromeda Galaxy", ra: 10.684708, dec: 41.26875 },
+  { id: "M42", label: "Orion Nebula", name: "M42 · Orion Nebula", ra: 83.822083, dec: -5.391111 },
+  { id: "M45", label: "Pleiades", name: "M45 · Pleiades", ra: 56.75, dec: 24.116667 },
+];
 type Star = Coordinates & { id: string; name: string; mag: number };
 type AtlasData = { bounds: SkyFeature[]; lines: SkyFeature[]; names: Record<string, string>; stars: Star[] };
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -160,20 +167,21 @@ export function SkyMap({ center, onSelect, onPick, coverage, onClose }: { onClos
     for (const region of coverage.regions) overlay.add(lib.current.polygon(region.vertices.map(point => { const p = normalizeSkyPoint(point); return [p.ra, p.dec]; })));
   }, [coverage, toggles.coverage, status]);
 
+  // Object names go through our backend (/api/resolve: built-in famous objects + Sesame on its CfA mirror).
+  // Aladin's own lookup calls CDS directly, which is unreachable from some networks.
   function resolve(name: string) {
     if (!atlas.current || !name.trim()) return;
+    const known = QUICK_OBJECTS.find(o => [o.id, o.label].some(k => k.toLowerCase() === name.trim().toLowerCase()));
+    if (known) { requestId.current++; setMessage(""); choose({ ra: known.ra, dec: known.dec }, known.name, "catalog", true); return; }
     if (!/[a-z]/i.test(name)) { setMessage("Enter an astronomical object name such as M31. For coordinates, use the RA and Dec fields above."); return; }
     const id = ++requestId.current; setResolving(true); setMessage("");
     if (timer.current) clearTimeout(timer.current);
-    const failed = () => { if (id === requestId.current) { setResolving(false); setMessage(`Could not resolve “${name}”. Try a catalog identifier such as M31, M42, or M45.`); } };
-    timer.current = setTimeout(() => { if (id === requestId.current) { failed(); requestId.current++; } }, 20000);
-    atlas.current.gotoObject(encodeURIComponent(name.trim()), {
-      success: (coordinates: number[]) => {
-        if (id !== requestId.current) { if (selected.current) atlas.current?.gotoRaDec(selected.current.ra, selected.current.dec); return; }
-        if (timer.current) clearTimeout(timer.current);
-        try { choose({ ra: coordinates[0], dec: coordinates[1] }, name.trim(), "catalog", true); setResolving(false); } catch { failed(); }
-      }, error: () => { if (timer.current) clearTimeout(timer.current); failed(); },
-    });
+    const controller = new AbortController();
+    timer.current = setTimeout(() => controller.abort(), 20000);
+    getJson<{ name: string; ra: number; dec: number }>(`/api/resolve?name=${encodeURIComponent(name.trim())}`, controller.signal)
+      .then(hit => { if (id !== requestId.current) return; choose({ ra: hit.ra, dec: hit.dec }, hit.name, "catalog", true); })
+      .catch(error => { if (id === requestId.current) setMessage(controller.signal.aborted ? `Could not resolve “${name}” in time. Try M31, M42 or M45.` : /not found|404/i.test(errorMessage(error)) || /no longer available/i.test(errorMessage(error)) ? `Could not find “${name.trim()}”. Try a catalog name such as M31, NGC 224 or Betelgeuse.` : errorMessage(error)); })
+      .finally(() => { if (timer.current) clearTimeout(timer.current); if (id === requestId.current) setResolving(false); });
   }
   function persist(next: SkyBookmark[]) {
     try { localStorage.setItem(BOOKMARK_KEY, JSON.stringify({ version: 1, locations: next })); setBookmarks(next); setStorageMessage(""); }
@@ -198,7 +206,7 @@ export function SkyMap({ center, onSelect, onPick, coverage, onClose }: { onClos
   }}>
     <div className="navigator-toolbar"><div><p className="eyebrow">NAVIGATE THE REAL SKY</p><h3>Sky Navigator</h3>
       <form className="navigator-search" onSubmit={event => { event.preventDefault(); resolve(query); }}><label className="navigator-sr" htmlFor="sky-object-search">Find an astronomical object</label><input id="sky-object-search" placeholder="Find an object · M31, M42, M45…" value={query} onChange={event => setQuery(event.target.value)} maxLength={120} /><button type="submit" disabled={status !== "ready" || resolving || !query.trim()}>{resolving ? "Finding…" : "Find"}</button></form>
-      <div className="navigator-quick" aria-label="Suggested catalog searches">{[["M31", "Andromeda"], ["M42", "Orion Nebula"], ["M45", "Pleiades"]].map(([id, name]) => <button key={id} type="button" disabled={status !== "ready" || resolving} onClick={() => { setQuery(id); resolve(id); }}>{name}</button>)}</div></div>
+      <div className="navigator-quick" aria-label="Suggested catalog searches">{QUICK_OBJECTS.map(o => <button key={o.id} type="button" disabled={status !== "ready" || resolving} onClick={() => { setQuery(o.id); resolve(o.id); }}>{o.label}</button>)}</div></div>
       <div className="navigator-actions"><details className="navigator-layers"><summary>Layers</summary><div>{layerChoices.map(([key, label]) => <label key={key}><input type="checkbox" checked={toggles[key]} disabled={status !== "ready" || (["names", "boundaries", "lines"].includes(key) && !catalogReady)} onChange={event => { const checked = event.target.checked; setToggles(values => ({ ...values, [key]: checked })); }} />{label}</label>)}
         <label><input type="checkbox" disabled={!coverage?.regions.length || status !== "ready"} checked={toggles.coverage} onChange={event => { const checked = event.target.checked; setToggles(values => ({ ...values, coverage: checked })); }} />SPHEREx Observation Coverage</label><small>{coverage?.regions.length ? `${coverage.source} · ${coverage.release}` : "Coverage data not yet available. No coverage is inferred from this map."}</small></div></details>
         <button type="button" className="navigator-close" onClick={onClose} aria-label="Close Sky Navigator" title="Close Sky Navigator">×</button></div></div>
