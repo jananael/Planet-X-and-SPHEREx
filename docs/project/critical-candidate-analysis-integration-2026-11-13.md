@@ -89,6 +89,6 @@ No backend detection behavior, thresholds, matching radii, masks, Measurement Co
 
 ## Git safety
 
-- No commit or push was made.
-- No changes were made to `main`, and PR #2 was not modified or merged.
+- Verified integration commit `0a33ee7` (`fix: pass compatible group to candidate API`) was pushed to `codex/y2-source-detection` after fetching the remote and confirming it matched the local base commit `b5092da`.
+- No force push, `main` update, or PR #2 modification/merge occurred.
 - Only the seven candidate-integration frontend files and this report are intended for this task; all earlier scientific working-tree files remain untouched and unstaged.
