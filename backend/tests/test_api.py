@@ -299,3 +299,16 @@ def test_gaia_stars_parses_irsa_csv_and_caches(monkeypatch, tmp_path):
     assert "parallax_over_error>5" in calls[0]["QUERY"] and "gaia_dr3_source" in calls[0]["QUERY"]
     assert client.get("/api/gaia-stars", params={"ra": 34.8366, "dec": -2.9787}).json()["count"] == 1
     assert len(calls) == 1  # second call served from the disk cache
+
+
+def test_spectrum_measures_centre_brightness_per_image_sorted_by_wavelength():
+    obs = client.get("/api/search", params={"ra": 133.79513, "dec": -7.24514}).json()["observations"]
+    ids = ",".join(o["id"] for o in obs[:3])
+    r = client.get("/api/spectrum", params={"ra": 133.79513, "dec": -7.24514, "ids": ids})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["unit"] == "MJy/sr" and len(body["points"]) == 3
+    wl = [p["wavelength_um"] for p in body["points"]]
+    assert wl == sorted(wl)
+    assert all(isinstance(p["surface_brightness"], float) for p in body["points"])
+    assert client.get("/api/spectrum", params={"ra": 1, "dec": 1, "ids": "nope"}).json()["skipped"][0]["observation_id"] == "nope"

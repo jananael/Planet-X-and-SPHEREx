@@ -11,7 +11,7 @@ import "./visualization-workspace.css";
 
 type Mode = "space" | "spectrum" | "image" | "bands" | "time";
 const MODES: { id: Mode; label: string; icon: string }[] = [
-  { id: "space", label: "3D stars", icon: "◉" }, { id: "spectrum", label: "Wavelengths", icon: "⌁" },
+  { id: "space", label: "3D stars", icon: "◉" }, { id: "spectrum", label: "Spectrum", icon: "⌁" },
   { id: "image", label: "Image", icon: "▧" }, { id: "bands", label: "Bands", icon: "◫" }, { id: "time", label: "Timeline", icon: "◷" },
 ];
 const BANDS = ["D1", "D2", "D3", "D4", "D5", "D6"];
@@ -20,7 +20,7 @@ const BAND_RANGE: Record<string, [number, number]> = { D1: [0.75, 1.09], D2: [1.
 const LAST_KEY = "skytrace.last-location";
 const EXPLAIN: Record<Mode, { title: string; what: string; unit: string; use: string; not: string; source: string }> = {
   space: { title: "Real stars around this spot, at their real distances", what: "Each sphere is a Gaia DR3 star within 0.25° of the location, placed by its sky position and its distance from parallax (only stars with a well-measured parallax).", unit: "Sideways: degrees on the sky. Depth: distance in light-years (log scale).", use: "It shows that stars that look side by side on a picture can be very far apart in depth.", not: "SPHEREx does not measure distances; these come from ESA’s Gaia mission. Faint stars without a good parallax are left out.", source: "Gaia DR3 (ESA) via NASA/IPAC IRSA TAP" },
-  spectrum: { title: "Which infrared colours SPHEREx recorded here", what: "Each bar is one of SPHEREx’s six detectors: the infrared range it covers, and how many real images of this spot it took.", unit: "Wavelength in micrometres (µm). Our eyes see 0.4–0.7 µm.", use: "SPHEREx splits the sky into 102 infrared colours; this shows which ones exist for your location.", not: "Brightness at each wavelength (a real spectrum) is not measured yet: that needs photometry on every image.", source: "NASA SPHEREx images found by SKYTRACE’s archive search (NASA/IPAC IRSA)" },
+  spectrum: { title: "A real spectrum of this spot", what: "Each point is one real SPHEREx image: how bright the centre of your location is, at the exact infrared wavelength that image saw there.", unit: "Wavelength in micrometres (µm); brightness as surface brightness in MJy/sr. Our eyes see 0.4–0.7 µm.", use: "How brightness changes with wavelength hints at temperature, dust and what kind of object sits there. SPHEREx can build this for the whole sky.", not: "It is a coarse spot measurement, not calibrated point-source photometry, and points come from different days.", source: "NASA SPHEREx Level 2 images via NASA/IPAC IRSA · wavelengths from the SPHEREx spectral calibration (CWAVE)" },
   image: { title: "A real SPHEREx picture of this spot", what: "A 300″ cut-out of a real SPHEREx image, rotated north-up. Change the display stretch to bring out faint or bright details.", unit: "Display brightness from calibrated surface brightness (MJy/sr), with zodiacal light removed.", use: "Stretching changes what you can see without changing the data.", not: "A display stretch is not a measurement; do not read brightness off the colours.", source: "NASA SPHEREx Level 2 images (DR1 + QR3) via NASA/IPAC IRSA" },
   bands: { title: "The same spot in six infrared colours", what: "One real image per detector, D1 (shortest wavelength) to D6 (longest), all centred on your location.", unit: "Each detector covers a different range of infrared wavelengths.", use: "Some objects shine more at short wavelengths, others at long ones: comparing bands hints at temperature and dust.", not: "Images can be from different days; a difference between bands is not proof of a change in time.", source: "NASA SPHEREx Level 2 images via NASA/IPAC IRSA" },
   time: { title: "When SPHEREx came back to this spot", what: "Each card is one real visit: its dates, how many images it took, and one picture from it.", unit: "UTC dates; a visit groups images less than 30 days apart.", use: "Comparing visits months apart is how slow movers and changing stars are found.", not: "Visits alone do not show a change; compare them in the Explorer’s blink and difference views.", source: "NASA SPHEREx archive search via NASA/IPAC IRSA" },
@@ -92,16 +92,48 @@ function SpaceScene({ place, stars, selected, onSelect }: { place: Place; stars:
   </section>;
 }
 
-// ---------- Wavelength coverage (real images per detector) ----------
-function Wavelengths({ observations }: { observations: Observation[] }) {
-  const rows = BANDS.map(b => ({ band: b, n: observations.filter(o => o.band === b).length, range: observations.find(o => o.band === b)?.wavelength_range_um ?? BAND_RANGE[b] }));
-  const W = 900, x = (um: number) => 80 + (um - 0.3) / (5.2 - 0.3) * (W - 120), max = Math.max(1, ...rows.map(r => r.n));
-  return <section className="viz-chart-panel"><div className="viz-chart-top"><div><strong>Infrared colours recorded at this spot</strong><small>{observations.length} real SPHEREx images · bar height = number of images per detector</small></div></div>
-    <svg viewBox={`0 0 ${W} 440`} className="viz-spectrum" role="img" aria-label="Wavelength range and number of images for each SPHEREx detector">
-      <rect x={x(0.4)} y={40} width={x(0.7) - x(0.4)} height={330} fill="#ffffff10" /><text x={(x(0.4) + x(0.7)) / 2} y={30} textAnchor="middle">eye</text>
-      {rows.map(r => { const h = r.n / max * 300; return <g key={r.band}><rect x={x(r.range[0])} y={370 - h} width={Math.max(4, x(r.range[1]) - x(r.range[0]) - 4)} height={h} rx={4} fill={BAND_COLORS[r.band]} opacity={r.n ? 1 : .15}><title>{`${r.band}: ${r.range[0].toFixed(2)}–${r.range[1].toFixed(2)} µm, ${r.n} images`}</title></rect><text x={(x(r.range[0]) + x(r.range[1])) / 2} y={362 - h} textAnchor="middle">{r.n}</text><text x={(x(r.range[0]) + x(r.range[1])) / 2} y={392} textAnchor="middle" className="viz-axis-label">{r.band}</text></g>; })}
-      {[1, 2, 3, 4, 5].map(u => <text key={u} x={x(u)} y={425} textAnchor="middle">{u} µm</text>)}
-    </svg><p className="viz-inline-note">Brightness per colour (a true spectrum) is not measured yet: it needs photometry on every image.</p></section>;
+// ---------- Spectrum: real brightness at this spot vs wavelength ----------
+type SpecPoint = { observation_id: string; band: string; obs_time: string; release: string; wavelength_um: number; bandwidth_um: number | null; wavelength_source: string | null; surface_brightness: number; uncertainty: number | null; saturated?: boolean; valid_pixels?: number };
+/** One image per detector, from the visit that has the most detectors (same picks as the Bands view, so cached). */
+function bandPicks(observations: Observation[], perBand = 1): Observation[] {
+  const visit = groupVisits(observations).sort((a, b) => new Set(b.map(o => o.band)).size - new Set(a.map(o => o.band)).size)[0] ?? [];
+  return BANDS.flatMap(b => { const mine = visit.filter(o => o.band === b); return (mine.length ? mine : observations.filter(o => o.band === b)).slice(0, perBand); });
+}
+function Spectrum({ place, observations }: { place: Place; observations: Observation[] }) {
+  const [more, setMore] = useState(false); const [log, setLog] = useState(false);
+  const [points, setPoints] = useState<SpecPoint[] | null>(null); const [err, setErr] = useState("");
+  const [hovered, setHovered] = useState<number | null>(null); const [index, setIndex] = useState(0); const [zoom, setZoom] = useState(1); const [panX, setPanX] = useState(0);
+  const ids = useMemo(() => bandPicks(observations, more ? 3 : 1).map(o => o.id), [observations, more]);
+  useEffect(() => {
+    const c = new AbortController(); setPoints(null); setErr("");
+    getJson<{ points: SpecPoint[] }>(`/api/spectrum?${new URLSearchParams({ ra: String(place.ra), dec: String(place.dec), ids: ids.join(",") })}`, c.signal)
+      .then(d => { setPoints(d.points); setIndex(0); }).catch(e => { if (!c.signal.aborted) setErr(errorMessage(e)); });
+    return () => c.abort();
+  }, [place, ids]);
+  const left = 82, right = 775, top = 42, bottom = 405;
+  const vals = (points ?? []).map(p => p.surface_brightness);
+  const pos = vals.filter(v => v > 0);
+  const lo = log ? Math.log10(Math.max(1e-4, Math.min(...pos, 1))) : Math.min(0, ...vals), hi = log ? Math.log10(Math.max(...pos, 1e-3)) : Math.max(1e-6, ...vals) * 1.1;
+  const yv = (v: number) => log ? Math.log10(Math.max(1e-4, v)) : v;
+  const Y = (v: number) => bottom - (yv(v) - lo) / ((hi - lo) || 1) * (bottom - top);
+  const X = (um: number) => left + panX + (um - 0.6) / 4.6 * (right - left) * zoom;
+  const sel = points?.[hovered ?? index];
+  const ticks = Array.from({ length: 5 }, (_, i) => lo + (hi - lo) * i / 4);
+  return <section className="viz-chart-panel"><div className="viz-chart-top"><div><strong>Brightness of this spot across SPHEREx’s infrared colours</strong><small>{points ? `${points.length} real images · one point per image, at its own wavelength` : "Measuring the real images… (fast when they are cached)"}</small></div><div className="viz-chart-controls"><button onClick={() => setPanX(v => v - 40)}>← Pan</button><button onClick={() => setPanX(v => v + 40)}>Pan →</button><button onClick={() => setZoom(v => Math.min(3, v * 1.2))}>Zoom +</button><button onClick={() => setZoom(v => Math.max(.7, v / 1.2))}>Zoom −</button><button onClick={() => { setZoom(1); setPanX(0); }}>Reset</button><button aria-pressed={log} onClick={() => setLog(v => !v)}>{log ? "Linear scale" : "Log scale"}</button><button aria-pressed={more} onClick={() => setMore(v => !v)}>{more ? "Fewer points" : "More points (slower)"}</button></div></div>
+    {err && <div className="notice error" role="alert">{err}</div>}
+    <svg viewBox="0 0 900 480" className="viz-spectrum" role="img" aria-label="Real surface brightness at this location against wavelength, one point per SPHEREx image">
+      <rect x={X(0.4)} y={top} width={Math.max(0, X(0.7) - X(0.4))} height={bottom - top} fill="#ffffff0d" />
+      {ticks.map((t, i) => <g key={i}><line x1={left} y1={bottom - (t - lo) / ((hi - lo) || 1) * (bottom - top)} x2="830" y2={bottom - (t - lo) / ((hi - lo) || 1) * (bottom - top)} stroke="#ffffff12" /><text x={left - 12} y={bottom - (t - lo) / ((hi - lo) || 1) * (bottom - top) + 4} textAnchor="end">{log ? (10 ** t).toPrecision(2) : t.toPrecision(2)}</text></g>)}
+      {points && points.length > 1 && <polyline points={points.map(p => `${X(p.wavelength_um)},${Y(p.surface_brightness)}`).join(" ")} fill="none" stroke="#5bc0de" strokeWidth="2.5" opacity=".8" />}
+      {points?.map((p, i) => { const x = X(p.wavelength_um), y = Y(p.surface_brightness), e = p.uncertainty ?? 0; const y1 = Y(p.surface_brightness + e), y2 = Y(Math.max(log ? 1e-4 : -Infinity, p.surface_brightness - e)); const on = i === (hovered ?? index);
+        return <g key={p.observation_id} className="viz-spectrum-point" onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} onClick={() => setIndex(i)} role="button" tabIndex={0} aria-label={`${p.band} at ${p.wavelength_um.toFixed(3)} micrometres: ${p.surface_brightness.toPrecision(3)} MJy/sr`} onKeyDown={ev => { if (ev.key === "Enter" || ev.key === " ") setIndex(i); }}>
+          {e > 0 && <><line x1={x} x2={x} y1={y1} y2={y2} stroke={BAND_COLORS[p.band]} strokeWidth="2" /><line x1={x - 5} x2={x + 5} y1={y1} y2={y1} stroke={BAND_COLORS[p.band]} /><line x1={x - 5} x2={x + 5} y1={y2} y2={y2} stroke={BAND_COLORS[p.band]} /></>}
+          <circle cx={x} cy={y} r={on ? 8 : 5.5} fill={p.saturated ? "#0b132b" : on ? "#fff" : BAND_COLORS[p.band]} stroke={p.saturated ? BAND_COLORS[p.band] : "#0b132b"} strokeWidth={p.saturated ? 2.5 : 2} /></g>; })}
+      <text x="450" y="462" textAnchor="middle" className="viz-axis-label">Wavelength · µm</text><text transform="translate(22 225) rotate(-90)" textAnchor="middle" className="viz-axis-label">Surface brightness · MJy/sr</text>
+      {[1, 2, 3, 4, 5].map(u => <text key={u} x={X(u)} y="430" textAnchor="middle">{u}</text>)}
+    </svg>
+    <div className="viz-selected-measure">{sel ? <><b style={{ color: BAND_COLORS[sel.band] }}>{sel.wavelength_um.toFixed(3)} µm · {sel.band}</b><span>{sel.surface_brightness.toPrecision(3)}{sel.uncertainty ? ` ± ${sel.uncertainty.toPrecision(2)}` : ""} MJy/sr · {sel.obs_time.slice(0, 10)} · {sel.release}</span>{sel.saturated && <span className="warm">Centre partly saturated or flagged ({sel.valid_pixels}/9 pixels): this value is unreliable.</span>}<small>{sel.wavelength_source?.startsWith("CWAVE") ? "Wavelength from the SPHEREx calibration (CWAVE)" : "Wavelength from the image’s WCS"} · centre 3×3 pixels, zodiacal light removed</small></> : <span>Hover or select a point.</span>}</div>
+    <p className="viz-inline-note">Hollow points: the centre was partly saturated or flagged, so the value is unreliable. Each point is a real measurement of this spot in one image. Points from different days can differ if the source varies. This is surface brightness, not calibrated point-source photometry.</p></section>;
 }
 
 // ---------- One real image, with display stretch ----------
@@ -122,7 +154,8 @@ function ImageView({ place, observations }: { place: Place; observations: Observ
 function BandCompare({ place, observations }: { place: Place; observations: Observation[] }) {
   // Prefer the visit that has the most detectors, so the six images are close in time.
   const visit = groupVisits(observations).sort((a, b) => new Set(b.map(o => o.band)).size - new Set(a.map(o => o.band)).size)[0] ?? [];
-  const per = BANDS.map(b => ({ band: b, obs: visit.find(o => o.band === b) ?? observations.find(o => o.band === b) }));
+  const picks = bandPicks(observations);
+  const per = BANDS.map(b => ({ band: b, obs: picks.find(o => o.band === b) }));
   return <section className="viz-band-panel"><div className="viz-band-intro"><div><strong>The same spot through six infrared detectors</strong><small>{visit[0] ? `Mostly from the visit of ${day(visit[0].obs_time)}` : ""} · each image centred on your location</small></div></div>
     <div className="viz-band-grid">{per.map(({ band, obs }) => <article key={band}>{obs ? <img src={imgSrc(obs, place)} alt={`Real SPHEREx image in ${band}`} style={{ width: "100%", aspectRatio: "1", objectFit: "contain", imageRendering: "pixelated", borderRadius: 6, background: "#050812" }} /> : <div className="viz-band-art" style={{ height: 160 }}><span>NO {band} IMAGE HERE</span></div>}
       <strong style={{ color: BAND_COLORS[band] }}>{band} · {BAND_RANGE[band][0]}–{BAND_RANGE[band][1]} µm</strong><small>{obs ? `${day(obs.obs_time)} · ${obs.release}` : "not observed here"}</small></article>)}</div>
@@ -200,7 +233,7 @@ export function VisualizationWorkspace() {
         {status === "loading" && <p className="viz-inline-note" role="status">Searching the NASA archive for this location… (5–15 s the first time)</p>}
         {ready && !observations.length && mode !== "space" && <p className="viz-inline-note">SPHEREx has no images here in the data we searched.</p>}
         {ready && mode === "space" && (stars ? (stars.length ? <SpaceScene place={place} stars={stars} selected={selectedStar} onSelect={setSelectedStar} /> : <p className="viz-inline-note">Gaia has no stars with a precise distance within 0.25° of this spot.</p>) : starsError ? <div className="notice error" role="alert">{starsError}</div> : <p className="viz-inline-note" role="status">Asking Gaia for the stars around this spot… (about 10 s the first time)</p>)}
-        {ready && observations.length > 0 && mode === "spectrum" && <Wavelengths observations={observations} />}
+        {ready && observations.length > 0 && mode === "spectrum" && <Spectrum place={place} observations={observations} />}
         {ready && observations.length > 0 && mode === "image" && <ImageView place={place} observations={observations} />}
         {ready && observations.length > 0 && mode === "bands" && <BandCompare place={place} observations={observations} />}
         {ready && observations.length > 0 && mode === "time" && <TimeCompare place={place} observations={observations} />}

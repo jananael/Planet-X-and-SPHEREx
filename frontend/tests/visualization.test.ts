@@ -44,7 +44,7 @@ test("visualization fixture is self-contained, labeled, typed, and internally bo
 test("Learning lab renders its five real-data views, location controls and honest limits", () => {
   const Workspace = workspaceComponent();
   const html = renderToStaticMarkup(createElement(Workspace));
-  for (const label of ["3D stars", "Wavelengths", "Image", "Bands", "Timeline"]) assert.match(html, new RegExp(label));
+  for (const label of ["3D stars", "Spectrum", "Image", "Bands", "Timeline"]) assert.match(html, new RegExp(label));
   assert.doesNotMatch(html, /Sky map/);
   assert.match(html, /YOUR LOCATION/);
   assert.match(html, /Go to RA\/Dec/);
@@ -59,7 +59,8 @@ test("Learning lab uses real archive endpoints and the Explorer's last location,
   assert.match(source, /\/api\/search/);
   assert.match(source, /\/api\/gaia-stars/);
   assert.match(source, /skytrace\.last-location/);
-  assert.match(source, /not measured yet/);
+  assert.match(source, /\/api\/spectrum/);
+  assert.match(source, /not calibrated point-source photometry/);
   assert.doesNotMatch(source, /DEMO_SOURCES|DEMO_SPECTRUM|DEMO_IMAGE_PIXELS|\/api\/sky-objects|CoordinateSkyView/);
   const explorer = readFileSync(new URL("../components/explorer.tsx", import.meta.url), "utf8");
   assert.match(explorer, /localStorage\.setItem\("skytrace\.last-location"/);
