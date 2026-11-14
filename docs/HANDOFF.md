@@ -8,9 +8,11 @@
 > keep code/identifiers in English. She prefers short, direct answers. She often pastes teammates'
 > messages or task cards: answer what they ask of HER, and give her ready-to-send messages when useful.
 
-Last updated: **2026-11-14 (afternoon)** · `feat/explain-mode` (two display modes, orbit journey, sky story) merged into
-`main` together with Sadeel's workspace restructure and Haneen's uploads. Open PRs: **#2** (Yazan's engine, not mergeable
-yet) and **#3** (Jana's fixes into #2). **Commit/push only when Jana says. Update this file after every step** (Jana's rule).
+Last updated: **2026-11-14 (evening)** · `main` = GitHub. Yazan's engine (PR #2 + Jana's PR #3) **is merged** (team
+OK), plus Taqwa's S2-T4, Yazan's visualization workspace + catalog sky map (PR #6), Sadeel's Evidence Story and new
+Explorer design, and the "Learning lab". **Production build checked: no errors.** Tests: backend 131 passed / 5 skipped,
+frontend 82, tsc OK. **Commit/push only when Jana says. Update this file after every step** (Jana's rule).
+Next: **deploy** (Vercel frontend + Render/Railway backend, Jana's accounts), warm the cache, slides, Space Apps page.
 
 ---
 
@@ -190,12 +192,19 @@ Errors: BAD_REQUEST 400, NOT_FOUND 404, NO_COVERAGE 404, UPSTREAM_ERROR 502, NOT
   restarted (`lastSearch` now cleared on unmount). If the dev server shows hydration mismatches after a merge,
   stop it and delete `frontend/.next`.
 
-### In review
-- **PR #2** `codex/y2-source-detection` (Yazan's peak detector): **not mergeable** (team decision). Scientific
-  validation pending (SNR 5 and 12.3″ provisional, association/motion not validated, no completeness/FP rate).
-- **PR #3** `jana/y2-api-fixes` → PR #2: per-detection provenance, results on disk (`.cache/candidates`),
-  `known_objects` from backend (`app/services/known_objects.py`: Gaia/literature pm + Horizons inside `real_view`
-  windows), radius ≤ 0.25° (1800″ cutout). 105 passed. Not run on live IRSA yet; no `start`/`end` for candidates.
+### Since then (2026-11-14, merged on `main`)
+- **Engine merged:** Yazan's Y2 source detection (PR #2) with Jana's fixes (PR #3: per-detection provenance, results
+  on disk, known_objects, radius ≤ 0.25°). Scientific validation is still provisional (SNR 5, 12.3″ matching).
+- **Taqwa S2-T4:** FITS processing, quality-flag policy and tests.
+- **Yazan:** visualization-first workspace (`/visualization`) and a coordinate-based catalog sky map (PR #6).
+- **Sadeel:** interactive Evidence Story (candidate → viewer), new Explorer design, full-window Sky Navigator.
+- **Jana (with Claude):** Simple explanation for every location; plain "What you are seeing" summary under the images
+  (`summarize()` in `lib/explain.ts`); Machine Learning tab removed (`/machine-learning` redirects to `/explore`);
+  Sky Navigator object search without CDS; **Learning lab** on real data for any location (Gaia stars in 3D, real
+  spectrum chart); dashboard screen removed; fixes from a full feature test; site screenshots for the slides.
+- Routes now: `/` (static homepage), `/explore`, `/observations`, `/visualization` (`/explorer` kept).
+- Build check: `NEXT_DIST_DIR=.next-check npx next build` builds into a separate folder while `next dev` holds
+  `.next` (folder ignored by git). Last result: compiled, TypeScript OK, 8 routes, no errors.
 
 ### Waiting on others
 - **Yazan:** approve contract → set `CONTRACT_VERSION = "1.0"`; review/merge PR #3; validation protocol.
@@ -205,9 +214,12 @@ Errors: BAD_REQUEST 400, NOT_FOUND 404, NO_COVERAGE 404, UPSTREAM_ERROR 502, NOT
   observation id, flags, "Not available" for nulls) once real measurements exist.
 
 ### Next for Jana (priority order)
-1. **Deploy** (`docs/deploy.md`; Dockerfiles untested; Jana's accounts; decide host). Submission is 15 Nov.
+1. **Deploy** (`docs/deploy.md`; Dockerfiles untested; Jana's accounts: Vercel for the frontend, Render or Railway
+   for the backend). Submission is 15 Nov; the rules require a public link without login.
 2. **Warm the cache before the demo** (`backend/scripts/prefetch_demo.py`, include 3I/ATLAS).
-3. **Demo video** (1–2 min).
+3. **Slides + Space Apps project page:** fill challenge name, team name, public link, project page link, Ramallah
+   and roles; description, data used, **AI-use disclosure (mandatory)**. A 30-second video is optional
+   (7 slides OR 30 s video).
 4. Explain modes, next: voice/narration, Arabic captions (constellations.json has Arabic names), a "Download video"
    button, the sky story for 3I/ATLAS (backend ready, not tried in the browser), Yazan to review all caption texts
    (`lib/explain.ts`, `lib/journey.ts`, `lib/sky-story.ts`).
