@@ -9,6 +9,9 @@ export interface JourneyData {
   window: { start: string; end: string };
   bodies: JourneyBody[];
   sky_track: Sample[];
+  /** Ten-year RA/Dec path for the "Simple explanation" sky (JPL Horizons, weekly). */
+  sky_years?: Sample[];
+  years?: { start: string; end: string };
   spherex_exposures: { utc: string; visit: number; release: string; ra: number; dec: number }[];
   spherex_visits: JourneyVisit[];
   highlight: { ra: number; dec: number; start: string; end: string; band: string } | null;

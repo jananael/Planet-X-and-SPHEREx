@@ -12,7 +12,7 @@ client = TestClient(app)
 def fake_horizons(monkeypatch, tmp_path):
     calls = []
     monkeypatch.setattr(jr, "_vectors", lambda hid, span, ephem=None: calls.append(("v", hid["id"])) or [["2025-May-01 00:00", 1.0, 2.0], ["2025-May-11 00:00", 1.5, 2.5]])
-    monkeypatch.setattr(jr, "_sky", lambda hid, ephem: calls.append(("s", hid["id"])) or [["2025-May-01", 223.2, -4.3]])
+    monkeypatch.setattr(jr, "_sky", lambda hid, ephem, span=jr.WINDOW, step="3d": calls.append(("s", hid["id"])) or [["2025-May-01", 223.2, -4.3]])
     from app.config import get_settings
     monkeypatch.setattr(get_settings(), "cache_dir", tmp_path)
     return calls

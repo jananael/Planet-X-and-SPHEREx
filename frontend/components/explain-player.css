@@ -39,3 +39,6 @@
 .walkthrough-title { font-size: 15px; font-weight: 600; }
 .walkthrough-button[aria-pressed="true"] { border-color: #5bc0de; background: #5bc0de22; }
 .walkthrough-button:disabled { opacity: .55; cursor: not-allowed; }
+.science-tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.science-tools .walkthrough-button { margin: 0; }
+.sky-story-canvas { aspect-ratio: auto; max-width: 100%; height: auto; image-rendering: auto; }

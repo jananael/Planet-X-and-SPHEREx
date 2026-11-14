@@ -22,7 +22,8 @@ log = logging.getLogger(__name__)
 REPO = Path(__file__).resolve().parents[3]
 INVENTORY = REPO / "docs" / "inventory"
 WINDOW = ("2025-05-01", "2026-10-01")  # SPHEREx DR1 + QR3 coverage
-CACHE_VERSION = 1
+CACHE_VERSION = 2
+YEARS = ("2020-01-01", "2030-12-31")  # the "Simple explanation" sky: ten years of the object's path
 
 # Horizons ids and how much of the orbit to draw for each supported object.
 OBJECTS = {
@@ -31,6 +32,7 @@ OBJECTS = {
               "fact": "Main-belt asteroid, about 525 km across, orbits the Sun every 3.6 years."},
     "3i-atlas": {"name": "3I/ATLAS (C/2025 N1)", "type": "comet", "horizons": {"id": "3I", "id_type": "designation"},
                  "ephem": {"closest_apparition": True, "no_fragments": True}, "orbit": ("2025-01-01", "2027-01-01", "5d"),
+                 "years": ("2025-06-01", "2026-06-30"),  # only seen for about a year: no ten-year path to show
                  "fact": "Only the third object known to come from outside the Solar System: it passes once and leaves."},
 }
 PLANETS = {"Earth": ("399", ("2025-05-01", "2026-05-01", "5d")),
@@ -46,9 +48,9 @@ def _vectors(hid: dict, span: tuple[str, str, str], ephem: dict | None = None) -
     return [[str(r["datetime_str"])[5:16], round(float(r["x"]), 4), round(float(r["y"]), 4)] for r in tab]
 
 
-def _sky(hid: dict, ephem: dict) -> list[list]:
+def _sky(hid: dict, ephem: dict, span: tuple[str, str] = WINDOW, step: str = "3d") -> list[list]:
     from astroquery.jplhorizons import Horizons
-    tab = Horizons(location="500", epochs={"start": WINDOW[0], "stop": WINDOW[1], "step": "3d"}, **hid).ephemerides(**ephem)
+    tab = Horizons(location="500", epochs={"start": span[0], "stop": span[1], "step": step}, **hid).ephemerides(**ephem)
     return [[str(r["datetime_str"])[:11], round(float(r["RA"]), 4), round(float(r["DEC"]), 4)] for r in tab]
 
 
@@ -100,6 +102,8 @@ def journey(target_id: str, cache_dir: Path, real_view: dict | None = None) -> d
             bodies.append({"name": name, "kind": "planet", "orbit": _dates(_vectors({"id": hid}, span)),
                            "track": _dates(_vectors({"id": hid}, (*WINDOW, "4d")))})
         sky = _dates(_sky(obj["horizons"], obj["ephem"]))
+        years_span = obj.get("years", YEARS)
+        sky_years = _dates(_sky(obj["horizons"], obj["ephem"], years_span, "7d"))
     except Exception as exc:  # Horizons unreachable: say so, never draw an invented path
         log.warning("Horizons failed for journey %s: %s", target_id, exc)
         raise UpstreamError(f"JPL Horizons is unavailable, the journey cannot be built right now ({type(exc).__name__})") from exc
@@ -107,6 +111,7 @@ def journey(target_id: str, cache_dir: Path, real_view: dict | None = None) -> d
     data = {
         "cache_version": CACHE_VERSION, "target": {"id": target_id, "name": obj["name"], "type": obj["type"], "fact": obj["fact"]},
         "window": {"start": WINDOW[0], "end": WINDOW[1]}, "bodies": bodies, "sky_track": sky,
+        "sky_years": sky_years, "years": {"start": years_span[0], "end": years_span[1]},
         "spherex_exposures": exposures, "spherex_visits": visits,
         "sources": ["Positions: JPL Horizons (heliocentric ecliptic vectors; geocentric RA/Dec)",
                     "SPHEREx moments: SKYTRACE observation inventory (Horizons position inside each image footprint)",

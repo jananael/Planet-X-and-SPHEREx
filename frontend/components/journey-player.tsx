@@ -153,7 +153,7 @@ export function JourneyPlayer({ data, frames, facts, onClose }: { data: JourneyD
         <input type="range" min={0} max={TOTAL_SECONDS} step={0.1} value={t} aria-label="Seek in the journey"
           onChange={event => { setPlaying(false); setT(Number(event.target.value)); }} style={{ width: 220 }} />
         <span className="explain-progress">{Math.floor(t)}s / {TOTAL_SECONDS}s</span>
-        <button type="button" className="explain-close" onClick={onClose}>Back to scientific view</button>
+        <button type="button" className="explain-close" onClick={onClose}>Back to images</button>
       </div>
     </section>
   );

@@ -9,6 +9,7 @@ import { ScientificEvidence } from "./scientific-evidence";
 import { ExplainPlayer } from "./explain-player";
 import { explainUrl, type ExplainFacts } from "../lib/explain";
 import { JourneyPlayer } from "./journey-player";
+import { SkyStoryPlayer } from "./sky-story-player";
 import type { JourneyData } from "../lib/journey";
 import { emptyCoverageMessage, formatUtc, NOT_AVAILABLE } from "../lib/scientific-format";
 
@@ -59,10 +60,20 @@ export function Explorer() {
   const [journey, setJourney] = useState<{ data: JourneyData; facts: ExplainFacts | null } | null>(null);
   const [journeyLoading, setJourneyLoading] = useState(false);
   const [journeyError, setJourneyError] = useState("");
+  // Simple explanation: the object's path through the real night sky, year by year.
+  const [skyStory, setSkyStory] = useState<JourneyData | null>(null);
+  const [skyLoading, setSkyLoading] = useState(false);
+  async function openSkyStory() {
+    if (!journeyTarget) return;
+    setSkyLoading(true); setJourneyError(""); setPlaying(false); setExplain(null); setJourney(null);
+    try { setSkyStory(await getJson<JourneyData>(`/api/journey/${journeyTarget.id}`, new AbortController().signal)); }
+    catch (error) { setJourneyError(errorMessage(error)); }
+    finally { setSkyLoading(false); }
+  }
   const journeyTarget = useMemo(() => coordinates
     ? targets.find(t => JOURNEY_TARGETS.includes(t.id) && Math.hypot((t.ra - coordinates.ra) * Math.cos(t.dec * Math.PI / 180), t.dec - coordinates.dec) < 0.2) ?? null
     : null, [targets, coordinates]);
-  useEffect(() => { setJourney(null); setJourneyError(""); }, [frames]);
+  useEffect(() => { setJourney(null); setJourneyError(""); setSkyStory(null); }, [frames]);
   async function openJourney() {
     if (!journeyTarget || !coordinates) return;
     setJourneyLoading(true); setJourneyError(""); setPlaying(false); setExplain(null);
@@ -323,26 +334,36 @@ export function Explorer() {
           </section>
         <section className="panel viewer-panel" aria-labelledby="viewer-title"><div className="viewer-heading"><div className="section-heading"><span className="step-number">03</span><div><p className="eyebrow">SEE WHAT TIME REVEALS</p><h2 id="viewer-title">Your view of the sky</h2></div></div><span className="alignment-badge">◎ North up · East left</span></div>
           <div className="audience-picker" role="group" aria-label="Choose how to see the results">
-            <button type="button" aria-pressed={!journey} onClick={() => setJourney(null)}>
+            <button type="button" aria-pressed={!skyStory} onClick={() => setSkyStory(null)}>
               <span className="audience-icon" aria-hidden="true">🔬</span><span className="audience-title">Scientific view</span>
-              <small>The real images with time, band, wavelength, release and file. Compare, blink, difference, guided walkthrough.</small>
+              <small>The real images with time, band, wavelength, release and file. Compare, blink, difference, and a step-by-step explanation of the data.</small>
             </button>
-            <button type="button" className="audience-simple" aria-pressed={!!journey} disabled={!journeyTarget || !canExplain || journeyLoading} onClick={() => { if (!journey) void openJourney(); }}>
-              <span className="audience-icon" aria-hidden="true">✨</span><span className="audience-title">{journeyLoading ? "Building the journey…" : "Simple explanation"} {!journeyTarget && <span className="soon-badge">Demo: Vesta</span>}</span>
-              <small>{journeyTarget ? (canExplain ? `An animated journey of ${journeyTarget.name}: its real orbit, its path in the sky, and the moments SPHEREx saw it.` : "Loading the images first…") : "Available as a demo for Vesta (choose it in the targets or the first story). More objects soon."}</small>
+            <button type="button" className="audience-simple" aria-pressed={!!skyStory} disabled={!journeyTarget || skyLoading} onClick={() => { if (!skyStory) void openSkyStory(); }}>
+              <span className="audience-icon" aria-hidden="true">✨</span><span className="audience-title">{skyLoading ? "Opening the sky…" : "Simple explanation"} {!journeyTarget && <span className="soon-badge">Demo: Vesta</span>}</span>
+              <small>{journeyTarget ? `Watch ${journeyTarget.name} travel through the real night sky, year by year, past the constellations.` : "Available as a demo for Vesta (choose it in the targets or the first story). More objects soon."}</small>
             </button>
           </div>
           {source && <p className={`data-source-line ${source === "mock" ? "mock" : ""}`}>{source === "real" ? "● Real data: NASA SPHEREx images from NASA/IPAC IRSA (DR1 + QR3)" : source === "mock" ? "● Synthetic demo data: not real observations" : ""}</p>}
-          {!journey && <button type="button" className="walkthrough-button" aria-pressed={!!explain} disabled={!canExplain || explainLoading} onClick={() => { if (explain) setExplain(null); else void openExplain(); }}>
-            <span aria-hidden="true">{explain ? "✕" : "🧭"}</span><span className="walkthrough-title">{explainLoading ? "Preparing the walkthrough…" : explain ? "Close the walkthrough" : "Guided walkthrough"}</span>
-            <small>{canExplain ? "Step by step: what changed, where, and how much" : "Load images of a location first"}</small>
-          </button>}
+          {!skyStory && (() => {
+            // One option only: the orbit story when the object has one (it already includes the real images
+            // with the predicted-position circle), otherwise the step-by-step walkthrough of the images.
+            const open = !!journey || !!explain, busy = journeyLoading || explainLoading;
+            return <button type="button" className="walkthrough-button" aria-pressed={open} disabled={!canExplain || busy}
+              onClick={() => { if (open) { setJourney(null); setExplain(null); } else if (journeyTarget) void openJourney(); else void openExplain(); }}>
+              <span aria-hidden="true">{open ? "✕" : journeyTarget ? "🪐" : "🧭"}</span>
+              <span className="walkthrough-title">{busy ? "Preparing…" : open ? "Close the explanation" : "Explain the data"}</span>
+              <small>{!canExplain ? "Load images of a location first" : journeyTarget
+                ? `${journeyTarget.name}: its real orbit (JPL Horizons), its path in the sky, then the SPHEREx images`
+                : "Step by step: what changed in these images, where, and how much"}</small>
+            </button>;
+          })()}
 
           {journeyError && <div className="notice error" role="alert">The journey could not be built: {journeyError}</div>}
-          {journey && <JourneyPlayer data={journey.data} frames={frames} facts={journey.facts} onClose={() => setJourney(null)} />}
+          {journey && !skyStory && <JourneyPlayer data={journey.data} frames={frames} facts={journey.facts} onClose={() => setJourney(null)} />}
+          {skyStory && <SkyStoryPlayer data={skyStory} onClose={() => setSkyStory(null)} />}
           {explainError && <div className="notice error" role="alert">The walkthrough could not be prepared: {explainError}</div>}
           {explain && <ExplainPlayer frames={frames} facts={explain} onClose={() => setExplain(null)} />}
-          {!explain && !journey && <p className="viewer-mode-hint" id="viewer-mode-help">Press ▶ to play your images in sequence, use the arrows to step through them, or Compare / Difference to inspect what changed.</p>}
+          {!explain && !journey && !skyStory && <p className="viewer-mode-hint" id="viewer-mode-help">Press ▶ to play your images in sequence, use the arrows to step through them, or Compare / Difference to inspect what changed.</p>}
           {activeStory && story && <div className="story-panel" role="region" aria-label={`Story: ${activeStory.title}`}>
             <div className="story-panel-top"><span className="story-kicker">{activeStory.kicker} · STEP {story.step + 1} OF {activeStory.steps.length}</span><button className="story-exit" onClick={endStory} aria-label="Exit story">✕</button></div>
             <h3>{activeStory.title}</h3>
@@ -350,7 +371,7 @@ export function Explorer() {
             <div className="story-nav"><button disabled={story.step === 0} onClick={() => moveStory(-1)}>← Back</button><span className="story-dots" aria-hidden="true">{activeStory.steps.map((_, i) => <span key={i} className={i === story.step ? "on" : ""} />)}</span>{story.step < activeStory.steps.length - 1 ? <button className="story-next" onClick={() => moveStory(1)}>Next →</button> : <button className="story-next" onClick={endStory}>Finish</button>}</div>
           </div>}
           {searched && observations.length > 0 && selected.length === 0 && <div className="viewer-availability"><p>Images are available for this location. Choose the dates you want to load.</p><a href="#available-observations">Choose your images below &darr;</a></div>}
-          <div id="sky-observation-view" className="viewer-stage" style={explain || journey ? { display: "none" } : undefined} aria-label={viewMode === "video" ? "Animated observation sequence" : "Observation image viewer"} aria-describedby="viewer-mode-help" aria-busy={loadingFrames} ref={stageRef}>
+          <div id="sky-observation-view" className="viewer-stage" style={explain || journey || skyStory ? { display: "none" } : undefined} aria-label={viewMode === "video" ? "Animated observation sequence" : "Observation image viewer"} aria-describedby="viewer-mode-help" aria-busy={loadingFrames} ref={stageRef}>
             {frame && !loadingFrames ? <>{frames.map((f, i) => <img key={f.obs.id} src={f.url} alt={`${source === "mock" ? "Synthetic demo observation" : source === "real" ? "SPHEREx observation" : "Observation (source unavailable)"}, ${utc(f.obs.obs_time)}, ${f.obs.band}`} className="sky-frame" style={{ visibility: i === index && !showDifference ? "visible" : "hidden" }} />)}{difference && frames.length > 1 && <canvas ref={canvas} className="sky-frame difference-canvas" role="img" aria-label="Difference between the current frame and the first frame" />}{showCompare && <><img src={frames[0].url} alt="" aria-hidden="true" className="sky-frame compare-reference" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }} /><span className="compare-line" style={{ left: `${split}%` }} aria-hidden="true" /><span className="compare-tag left">{utc(frames[0].obs.obs_time).slice(0, 16)}</span><span className="compare-tag right">{utc(frame.obs.obs_time).slice(0, 16)}</span><input className="compare-range" type="range" min={0} max={100} value={split} onChange={event => setSplit(Number(event.target.value))} aria-label="Move the comparison divider" /></>}{scale && <div className="scale-bar" aria-label={`Scale: ${scale.arcsec} arcseconds, about ${scale.pixels} SPHEREx pixels`}><span style={{ width: scale.px }} /><small>{scale.arcsec}″ · ≈{scale.pixels} px</small></div>}<span className="crosshair" aria-hidden="true" /><span className="stage-label">{difference && frames.length > 1 ? "DIFFERENCE · FRAME 1 REFERENCE" : showCompare ? `COMPARE · FRAME 1 | FRAME ${index + 1}` : `${frame.obs.band} · ${frame.obs.release}`}</span><span className="stage-counter">{index + 1} / {frames.length}</span><span className="north-label" aria-hidden="true">N ↑</span></> : <div className="viewer-empty"><div className={`view-reticle ${loadingFrames || searching ? "loading" : ""}`} aria-hidden="true"><span>✧</span></div><h3>{searching ? "Finding your patch of sky" : loadingFrames ? "Gathering moments in time" : failures.length ? "Images could not be loaded" : searched && !observations.length ? "A little further into the sky" : "Every comparison starts somewhere"}</h3><p>{loadingFrames ? `${progress.ready} of ${selectedObservations.length} images ready · ${progress.completed} processed` : searching ? "We’re looking for observations at your coordinates." : searched && !observations.length ? "Try another position or one of the demo targets." : selected.length === 0 && observations.length ? "Choose all images or specific dates in Available observations below to load your view." : "Enter your coordinates above to find images of this location."}</p>{loadingFrames && <><progress value={progress.completed} max={selectedObservations.length} /><small>First-time archive images can take 5–30 seconds each.</small></>}</div>}
           </div>
           <div className="playback" role="group" aria-label="Playback controls"><div className="transport"><button aria-label="Previous frame" disabled={loadingFrames || frames.length < 2} onClick={() => { setPlaying(false); step(-1); }}>◀</button><button className="play-button" aria-label={playing ? "Pause playback" : "Play comparison"} disabled={loadingFrames || frames.length < 2} onClick={() => { if (!playing) setViewMode("video"); setPlaying(p => !p); }}>{playing ? "Ⅱ" : "▶"}</button><button aria-label="Next frame" disabled={loadingFrames || frames.length < 2} onClick={() => { setPlaying(false); step(1); }}>▶</button></div><label className="speed-control" htmlFor="speed">Interval <input id="speed" type="range" min="0.2" max="2" step="0.1" value={speed} onChange={event => setSpeed(Number(event.target.value))} /><span>{speed.toFixed(1)}s</span></label></div>
