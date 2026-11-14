@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { EvidenceStory } from "./evidence-story";
 import { ApiFailure, getCandidateAnalysis } from "../lib/api";
+import { candidateSearchGroup } from "../lib/observations";
 import { aggregateEvidence, analysisError, analysisOutcome, analysisSelectionKey, candidateFlags, candidateQuality, candidateStatus, classificationLabels, evidenceForCandidate, evidenceLabels, explainFlag, imageReliability, matchingAnalysis, measurementAvailability, uncertaintyAvailability } from "../lib/scientific-evidence";
 import { dataSourceLabel, finiteNumber, formatUtc, NOT_AVAILABLE, numberValue, textValue, measurementValue, uncertaintyValue } from "../lib/scientific-format";
 import type { AnalysisPhase, AnalysisResult, Candidate, CandidateResponse } from "../lib/scientific-types";
@@ -68,6 +69,7 @@ export function ScientificEvidence({ coordinates, observations, frames, source, 
   currentFrame?: BlinkFrame; referenceFrame?: BlinkFrame; onViewEvidence?: (candidate: Candidate) => Promise<string | null>; onCompare?: () => void; onCancelEvidence?: () => void;
 }) {
   const key = analysisSelectionKey(coordinates, observations.map(o => o.id), source);
+  const candidateGroup = candidateSearchGroup(observations);
   const [stored, setStored] = useState<Stored | null>(null);
   const controller = useRef<AbortController | null>(null);
   const findingsPanel = useRef<HTMLDetailsElement>(null);
@@ -100,14 +102,18 @@ export function ScientificEvidence({ coordinates, observations, frames, source, 
   async function analyze() {
     if (!coordinates || searching || !observations.length) return;
     if (findingsPanel.current) findingsPanel.current.open = true;
+    if (!candidateGroup.ok) {
+      setStored({ key, response: null, outcome: { phase: "failed", retry: false, message: candidateGroup.message } });
+      return;
+    }
     controller.current?.abort(); const request = new AbortController(); controller.current = request;
     setStored({ key, response: null, outcome: { phase: "requesting", retry: false, message: "Requesting candidate analysis. No queued or processing job state has been reported by the backend yet." } });
     try {
-      const data = await getCandidateAnalysis(coordinates.ra, coordinates.dec, request.signal);
+      const data = await getCandidateAnalysis(coordinates.ra, coordinates.dec, candidateGroup.band, candidateGroup.pipeline, request.signal);
       if (source === "mock" && data.candidates.some(candidate => !candidate.is_mock)) throw new ApiFailure("INVALID_RESPONSE", "Candidate provenance conflicts with mock image mode.");
       if (!request.signal.aborted) setStored({ key, response: data, outcome: analysisOutcome(data) });
     } catch (error) {
-      if (!request.signal.aborted) setStored({ key, response: null, outcome: analysisError(error instanceof ApiFailure ? error.code : undefined) });
+      if (!request.signal.aborted) setStored({ key, response: null, outcome: analysisError(error instanceof ApiFailure ? error.code : undefined, error instanceof ApiFailure ? error.message : undefined) });
     }
   }
   async function viewSupportingEvidence(candidate: Candidate) {
@@ -133,6 +139,9 @@ export function ScientificEvidence({ coordinates, observations, frames, source, 
       <h3 id="scientific-findings-title">Scientific Findings &amp; Candidate Analysis</h3>
       <dl className="scientific-metadata"><div><dt>Candidate classification</dt><dd>{resultReady && related.length ? [...new Set(related.map(c => classificationLabels[c.classification?.candidate_type ?? ""] ?? NOT_AVAILABLE))].join("; ") : NOT_AVAILABLE}</dd></div><div><dt>Candidate status for this selection</dt><dd>{resultReady && related.length ? [...new Set(related.map(c => candidateStatus(c.status)))].join("; ") : NOT_AVAILABLE}</dd></div></dl>
       <p className="scientific-limitation">Validation of detections is not yet available in this backend contract. A known-object match is not a confirmation. Candidate classifications, measurement validity, and the evidence summary are separate concepts.</p>
+      {coordinates && <p className="scientific-limitation">{candidateGroup.ok
+        ? "Scope: regional candidate search within 0.25° of RA " + coordinates.ra + "°, Dec " + coordinates.dec + "°, restricted to " + candidateGroup.band + "/" + candidateGroup.pipeline + ". Releases may differ when the processing pipeline matches."
+        : "Regional candidate analysis needs one selected detector band and one supported processing pipeline. " + candidateGroup.message}</p>}
       {coordinates && <p className="scientific-limitation">Scope: regional candidate search within 0.5° of RA {coordinates.ra}°, Dec {coordinates.dec}°. The endpoint does not accept your selected dates, image IDs, or comparison settings. Other regional observations may appear.</p>}
       {response && <p>Candidate records returned: {response.count}. {response.analysis?.data_source === "mock" && <strong>Synthetic demo analysis — not real SPHEREx measurements.</strong>}</p>}
       {response && !resultReady && candidates.length > 0 && <p className="scientific-warning">These records are not reported as completed results. Do not treat them as a successful scientific analysis.</p>}

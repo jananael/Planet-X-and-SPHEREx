@@ -38,17 +38,18 @@ test("candidate client uses the actual endpoint and preserves completed-empty ve
   try {
     globalThis.fetch = async input => {
       const url = new URL(String(input));
-      assert.equal(url.pathname, "/api/candidates"); assert.equal(url.searchParams.get("ra"), "10"); assert.equal(url.searchParams.get("radius"), "0.5");
+      assert.equal(url.pathname, "/api/candidates"); assert.equal(url.searchParams.get("ra"), "10"); assert.equal(url.searchParams.get("radius"), "0.25");
+      assert.equal(url.searchParams.get("band"), "D1"); assert.equal(url.searchParams.get("pipeline"), "v27");
       return Response.json({ candidates: [], count: 0, analysis: { state: "completed", data_source: "real", scope: "sky_region" } });
     };
-    const result = await getCandidateAnalysis(10, 20, new AbortController().signal);
+    const result = await getCandidateAnalysis(10, 20, "D1", "v27", new AbortController().signal);
     assert.equal(result.analysis?.state, "completed"); assert.equal(result.count, 0);
     for (const [status, code] of [[501, "NOT_IMPLEMENTED"], [500, "INTERNAL_ERROR"], [404, "NO_COVERAGE"]] as const) {
       globalThis.fetch = async () => Response.json({ error: { code, message: "backend test failure" } }, { status });
-      await assert.rejects(getCandidateAnalysis(10, 20, new AbortController().signal), (error: unknown) => error instanceof ApiFailure && error.code === code);
+      await assert.rejects(getCandidateAnalysis(10, 20, "D1", "v27", new AbortController().signal), (error: unknown) => error instanceof ApiFailure && error.code === code);
     }
     globalThis.fetch = async () => Response.json({ candidates: [], count: 5 });
-    await assert.rejects(getCandidateAnalysis(10, 20, new AbortController().signal), (error: unknown) => error instanceof ApiFailure && error.code === "INVALID_RESPONSE");
+    await assert.rejects(getCandidateAnalysis(10, 20, "D1", "v27", new AbortController().signal), (error: unknown) => error instanceof ApiFailure && error.code === "INVALID_RESPONSE");
   } finally { globalThis.fetch = originalFetch; }
 });
 
@@ -71,7 +72,7 @@ test("candidate requests can be cancelled when the observation selection changes
       signal.addEventListener("abort", () => reject(signal.reason), { once: true });
       queueMicrotask(() => controller.abort());
     });
-    await assert.rejects(getCandidateAnalysis(10, 20, controller.signal));
+    await assert.rejects(getCandidateAnalysis(10, 20, "D1", "v27", controller.signal));
     assert.equal(controller.signal.aborted, true);
   } finally { globalThis.fetch = originalFetch; }
 });

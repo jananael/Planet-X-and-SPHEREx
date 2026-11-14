@@ -71,7 +71,8 @@ class DataSource(ABC):
         return None
 
     # Candidates come from the science team's engine. Sources that don't have one say so (501).
-    def candidates(self, ra: float, dec: float, radius: float) -> list[Candidate]:
+    def candidates(self, ra: float, dec: float, radius: float, *, band: str | None = None,
+                   pipeline: str | None = None) -> list[Candidate]:
         raise NotImplementedYet("Candidate detection is not connected for this data source yet (science engine pending)")
 
     def get_candidate(self, candidate_id: str) -> Candidate:
@@ -114,7 +115,7 @@ def build_mock_candidate(target: Target, observations: list[Observation], truth:
                                             variability_status="variable" if rel > 0.3 else "inconclusive"),
         classification=Classification(candidate_type=kind, method="mock: synthetic positions and fluxes"),
         quality=Quality(data_quality="valid", insufficient_evidence=False),
-        status="known_object", known_match=target.name, data_release=obs[0].release,
+        status="known_object", known_match=target.name,
         engine_version="mock", is_mock=True,
     )
 
@@ -139,7 +140,8 @@ class MockSource(DataSource):
                                         for t, obs in by_target.items() if len(obs) >= 2 and t in self._targets)
         }
 
-    def candidates(self, ra: float, dec: float, radius: float) -> list[Candidate]:
+    def candidates(self, ra: float, dec: float, radius: float, *, band: str | None = None,
+                   pipeline: str | None = None) -> list[Candidate]:
         hits = [c for c in self._candidates.values()
                 if angular_separation_deg(ra, dec, c.detections[0].ra_deg, c.detections[0].dec_deg) <= radius]
         return sorted(hits, key=lambda c: angular_separation_deg(ra, dec, c.detections[0].ra_deg, c.detections[0].dec_deg))

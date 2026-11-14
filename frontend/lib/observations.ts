@@ -51,6 +51,20 @@ export function selectDate(selected: string[], images: Observation[], include: b
   return include ? [...new Set([...selected, ...ids])] : selected.filter(id => !ids.has(id));
 }
 
+/** Candidate analysis searches a region, but must be constrained to one known data group. */
+export function candidateSearchGroup(observations: Observation[]):
+  | { ok: true; band: string; pipeline: string }
+  | { ok: false; message: string } {
+  if (!observations.length) return { ok: false, message: "Select observations before requesting candidate analysis." };
+  const bands = [...new Set(observations.map(observation => observation.band))];
+  if (bands.length !== 1) return { ok: false, message: "Selected observations span multiple detector bands. Select one band before requesting regional analysis." };
+  const pipelines = observations.map(observation => observation.processing_version?.match(/l2b(?:_retry)?-(v\d+)/)?.[1] ?? null);
+  if (pipelines.some(pipeline => pipeline === null)) return { ok: false, message: "A processing pipeline is missing or unsupported for one or more selected observations. Select observations with known pipeline metadata." };
+  const uniquePipelines = [...new Set(pipelines)];
+  if (uniquePipelines.length !== 1) return { ok: false, message: "Selected observations span multiple processing pipelines (" + uniquePipelines.join(", ") + "). Select observations from one pipeline before requesting regional analysis." };
+  return { ok: true, band: bands[0], pipeline: uniquePipelines[0] as string };
+}
+
 /**
  * Pipelines mixed in one comparison. Science team (Nov 2026): DR1 reprocessed Surveys 1-2 with the
  * same processing and calibration as QR3, so DR1 + QR3 together is fine; what matters is the

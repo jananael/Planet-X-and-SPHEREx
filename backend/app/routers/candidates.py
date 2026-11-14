@@ -14,13 +14,14 @@ def list_candidates(
     ra: Annotated[float, Query(ge=0, lt=360, description="Right ascension, degrees (ICRS)")],
     dec: Annotated[float, Query(ge=-90, le=90, description="Declination, degrees")],
     radius: Annotated[float, Query(gt=0, le=5, description="Search radius, degrees")] = 0.5,
+    band: Annotated[str | None, Query(pattern="^D[1-6]$", description="SPHEREx band to analyze")]=None,
+    pipeline: Annotated[str | None, Query(pattern="^v\\d+$", description="Processing pipeline, e.g. v27")]=None,
     ds: DataSource = Depends(get_data_source),
 ) -> CandidateList:
-    """Candidates from the science engine near (ra, dec). Mock data until the engine is connected."""
-    found = ds.candidates(ra, dec, radius)
-    # Completion is reported only after the synchronous source call succeeds.
-    # An unsupported engine still raises its existing 501 response above.
-    return CandidateList(query={"ra": ra, "dec": dec, "radius": radius}, candidates=found, count=len(found),
+    """Candidates from mock fixtures or the real FITS detection engine."""
+    found = ds.candidates(ra, dec, radius, band=band, pipeline=pipeline)
+    return CandidateList(query={"ra": ra, "dec": dec, "radius": radius,
+                                "band": band, "pipeline": pipeline}, candidates=found, count=len(found),
                          analysis=CandidateAnalysis(state="completed", data_source=ds.name))
 
 

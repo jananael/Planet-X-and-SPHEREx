@@ -73,16 +73,17 @@ def test_measured_flux_must_be_in_ujy():
 
 
 def test_engine_request_refuses_mixed_pipelines():
-    from datetime import datetime, timezone
+    from datetime import datetime, timedelta, timezone
     from pathlib import Path as P
     from app.services.engine import EngineFrame, EngineRequest, KnownObject
     t = datetime(2026, 7, 13, tzinfo=timezone.utc)
-    f = lambda v: EngineFrame(observation_id="x", fits_path=P("x.fits"), obs_time=t, band="D2", release="QR3",
+    f = lambda v, i: EngineFrame(observation_id=f"x{i}", fits_path=P("x.fits"),
+                              obs_time=t + timedelta(minutes=i), band="D2", release="QR3",
                               processing_version=v, wavelength_um=None, bandwidth_um=None)
     ko = KnownObject(object_id="vesta", name="(4) Vesta", ra_deg=22.5, dec_deg=1.36, epoch_utc=t, source="JPL_HORIZONS")
-    EngineRequest(22.5, 1.36, 0.1, [f("l2b-v27-2026-228"), f("l2b_retry-v27-2026-214")], [ko])  # same pipeline
+    EngineRequest(22.5, 1.36, 0.1, [f("l2b-v27-2026-228", 0), f("l2b_retry-v27-2026-214", 1)], [ko])  # same pipeline
     with pytest.raises(ValueError, match="pipeline"):
-        EngineRequest(22.5, 1.36, 0.1, [f("l2b-v27-2026-228"), f("l2b-v28-2027-010")])
+        EngineRequest(22.5, 1.36, 0.1, [f("l2b-v27-2026-228", 0), f("l2b-v28-2027-010", 1)])
 
 
 def test_score_is_a_0_to_1_ranking():
