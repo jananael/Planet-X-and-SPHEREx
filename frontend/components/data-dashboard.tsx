@@ -147,7 +147,7 @@ export function DataDashboard({ onLearningLab }: { onLearningLab: (place: Dashbo
           {!place?.targetId && <option value="">{place?.name ?? "Custom location"}</option>}
           {targets.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select></label>
-        <button type="button" className="dash-lab" disabled={!place} onClick={() => onLearningLab(place)}>Learning lab (demo) →</button>
+        <button type="button" className="dash-lab" disabled={!place} onClick={() => onLearningLab(place)}>Coordinate sky map & learning lab →</button>
       </div>
     </div>
     {status === "error" && <div className="notice error" role="alert">The data could not be loaded: {error}</div>}

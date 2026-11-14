@@ -1,5 +1,5 @@
 "use client";
-// /visualization: the real-data dashboard first; Yazan's interactive Learning lab (illustrative data) one click away.
+// /visualization: the real-data dashboard first; the coordinate sky map and educational views are one click away.
 import { useEffect, useState } from "react";
 import { DataDashboard, type DashboardPlace } from "./data-dashboard";
 import { VisualizationWorkspace } from "./visualization-workspace";

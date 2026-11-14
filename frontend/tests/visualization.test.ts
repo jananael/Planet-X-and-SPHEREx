@@ -71,6 +71,7 @@ test("the Learning lab receives the dashboard's currently selected coordinates a
   const dashboard = readFileSync(new URL("../components/data-dashboard.tsx", import.meta.url), "utf8");
   const page = readFileSync(new URL("../components/visualization-page.tsx", import.meta.url), "utf8");
   assert.match(dashboard, /onLearningLab\(place\)/);
+  assert.match(dashboard, /Coordinate sky map & learning lab/);
   assert.match(page, /place\.point\.ra/);
   assert.match(page, /place\.point\.dec/);
   assert.match(page, /place\.start/);
