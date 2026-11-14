@@ -1,6 +1,6 @@
 /* Visualization uses the Explorer's look: shared header/footer, navy panels, cyan accents, beige headings.
    The page's own headers/footers are hidden; its purple palette is mapped onto the Explorer variables. */
-.viz-themed .viz-header, .viz-themed .dash-header, .viz-themed .viz-footer > span:first-child, .viz-themed .dash-footer { display: none; }
+.viz-themed .viz-header, .viz-themed .viz-footer > span:first-child { display: none; }
 .viz-themed .viz-page, .viz-themed .dash-page { background: none; color: var(--text); max-width: 1440px; padding-inline: 52px; }
 .viz-themed .dash-back-bar { max-width: 1440px; padding: 12px 52px 0; }
 .viz-themed .dash-back-bar button { color: var(--bright); background: var(--panel); border-color: var(--line); }

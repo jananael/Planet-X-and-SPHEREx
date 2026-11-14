@@ -59,18 +59,6 @@ test("the coordinate sky map was removed from the Learning lab", () => {
   assert.doesNotMatch(source, /\/api\/sky-objects|CoordinateSkyView/);
 });
 
-test("the Learning lab receives the dashboard's currently selected coordinates and epoch filters", () => {
-  const dashboard = readFileSync(new URL("../components/data-dashboard.tsx", import.meta.url), "utf8");
-  const page = readFileSync(new URL("../components/visualization-page.tsx", import.meta.url), "utf8");
-  assert.match(dashboard, /onLearningLab\(place\)/);
-  assert.match(dashboard, /Learning lab \(demo\)/);
-  assert.match(page, /place\.point\.ra/);
-  assert.match(page, /place\.point\.dec/);
-  assert.match(page, /place\.start/);
-  assert.match(page, /place\.end/);
-  assert.match(page, /searchParams\.set\("view", "lab"\)/);
-});
-
 test("Visualization is the active product tab and the ML dashboard link is removed", () => {
   const home = readFileSync(new URL("../components/home-page.tsx", import.meta.url), "utf8");
   const explorer = readFileSync(new URL("../components/explorer.tsx", import.meta.url), "utf8");
@@ -80,7 +68,7 @@ test("Visualization is the active product tab and the ML dashboard link is remov
   assert.match(home, /href="\/visualization"/);
   assert.match(staticHome, /href="\/visualization"/);
   assert.match(workspaceNav, /\["\/visualization", "Visualization"\]/);
-  assert.match(route, /VisualizationPage/);  // dashboard first, the workspace is its Learning lab
+  assert.match(route, /VisualizationPage/);  // the Learning lab, wrapped in the Explorer's header and footer
   assert.match(readFileSync(new URL("../components/visualization-page.tsx", import.meta.url), "utf8"), /VisualizationWorkspace/);
   assert.doesNotMatch(home + explorer, /\/machine-learning/);
 });
