@@ -2,7 +2,7 @@
 
 ## Branch and base
 
-This PR is based on the team's latest `main`, commit `7224518` (`Merge Taqwa's S2-T4 FITS processing and quality tests`). It keeps that current workspace and FITS processor, and adds the visualization route without bringing in commits or unrelated uncommitted files from the local Y2 branch.
+This PR is based on the team's latest `main`, commit `87e49a9` (`Sky Navigator: object search and quick buttons work without CDS`), which includes PR #4's FITS processing and quality tests. It keeps the current workspace, FITS processor, and Sky Navigator improvements, and adds the visualization route without bringing in commits or unrelated uncommitted files from the local Y2 branch.
 
 ## Product experience
 
