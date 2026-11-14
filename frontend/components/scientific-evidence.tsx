@@ -142,7 +142,6 @@ export function ScientificEvidence({ coordinates, observations, frames, source, 
       {coordinates && <p className="scientific-limitation">{candidateGroup.ok
         ? "Scope: regional candidate search within 0.25° of RA " + coordinates.ra + "°, Dec " + coordinates.dec + "°, restricted to " + candidateGroup.band + "/" + candidateGroup.pipeline + ". Releases may differ when the processing pipeline matches."
         : "Regional candidate analysis needs one selected detector band and one supported processing pipeline. " + candidateGroup.message}</p>}
-      {coordinates && <p className="scientific-limitation">Scope: regional candidate search within 0.5° of RA {coordinates.ra}°, Dec {coordinates.dec}°. The endpoint does not accept your selected dates, image IDs, or comparison settings. Other regional observations may appear.</p>}
       {response && <p>Candidate records returned: {response.count}. {response.analysis?.data_source === "mock" && <strong>Synthetic demo analysis — not real SPHEREx measurements.</strong>}</p>}
       {response && !resultReady && candidates.length > 0 && <p className="scientific-warning">These records are not reported as completed results. Do not treat them as a successful scientific analysis.</p>}
       {resultReady && candidates.length > 0 && !related.length && <p className="scientific-limitation">None of the regional candidates reference the currently selected observations. They do not evaluate this image comparison.</p>}

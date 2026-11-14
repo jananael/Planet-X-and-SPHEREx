@@ -112,15 +112,19 @@ export function Explorer() {
   }
   // Always-visible plain summary under the images (same facts as "Explain the data", fetched quietly).
   const [summaryFacts, setSummaryFacts] = useState<ExplainFacts | null>(null);
+  const [summaryPending, setSummaryPending] = useState(false);
   useEffect(() => {
-    setSummaryFacts(null);
+    setSummaryFacts(null); setSummaryPending(false);
     if (!coordinates || !frames.length || loadingFrames) return;
-    const controller = new AbortController();
+    const controller = new AbortController(); setSummaryPending(true);
     getJson<ExplainFacts>(explainUrl(coordinates.ra, coordinates.dec, size, frames.map(f => f.obs.id)), controller.signal)
-      .then(setSummaryFacts, () => { /* the summary still shows what, when and light without it */ });
+      .then(setSummaryFacts, () => { /* the summary still shows what, when and light without it */ })
+      .finally(() => { if (!controller.signal.aborted) setSummaryPending(false); });
     return () => controller.abort();
   }, [frames, loadingFrames, coordinates, size]);
-  const summary = loadingFrames ? [] : summarize(summaryFacts, frames);
+  // While the facts are on their way, never show the "no known object" fallback (it could be wrong).
+  const summary = loadingFrames ? [] : summarize(summaryFacts, frames).map(l =>
+    summaryPending && (l.label === "Change" || l.label === "Remember") ? { ...l, text: l.label === "Change" ? "Checking what changed between these pictures…" : "…" } : l);
   const [viewMode, setViewMode] = useState<"images" | "video">("images");
   const [speed, setSpeed] = useState(0.7);
   const [difference, setDifference] = useState(false);
