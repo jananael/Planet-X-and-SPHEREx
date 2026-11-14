@@ -40,12 +40,18 @@ export function duringVisit(data: JourneyData, iso: string): boolean {
   return data.spherex_visits.some(v => v.from <= d && d <= v.to);
 }
 
+/** Today's date (UTC, YYYY-MM-DD): positions after it are predictions, not observations. */
+export function todayIso(): string { return new Date().toISOString().slice(0, 10); }
+export const isFuture = (iso: string, today: string) => iso.slice(0, 10) > today;
+
 /** Plain-language caption. `constellation`: IAU constellation behind the object right now; `now`: date reached. */
-export function skyCaption(data: JourneyData, phase: { kind: "intro" | "year" | "outro" }, year: number | null, constellation: string | null, now?: string): string {
+export function skyCaption(data: JourneyData, phase: { kind: "intro" | "year" | "outro" }, year: number | null, constellation: string | null, now?: string, today = todayIso()): string {
   const name = data.target.name;
   if (phase.kind === "intro") return `This is the real night sky: every dot is a real star, the lines join the stars of each constellation. Let's follow ${name}.`;
-  if (phase.kind === "outro") return "The path comes from JPL Horizons calculations. SPHEREx photographed it only in 2025 and 2026: those are real pictures. A known object, not a discovery.";
+  if (phase.kind === "outro") return "Solid line: where it was (JPL Horizons). Dotted line: where it will be, a prediction. SPHEREx photographed it only in 2025 and 2026: those are real pictures. A known object, not a discovery.";
   const where = constellation ? ` in front of the stars of ${constellation}` : "";
+  // The future is a prediction: say so in the words, not only in the drawing.
+  if (now && isFuture(now, today)) return `${year} (prediction): ${name} will travel${where}. Nobody has photographed this yet: it is calculated from its orbit.`;
   // Only speak about SPHEREx once the path has reached the real exposure dates.
   if (now && year !== null && duringVisit(data, now)) {
     const n = spherexInYear(data, year, now);
@@ -54,7 +60,7 @@ export function skyCaption(data: JourneyData, phase: { kind: "intro" | "year" | 
   const seen = year !== null ? spherexInYear(data, year, now) : 0;
   if (seen > 0) return `${year}: ${name} travels${where}. SPHEREx took ${seen} real pictures of it earlier this year.`;
   const later = year !== null && spherexInYear(data, year) > 0;
-  return `${year}: ${name} travels${where}.${later ? "" : year !== null && year < 2025 ? " (Calculated path: SPHEREx was not observing yet.)" : year !== null && year > 2026 ? " (Calculated path: no SPHEREx images in this archive yet.)" : ""}`;
+  return `${year}: ${name} travels${where}.${later ? "" : year !== null && year < 2025 ? " (Calculated path: SPHEREx was not observing yet.)" : ""}`;
 }
 
 /** Map RA/Dec onto a wide strip, east to the left, RA 0..360 across the width. */

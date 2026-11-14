@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { decRange, duringVisit, phaseAt, project, skyCaption, spherexInYear, timeline, yearsOf } from "../lib/sky-story.ts";
+import { decRange, duringVisit, isFuture, phaseAt, project, skyCaption, spherexInYear, timeline, yearsOf } from "../lib/sky-story.ts";
 import type { JourneyData } from "../lib/journey.ts";
 
 const data = {
@@ -26,10 +26,10 @@ test("timeline: intro, one slot per year, outro", () => {
 
 test("SPHEREx is only mentioned once the path reaches the real exposure dates", () => {
   const year = { kind: "year" } as const;
-  assert.doesNotMatch(skyCaption(data, year, 2026, "Capricornus", "2026-02-01"), /SPHEREx/);   // before the visit
-  assert.match(skyCaption(data, year, 2026, "Cetus", "2026-07-14"), /in front of the stars of Cetus, and right now NASA's SPHEREx telescope is photographing it \(2 real pictures so far/);
-  assert.match(skyCaption(data, year, 2026, "Cetus", "2026-09-01"), /SPHEREx took 2 real pictures of it earlier this year/);
-  assert.match(skyCaption(data, year, 2021, "Leo", "2021-05-01"), /Calculated path: SPHEREx was not observing yet/);
+  assert.doesNotMatch(skyCaption(data, year, 2026, "Capricornus", "2026-02-01", "2026-11-14"), /SPHEREx/);   // before the visit
+  assert.match(skyCaption(data, year, 2026, "Cetus", "2026-07-14", "2026-11-14"), /in front of the stars of Cetus, and right now NASA's SPHEREx telescope is photographing it \(2 real pictures so far/);
+  assert.match(skyCaption(data, year, 2026, "Cetus", "2026-09-01", "2026-11-14"), /SPHEREx took 2 real pictures of it earlier this year/);
+  assert.match(skyCaption(data, year, 2021, "Leo", "2021-05-01", "2026-11-14"), /Calculated path: SPHEREx was not observing yet/);
   assert.equal(spherexInYear(data, 2026, "2026-07-06"), 1);
   assert.equal(duringVisit(data, "2026-07-10"), true);
   assert.equal(duringVisit(data, "2026-08-10"), false);
@@ -40,4 +40,14 @@ test("projection puts east (larger RA) to the left and keeps the path in view", 
   assert.ok(xEast < xWest);
   const [lo, hi] = decRange([["2020-01-01", 0, -20], ["2021-01-01", 0, 25]]);
   assert.ok(lo <= -20 && hi >= 25 && hi - lo >= 60);
+});
+
+test("after today the caption says prediction, never an observation", () => {
+  const year = { kind: "year" } as const;
+  const future = skyCaption(data, year, 2028, "Virgo", "2028-03-01", "2026-11-14");
+  assert.match(future, /^2028 \(prediction\): \(4\) Vesta will travel in front of the stars of Virgo\. Nobody has photographed this yet/);
+  assert.doesNotMatch(future, /SPHEREx/);
+  assert.doesNotMatch(skyCaption(data, year, 2026, "Cetus", "2026-07-14", "2026-11-14"), /prediction/);  // the past stays the past
+  assert.equal(isFuture("2026-11-15", "2026-11-14"), true);
+  assert.equal(isFuture("2026-11-14", "2026-11-14"), false);
 });

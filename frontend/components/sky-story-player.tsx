@@ -4,7 +4,7 @@
 // Path: JPL Horizons. SPHEREx flashes: real exposure dates. No decorative or invented stars.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { positionAt, type JourneyData } from "../lib/journey";
-import { decRange, duringVisit, phaseAt, project, skyCaption, timeline, yearsOf } from "../lib/sky-story";
+import { decRange, duringVisit, isFuture, phaseAt, project, skyCaption, timeline, todayIso, yearsOf } from "../lib/sky-story";
 import { skyRegion, type SkyFeature } from "../lib/sky-navigation";
 import "./explain-player.css";
 
@@ -27,6 +27,7 @@ function loadCatalog(): Promise<Catalog> {
 
 export function SkyStoryPlayer({ data, onClose }: { data: JourneyData; onClose: () => void }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const today = useMemo(() => todayIso(), []);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [error, setError] = useState("");
   const [t, setT] = useState(0);
@@ -114,16 +115,29 @@ export function SkyStoryPlayer({ data, onClose }: { data: JourneyData; onClose: 
     years.forEach((seg, i) => {
       if (i > upto) return;
       const pts = i === upto && phase.kind === "year" ? seg.points.slice(0, Math.max(2, Math.ceil(seg.points.length * phase.progress))) : seg.points;
-      ctx.strokeStyle = i === upto ? "#ffd166" : `rgba(255,209,102,${Math.max(0.25, 0.7 - (upto - i) * 0.08)})`;
-      ctx.lineWidth = i === upto ? 3 : 2;
-      ctx.beginPath();
-      pts.forEach((p, k) => {
-        const [x, y] = P(p[1], p[2]); const prev = k ? P(pts[k - 1][1], pts[k - 1][2]) : null;
-        if (!prev || Math.abs(x - prev[0]) > W / 2) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
+      const alpha = i === upto ? 1 : Math.max(0.25, 0.7 - (upto - i) * 0.08);
+      // Past (up to today): solid. Future: dotted and fainter, it is a prediction.
+      for (const future of [false, true]) {
+        ctx.save();
+        ctx.strokeStyle = future ? `rgba(200,220,255,${alpha * 0.75})` : `rgba(255,209,102,${alpha})`;
+        ctx.lineWidth = i === upto ? 3 : 2;
+        if (future) ctx.setLineDash([2, 6]);
+        ctx.beginPath();
+        let open = false;
+        pts.forEach((p, k) => {
+          // The dotted (future) line also takes the last past point, so the two lines join at "today".
+          const include = future ? isFuture(p[0], today) || (k + 1 < pts.length && isFuture(pts[k + 1][0], today)) : !isFuture(p[0], today);
+          if (!include) { open = false; return; }
+          const [x, y] = P(p[1], p[2]); const prev = k ? P(pts[k - 1][1], pts[k - 1][2]) : null;
+          if (!open || !prev || Math.abs(x - prev[0]) > W / 2) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          open = true;
+        });
+        ctx.stroke(); ctx.restore();
+      }
       const [lx, ly] = P(seg.points[0][1], seg.points[0][2]);
-      text(String(seg.year), lx, ly - 10, i === upto ? "#ffe2a0" : "#ffd16699", i === upto ? 15 : 12, "center", 600);
+      const predicted = isFuture(seg.points[0][0], today);
+      text(predicted ? `${seg.year} · predicted` : String(seg.year), lx, ly - 10,
+        predicted ? (i === upto ? "#dce8ff" : "#c8dcff88") : (i === upto ? "#ffe2a0" : "#ffd16699"), i === upto ? 15 : 12, "center", 600);
       // SPHEREx moments in this year (only the ones already reached).
       const reached = pts[pts.length - 1][0];
       for (const e of data.spherex_exposures) {
@@ -133,6 +147,19 @@ export function SkyStoryPlayer({ data, onClose }: { data: JourneyData; onClose: 
         ctx.fillStyle = "#5bc0de"; ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
       }
     });
+    // "Today": where the object is now, the border between what happened and what is predicted.
+    const drawnUntil = phase.kind === "outro" ? years[years.length - 1]?.points.at(-1)?.[0] : nowPoint?.[0];
+    if (drawnUntil && !isFuture(today, drawnUntil)) {
+      const p = positionAt(track, today);
+      if (p) {
+        const [x, y] = P(p[0], p[1]);
+        ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, y - 9); ctx.lineTo(x, y - 30); ctx.stroke();
+        const label = `Today · ${new Date(today + "T00:00:00Z").toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" })}`;
+        ctx.fillStyle = "#020613dd"; ctx.fillRect(x - 58, y - 52, 116, 20);
+        text(label, x, y - 37, "#ffffff", 13, "center", 600);
+      }
+    }
     // The object itself.
     if (phase.kind !== "intro") {
       const seg = years[Math.min(upto, years.length - 1)];
@@ -148,17 +175,19 @@ export function SkyStoryPlayer({ data, onClose }: { data: JourneyData; onClose: 
     }
     // Headline.
     ctx.fillStyle = "#020613cc"; ctx.fillRect(12, 12, 300, 54);
-    text(year !== null && phase.kind !== "intro" ? String(year) : "The night sky", 24, 46, "#f3f2fb", 26, "left", 600);
+    const headlineFuture = !!nowPoint && isFuture(nowPoint[0], today) && phase.kind === "year";
+    text(year !== null && phase.kind !== "intro" ? (headlineFuture ? `${year} · prediction` : String(year)) : "The night sky", 24, 46,
+      headlineFuture ? "#dce8ff" : "#f3f2fb", headlineFuture ? 22 : 26, "left", 600);
     if (current) text(`in ${current}`, 300, 46, "#bfe6ff", 15, "right");
-    text("Real stars (Hipparcos) · path: JPL Horizons · east to the left", W - 14, H - 12, "#8aa6d6aa", 11, "right");
-  }, [t, catalog, years, phase.kind, phase.index, phase.progress, decMin, decMax, raCenter, current, data, year]);
+    text("Real stars (Hipparcos) · path: JPL Horizons · solid = past, dotted = predicted · east to the left", W - 14, H - 12, "#8aa6d6aa", 11, "right");
+  }, [t, catalog, years, phase.kind, phase.index, phase.progress, decMin, decMax, raCenter, current, data, year, today, track, nowPoint]);
   return (
     <section className="explain-player" aria-label={`${data.target.name} travelling through the night sky`}>
       <div className="explain-badge">Real stars and constellations · path from JPL Horizons · SPHEREx moments from real observations</div>
       {error && <div className="notice error" role="alert">The star map could not load: {error}</div>}
       <canvas ref={canvas} width={W} height={H} className="explain-canvas sky-story-canvas" role="img"
         aria-label={`${year ?? "Night sky"}${current ? `, ${data.target.name} in ${current}` : ""}`} />
-      <p className="explain-caption" aria-live="polite">{skyCaption(data, phase, year, current, nowPoint?.[0])}</p>
+      <p className="explain-caption" aria-live="polite">{skyCaption(data, phase, year, current, nowPoint?.[0], today)}</p>
       <div className="explain-controls">
         <button type="button" onClick={() => { if (t >= tl.total) { setT(0); setPlaying(true); } else setPlaying(p => !p); }}>
           {t >= tl.total ? "Replay" : playing ? "Pause" : "Play"}
