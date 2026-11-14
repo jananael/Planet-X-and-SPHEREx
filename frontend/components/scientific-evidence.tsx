@@ -68,6 +68,7 @@ export function ScientificEvidence({ coordinates, observations, frames, source, 
   const key = analysisSelectionKey(coordinates, observations.map(o => o.id), source);
   const [stored, setStored] = useState<Stored | null>(null);
   const controller = useRef<AbortController | null>(null);
+  const findingsPanel = useRef<HTMLDetailsElement>(null);
   useEffect(() => { controller.current?.abort(); setStored(null); return () => controller.current?.abort(); }, [key, searching]);
   const current = matchingAnalysis(stored, key, searching);
   const response = current?.response ?? null;
@@ -87,6 +88,7 @@ export function ScientificEvidence({ coordinates, observations, frames, source, 
     : related.length && related.every(c => Array.isArray(c.quality_flags) && c.detections.every(d => Array.isArray(d.quality_flags))) ? "No quality issues reported — not a certification that checks passed" : "Quality checks unavailable or incomplete";
   async function analyze() {
     if (!coordinates || searching || !observations.length) return;
+    if (findingsPanel.current) findingsPanel.current.open = true;
     controller.current?.abort(); const request = new AbortController(); controller.current = request;
     setStored({ key, response: null, outcome: { phase: "requesting", retry: false, message: "Requesting candidate analysis. No queued or processing job state has been reported by the backend yet." } });
     try {
@@ -97,21 +99,28 @@ export function ScientificEvidence({ coordinates, observations, frames, source, 
       if (!request.signal.aborted) setStored({ key, response: null, outcome: analysisError(error instanceof ApiFailure ? error.code : undefined) });
     }
   }
-  return <section className="panel scientific-panel" aria-labelledby="scientific-summary-title">
-    <div className="scientific-card-heading"><div><p className="eyebrow">EVIDENCE BEFORE CONCLUSIONS</p><h2 id="scientific-summary-title">Scientific Evidence Summary</h2></div><span className="scientific-status">{evidenceLabels[usableEvidence.state]}</span></div>
+  return <section className="panel scientific-panel evidence-organized" aria-labelledby="scientific-summary-title">
+    <div className="scientific-card-heading"><div><p className="eyebrow">UNDERSTAND THE EVIDENCE</p><h2 id="scientific-summary-title">Scientific Evidence Summary</h2></div><span className="scientific-status">{evidenceLabels[usableEvidence.state]}</span></div>
     <p className="scientific-limitation">{usableEvidence.explanation}</p>
-    <dl className="scientific-metadata scientific-summary-grid">
-      <div><dt>Selected observations</dt><dd>{observations.length ? `${observations.length} selected · ${loadingImages ? "images loading" : `${frames.length} loaded`}` : "No observations selected"}</dd></div>
-      <div><dt>Selected Observation IDs</dt><dd>{ids.length ? ids.join(", ") : NOT_AVAILABLE}</dd></div>
-      <div><dt>Candidate classification</dt><dd>{resultReady && related.length ? [...new Set(related.map(c => classificationLabels[c.classification?.candidate_type ?? ""] ?? NOT_AVAILABLE))].join("; ") : NOT_AVAILABLE}</dd></div>
-      <div><dt>Image data source</dt><dd>{dataSourceLabel(source)}</dd></div>
-      <div><dt>Candidate status for this selection</dt><dd>{resultReady && related.length ? [...new Set(related.map(c => candidateStatus(c.status)))].join("; ") : NOT_AVAILABLE}</dd></div>
-      <div><dt>Measurement availability</dt><dd>{measurementAvailability(resultReady ? related : [])}</dd></div>
-      <div><dt>Uncertainty availability</dt><dd>{uncertaintyAvailability(resultReady ? related : [])}</dd></div>
+    <div className="evidence-next-step"><div role="status"><strong>{phaseLabels[outcome.phase]}</strong><p>{outcome.message}</p></div><button type="button" className="share-button" disabled={!coordinates || !observations.length || searching || noCoverage || searchFailed || outcome.phase === "requesting"} onClick={() => void analyze()}>{outcome.phase === "requesting" ? "Requesting…" : outcome.retry ? "Retry candidate request" : "Load candidate analysis"}</button></div>
+    <dl className="evidence-at-a-glance">
+      <div><dt>Selected observations</dt><dd>{observations.length ? `${observations.length} selected / ${loadingImages ? "images loading" : `${frames.length} loaded`}` : "No observations selected"}</dd></div>
+      <div><dt>Candidate records (regional)</dt><dd>{response ? response.count : "Not available"}</dd></div>
       <div><dt>Data quality</dt><dd>{qualityText}</dd></div>
-      <div><dt>Scientific validation</dt><dd>Not available — the current backend contract does not certify validated detections or verified measurements.</dd></div>
     </dl>
-    <section className="scientific-quality" aria-labelledby="scientific-quality-title"><h3 id="scientific-quality-title">Data Quality &amp; Reliability</h3><p>{qualityText}</p>
+    <p className="evidence-help">What would you like to check? Open a section below for the details you need.</p>
+    <details className="evidence-section" ref={findingsPanel}><summary><span><strong>Findings &amp; candidates</strong><small>See returned candidates, their status and supporting observations.</small></span></summary><div className="evidence-section-body scientific-findings">
+      <h3 id="scientific-findings-title">Scientific Findings &amp; Candidate Analysis</h3>
+      <dl className="scientific-metadata"><div><dt>Candidate classification</dt><dd>{resultReady && related.length ? [...new Set(related.map(c => classificationLabels[c.classification?.candidate_type ?? ""] ?? NOT_AVAILABLE))].join("; ") : NOT_AVAILABLE}</dd></div><div><dt>Candidate status for this selection</dt><dd>{resultReady && related.length ? [...new Set(related.map(c => candidateStatus(c.status)))].join("; ") : NOT_AVAILABLE}</dd></div></dl>
+      <p className="scientific-limitation">Validation of detections is not yet available in this backend contract. A known-object match is not a confirmation. Candidate classifications, measurement validity, and the evidence summary are separate concepts.</p>
+      {coordinates && <p className="scientific-limitation">Scope: regional candidate search within 0.5° of RA {coordinates.ra}°, Dec {coordinates.dec}°. The endpoint does not accept your selected dates, image IDs, or comparison settings. Other regional observations may appear.</p>}
+      {response && <p>Candidate records returned: {response.count}. {response.analysis?.data_source === "mock" && <strong>Synthetic demo analysis — not real SPHEREx measurements.</strong>}</p>}
+      {response && !resultReady && candidates.length > 0 && <p className="scientific-warning">These records are not reported as completed results. Do not treat them as a successful scientific analysis.</p>}
+      {resultReady && candidates.length > 0 && !related.length && <p className="scientific-limitation">None of the regional candidates reference the currently selected observations. They do not evaluate this image comparison.</p>}
+      {candidates.map(candidate => <CandidateCard key={candidate.candidate_id} candidate={candidate} selectedIds={ids} />)}
+    </div></details>
+
+    <details className="evidence-section"><summary><span><strong>Data quality &amp; reliability</strong><small>Understand warnings and what could affect your comparison.</small></span></summary><div className="evidence-section-body scientific-quality"><p>{qualityText}</p>
       {quality.warnings.map(warning => <div className="scientific-warning" key={warning.title}><strong>{warning.title}</strong><p>{warning.explanation}</p></div>)}
       {flagNames.map(flag => <div className="scientific-warning" key={flag}><strong>{explainFlag(flag).title}</strong><p>{explainFlag(flag).explanation}</p></div>)}
       {related.some(c => c.quality?.data_quality === "degraded") && <p className="scientific-warning">The backend reports degraded candidate data quality. Reliability is limited even if no specific quality flag was supplied.</p>}
@@ -119,15 +128,17 @@ export function ScientificEvidence({ coordinates, observations, frames, source, 
       {!frames.length && <p className="scientific-limitation">Image-level quality information is not available until images are loaded.</p>}
       {quality.spectral.state === "overlap" && <p className="scientific-limitation">{quality.spectral.explanation}</p>}
       <p className="scientific-limitation">Missing flags do not mean that quality checks passed. Backend data quality and candidate validation are separate from image display quality.</p>
-    </section>
-    <section className="scientific-findings" aria-labelledby="scientific-findings-title"><div className="scientific-card-heading"><h3 id="scientific-findings-title">Scientific Findings &amp; Candidate Analysis</h3><button type="button" className="share-button" disabled={!coordinates || !observations.length || searching || noCoverage || searchFailed || outcome.phase === "requesting"} onClick={() => void analyze()}>{outcome.phase === "requesting" ? "Requesting…" : outcome.retry ? "Retry candidate request" : "Load candidate analysis"}</button></div>
-      <div role="status" className="scientific-analysis-state"><strong>{phaseLabels[outcome.phase]}</strong><p>{outcome.message}</p></div>
-      <p className="scientific-limitation">Validation of detections is not yet available in this backend contract. A known-object match is not a confirmation. Candidate classifications, measurement validity, and the evidence summary are separate concepts.</p>
-      {coordinates && <p className="scientific-limitation">Scope: regional candidate search within 0.5° of RA {coordinates.ra}°, Dec {coordinates.dec}°. The endpoint does not accept your selected dates, image IDs, or comparison settings. Other regional observations may appear.</p>}
-      {response && <p>Candidate records returned: {response.count}. {response.analysis?.data_source === "mock" && <strong>Synthetic demo analysis — not real SPHEREx measurements.</strong>}</p>}
-      {response && !resultReady && candidates.length > 0 && <p className="scientific-warning">These records are not reported as completed results. Do not treat them as a successful scientific analysis.</p>}
-      {resultReady && candidates.length > 0 && !related.length && <p className="scientific-limitation">None of the regional candidates reference the currently selected observations. They do not evaluate this image comparison.</p>}
-      {candidates.map(candidate => <CandidateCard key={candidate.candidate_id} candidate={candidate} selectedIds={ids} />)}
-    </section>
+    </div></details>
+
+    <details className="evidence-section"><summary><span><strong>Measurements &amp; uncertainty</strong><small>Check what was measured, available error estimates and data sources.</small></span></summary><div className="evidence-section-body">
+      <dl className="scientific-metadata">
+        <div><dt>Measurement availability</dt><dd>{measurementAvailability(resultReady ? related : [])}</dd></div>
+        <div><dt>Uncertainty availability</dt><dd>{uncertaintyAvailability(resultReady ? related : [])}</dd></div>
+        <div><dt>Selected Observation IDs</dt><dd>{ids.length ? ids.join(", ") : NOT_AVAILABLE}</dd></div>
+        <div><dt>Image data source</dt><dd>{dataSourceLabel(source)}</dd></div>
+        <div><dt>Scientific validation</dt><dd>Not available - the current backend contract does not certify validated detections or verified measurements.</dd></div>
+      </dl>
+      <p className="scientific-limitation">Individual reported values and uncertainties are in each candidate's supporting measurements under Findings &amp; candidates. An available measurement is not a confirmed discovery.</p>
+    </div></details>
   </section>;
 }

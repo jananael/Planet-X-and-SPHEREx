@@ -1,6 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { WorkspaceNavigation } from "./workspace-navigation";
+import { MachineLearning } from "./machine-learning";
+import { locationKey, workspaceHref } from "../lib/workspace-navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { StarryBackground } from "./starry-background";
@@ -22,6 +26,12 @@ const utc = formatUtc;
 function month(value: string) { if (formatUtc(value) === NOT_AVAILABLE) return NOT_AVAILABLE; return new Date(value).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" }); }
 
 export function Explorer() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const onObservations = pathname === "/observations";
+  const onExplorer = pathname === "/explore";
+  const searchOptions = useRef<SearchOptions>({});
+  const lastSearch = useRef<string | null>(null);
   const [targets, setTargets] = useState<Target[]>([]);
   const [source, setSource] = useState<string | null>(null);
   const [startupError, setStartupError] = useState("");
@@ -66,14 +76,15 @@ export function Explorer() {
   }, [ra, dec]);
 
   // opts: time window + preferred band, for moving objects that are only in a few images.
-  const search = useCallback(async (position: Coordinates, id: string | null = null, opts: SearchOptions = {}, preview = false) => {
+  const search = useCallback(async (position: Coordinates, id: string | null = null, opts: SearchOptions = {}, preview = false, navigate = true) => {
+    lastSearch.current = locationKey(position, opts); searchOptions.current = opts;
     searchController.current?.abort(); frameController.current?.abort();
     const controller = new AbortController(); searchController.current = controller;
     setRa(String(position.ra)); setDec(String(position.dec)); setCoordinates(position); setTargetId(id);
     setSearching(true); setSearchError(""); setObservations([]); setSelected([]); setFrames([]); setFailures([]); setPlaying(false); setSearched(false);
-    const url = new URL(window.location.href); url.searchParams.set("ra", String(position.ra)); url.searchParams.set("dec", String(position.dec));
-    for (const key of ["start", "end", "band"] as const) { const v = opts[key]; if (v) url.searchParams.set(key, v); else url.searchParams.delete(key); }
-    window.history.replaceState(null, "", url);
+    const destination = workspaceHref(navigate ? "/observations" : window.location.pathname, position, opts, id);
+    if (navigate) router.push(destination);
+    else window.history.replaceState(window.history.state, "", destination);
     try {
       const q = new URLSearchParams({ ra: String(position.ra), dec: String(position.dec) });
       if (opts.start) q.set("start", opts.start); if (opts.end) q.set("end", opts.end);
@@ -84,7 +95,7 @@ export function Explorer() {
       setObservations(list); setBand(nextBand); setSelected(preview ? defaultSelection(list, nextBand) : []); setSearched(true);
     } catch (error) { if (!controller.signal.aborted) setSearchError(errorMessage(error)); }
     finally { if (!controller.signal.aborted) setSearching(false); }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -101,13 +112,23 @@ export function Explorer() {
     const readLocation = () => {
       const params = new URLSearchParams(window.location.search);
       if (params.has("ra") || params.has("dec")) {
-        const r = params.get("ra") ?? "", d = params.get("dec") ?? ""; setRa(r); setDec(d);
-        try { void search(parseCoordinates(r, d), null, { start: params.get("start"), end: params.get("end"), band: params.get("band") }, true); } catch (error) { setSearchError((error as Error).message); }
+        const r = params.get("ra") ?? "", d = params.get("dec") ?? "";
+        try {
+          const position = parseCoordinates(r, d);
+          const opts = { start: params.get("start"), end: params.get("end"), band: params.get("band") };
+          if (lastSearch.current !== locationKey(position, opts)) void search(position, params.get("target"), opts, true, false);
+        } catch (error) {
+          searchController.current?.abort(); frameController.current?.abort(); lastSearch.current = null;
+          setCoordinates(null); setTargetId(null); setObservations([]); setSelected([]); setFrames([]); setSearched(false); setSearching(false); setPlaying(false);
+          setSearchError((error as Error).message);
+        }
       }
     };
     readLocation(); window.addEventListener("popstate", readLocation);
-    return () => { window.removeEventListener("popstate", readLocation); searchController.current?.abort(); frameController.current?.abort(); };
-  }, [search]);
+    return () => window.removeEventListener("popstate", readLocation);
+  }, [pathname, search]);
+  useEffect(() => () => { searchController.current?.abort(); frameController.current?.abort(); }, []);
+  const hrefFor = (path: string) => workspaceHref(path, coordinates, searchOptions.current, targetId);
 
   // A shared link (?ra=&dec=) carries only coordinates: re-highlight the matching demo target.
   useEffect(() => {
@@ -117,6 +138,12 @@ export function Explorer() {
   }, [targets, coordinates, targetId]);
 
   const selectedObservations = useMemo(() => observations.filter(o => selected.includes(o.id)), [observations, selected]);
+  function focusViewer() {
+    if (!selected.length || searching) return;
+    const viewer = document.getElementById("sky-viewer-section");
+    viewer?.focus({ preventScroll: true });
+    viewer?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
+  }
   const visits = useMemo(() => groupVisits(observations), [observations]);
   const dates = useMemo(() => observationDates(observations, band), [observations, band]);
   const knownObservationDates = useMemo(() => [...new Set(observations.map(o => formatUtc(o.obs_time)).filter(value => value !== NOT_AVAILABLE).map(value => value.slice(0, 10)))].sort(), [observations]);
@@ -156,27 +183,28 @@ export function Explorer() {
     });
   }, [frames.length, compare]);
   useEffect(() => {
-    if (!playing || frames.length < 2 || loadingFrames) return;
+    if (!onObservations || !playing || frames.length < 2 || loadingFrames) return;
     const timer = setInterval(() => step(1), speed * 1000); return () => clearInterval(timer);
-  }, [playing, speed, step, frames.length, loadingFrames]);
+  }, [onObservations, playing, speed, step, frames.length, loadingFrames]);
   // A deliberate Video selection starts the sequence once its images are ready.
   // Pausing does not change these dependencies, so it stays paused until resumed.
   useEffect(() => {
-    setPlaying(viewMode === "video" && frames.length >= 2 && !loadingFrames);
-  }, [viewMode, frames, loadingFrames]);
+    setPlaying(onObservations && viewMode === "video" && frames.length >= 2 && !loadingFrames);
+  }, [onObservations, viewMode, frames, loadingFrames]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (!onObservations) return;
       if ((event.target as HTMLElement).closest("input,select,textarea,button,[contenteditable=true]")) return;
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); setPlaying(false); step(event.key === "ArrowLeft" ? -1 : 1); }
     };
     window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
-  }, [step]);
+  }, [onObservations, step]);
 
   // Guided stories: start playback by themselves once the story's frames are ready.
   useEffect(() => {
-    if (!story || loadingFrames || frames.length < 2 || storyAutoplayed.current === story.id) return;
+    if (!onObservations || !story || loadingFrames || frames.length < 2 || storyAutoplayed.current === story.id) return;
     storyAutoplayed.current = story.id; setPlaying(true);
-  }, [story, loadingFrames, frames.length]);
+  }, [onObservations, story, loadingFrames, frames.length]);
 
   const frame = frames[index];
   const showDifference = difference && frames.length > 1;
@@ -246,14 +274,15 @@ export function Explorer() {
   return <div className="explorer-page">
     <StarryBackground topOnly />
     <a className="skip-link" href="#explorer">Skip to Explorer</a>
-    <header className="site-header"><a href="/" className="explorer-logo" aria-label="SKYTRACE home"><img src="/skytrace/satellite-logo.png" alt="SKYTRACE satellite logo" width="1774" height="887" /></a><nav aria-label="Main navigation"><a href="/">Home</a><Link href="/explore" aria-current="page">Explorer</Link></nav><div className={`source-badge ${source === "mock" ? "mock" : ""}`}><span />{source === "mock" ? "MOCK DATA" : source === "real" ? "LIVE ARCHIVE" : "API NOT CONNECTED"}</div></header>
+    <header className="site-header"><a href="/" className="explorer-logo" aria-label="SKYTRACE home"><img src="/skytrace/satellite-logo.png" alt="SKYTRACE satellite logo" width="1774" height="887" /></a><WorkspaceNavigation coordinates={coordinates} options={searchOptions.current} targetId={targetId} /><div className={`source-badge ${source === "mock" ? "mock" : ""}`}><span />{source === "mock" ? "MOCK DATA" : source === "real" ? "LIVE ARCHIVE" : "API NOT CONNECTED"}</div></header>
     <main id="explorer" className="explorer-shell">
-      <section className="intro"><div><p className="eyebrow"><span />THE SKY, ACROSS TIME</p><h1>A new way to <span>look closer.</span></h1><p>Pick a patch of sky. Compare infrared observations.<br className="desktop-break" /> See what moves — and what changes.</p></div><ol className="explorer-guide" aria-label="How to explore">
+      <section className="intro" hidden={!onExplorer}><div><p className="eyebrow"><span />THE SKY, ACROSS TIME</p><h1>A new way to <span>look closer.</span></h1><p>Pick a patch of sky. Compare infrared observations.<br className="desktop-break" /> See what moves — and what changes.</p></div><ol className="explorer-guide" aria-label="How to explore" hidden={!onExplorer}>
         <li><span aria-hidden="true">01</span><div><strong>Choose a location</strong><p>Try a target, enter coordinates, or use the sky map.</p></div></li>
         <li><span aria-hidden="true">02</span><div><strong>Choose your moments</strong><p>Pick observations from different visits.</p></div></li>
         <li><span aria-hidden="true">03</span><div><strong>Play and compare</strong><p>Watch for changes as you move through time.</p></div></li>
       </ol></section>
       {startupError && <div className="notice error" role="alert">{startupError}<button onClick={() => setStartupRetry(n => n + 1)}>Retry connection</button></div>}
+      <div hidden={!onExplorer}>
       <div className="workspace explorer-flow">
           <section className="panel target-panel" aria-labelledby="choose-title"><div className="section-heading"><span className="step-number">01</span><div><p className="eyebrow">YOUR STARTING POINT</p><h2 id="choose-title">Enter your sky coordinates</h2></div></div>
             <p className="section-hint">Enter the coordinates of the sky you want to explore. We will find the available images and dates for that location.</p>
@@ -280,7 +309,36 @@ export function Explorer() {
       </section>
 </details>
           </section>
-        <section className="panel viewer-panel" aria-labelledby="viewer-title"><div className="viewer-heading"><div className="section-heading"><span className="step-number">03</span><div><p className="eyebrow">SEE WHAT TIME REVEALS</p><h2 id="viewer-title">Your view of the sky</h2></div></div><span className="alignment-badge">◎ North up · East left</span></div>
+      </div>
+      </div>
+      <div hidden={!onObservations}>
+        <div className="workspace-heading"><div><p className="eyebrow">OBSERVATIONS &amp; RESULTS</p><h1>Look closer at your sky.</h1><p>{coordinates ? `RA ${coordinates.ra}° / Dec ${coordinates.dec}°` : "No sky location selected"}{selectedTarget && ` / ${selectedTarget.name}`}</p></div><Link className="share-button" href={hrefFor("/explore")}>Change Location</Link></div>
+        {!coordinates && <div className="notice"><p>Choose a sky location to find available observations and compare them across time.</p><Link className="primary-button" href="/explore">Choose Sky Coordinates</Link></div>}
+        {searchError && <div className="notice error" role="alert">{searchError}{coordinates && <button onClick={() => void search(coordinates, targetId, searchOptions.current, true, false)}>Retry search</button>}</div>}
+      <div className="workspace explorer-flow">
+          <section id="available-observations" className="panel results-panel" hidden={!searching && !searched && !searchError} aria-labelledby="results-title"><div className="section-heading"><span className="step-number">01</span><div><p className="eyebrow">MOMENTS TO COMPARE</p><h2 id="results-title">Available observations <span className="count">{searched ? observations.length : NOT_AVAILABLE}</span></h2></div></div>
+            <p className="section-hint" role="status">{searching ? "Searching the archive. Real data may take 5–15 seconds." : !searched ? "Your search results will appear here." : !observations.length ? emptyCoverageMessage(source) : `${visits.length} ${visits.length === 1 ? "visit" : "visits"} · oldest first`}</p>
+            {searched && observations.length > 0 && <div className="archive-availability" role="status">
+              <p className="eyebrow">{source === "real" ? "NASA / IPAC IRSA ARCHIVE" : source === "mock" ? "SYNTHETIC DEMO DATA" : "OBSERVATION SEARCH RESULTS"}</p>
+              <h3>{observations.length} images found / {knownObservationDates.length ? `${knownObservationDates.length} reported dates` : "Observation dates not available"}</h3>
+              <p>Available from {(knownObservationDates[0] ?? NOT_AVAILABLE)} to {(knownObservationDates.at(-1) ?? NOT_AVAILABLE)} for RA {coordinates?.ra.toFixed(4)}°, Dec {coordinates?.dec.toFixed(4)}°.</p>
+              <p>Use all images in one detector band, or choose specific dates below. Keeping a single band helps make the comparison more consistent.</p>
+              <div className="availability-actions"><button className="primary-button" onClick={() => setSelected(observations.filter(o => o.band === band).map(o => o.id))}>Use all {band} images</button><a href="#observation-dates">Choose specific dates</a></div>
+            </div>}
+            <details className="explorer-options"><summary>Detector band &amp; selection options</summary><fieldset className="band-filter" disabled={!observations.length}><legend>Detector band</legend>{["D1", "D2", "D3", "D4", "D5", "D6"].map(value => <button key={value} type="button" aria-pressed={band === value} disabled={!observations.some(o => o.band === value)} className={band === value ? "active" : ""} onClick={() => changeBand(value)}>{value}</button>)}</fieldset>
+            {!!observations.length && <><div className="selection-tools"><span>{selected.length} selected</span><button onClick={() => setSelected(observations.filter(o => o.band === band).map(o => o.id))}>Select all {band}</button><button onClick={() => setSelected(defaultSelection(observations, band))}>Suggested selection</button></div><p className="tiny muted">Suggested selection picks one frame per visit (all exposures when there is only one visit). You can also select dates or individual images.</p></>}
+            </details>
+            {observations.length > 0 && <fieldset id="observation-dates" className="observation-dates"><legend>Choose the dates you want to view</legend><p className="tiny muted">Dates below have images in {band}. Select a date to include its images, or fine-tune individual exposures in the visits below.</p><div className="date-options">{dates.map(({ date, images }) => {
+              const included = images.filter(o => selected.includes(o.id)).length;
+              return <label key={date}><input type="checkbox" aria-label={`Include images from ${date}`} checked={included === images.length} ref={el => { if (el) el.indeterminate = included > 0 && included < images.length; }} onChange={event => { const checked = event.target.checked; setSelected(ids => selectDate(ids, images, checked)); }} /><span>{date}<small>{images.length} {images.length === 1 ? "image" : "images"}</small></span></label>;
+            })}</div></fieldset>}
+            <div className="visits">{visits.map((visit, i) => {
+              const matching = visit.filter(o => o.band === band); if (!matching.length) return null;
+              return <details key={visit[0].id}><summary><span>Visit {i + 1}<small>{month(visit[0].obs_time)}</small></span><span className="visit-count">{matching.length} frames</span></summary><div className="visit-frames">{matching.map(obs => <label key={obs.id}><input type="checkbox" checked={selected.includes(obs.id)} onChange={() => toggle(obs.id)} /><span>{utc(obs.obs_time)}<small>{obs.band} · {obs.release}</small></span></label>)}</div></details>;
+            })}</div>
+            {observations.length > 0 && <div className="selection-confirmation"><div><strong>{selected.length} {selected.length === 1 ? "image" : "images"} selected</strong><p>Take your time choosing dates and images. Open the viewer when you are ready.</p></div><button type="button" className="primary-button" disabled={!selected.length || searching} onClick={focusViewer}>View selected images &rarr;</button></div>}
+          </section>
+        <section id="sky-viewer-section" tabIndex={-1} className="panel viewer-panel" hidden={!coordinates} aria-labelledby="viewer-title"><div className="viewer-heading"><div className="section-heading"><span className="step-number">02</span><div><p className="eyebrow">SEE WHAT TIME REVEALS</p><h2 id="viewer-title">Your view of the sky</h2></div></div><span className="alignment-badge">◎ North up · East left</span></div>
           <div className="viewer-mode-picker" role="group" aria-label="Choose how to view observations">
             <button type="button" aria-pressed={viewMode === "images"} aria-controls="sky-observation-view" onClick={() => { setViewMode("images"); setPlaying(false); }}><span>Images</span><small>Inspect one moment at a time</small></button>
             <button type="button" aria-pressed={viewMode === "video"} aria-controls="sky-observation-view" onClick={() => { setViewMode("video"); setCompare(false); setPlaying(frames.length >= 2 && !loadingFrames); }}><span>Video</span><small>Watch changes across time</small></button>
@@ -292,43 +350,29 @@ export function Explorer() {
             <p aria-live="polite">{activeStory.steps[story.step].text}</p>
             <div className="story-nav"><button disabled={story.step === 0} onClick={() => moveStory(-1)}>← Back</button><span className="story-dots" aria-hidden="true">{activeStory.steps.map((_, i) => <span key={i} className={i === story.step ? "on" : ""} />)}</span>{story.step < activeStory.steps.length - 1 ? <button className="story-next" onClick={() => moveStory(1)}>Next →</button> : <button className="story-next" onClick={endStory}>Finish</button>}</div>
           </div>}
-          {searched && observations.length > 0 && selected.length === 0 && <div className="viewer-availability"><p>Images are available for this location. Choose the dates you want to load.</p><a href="#available-observations">Choose your images below &darr;</a></div>}
+          {searched && observations.length > 0 && selected.length === 0 && <div className="viewer-availability"><p>Images are available for this location. Choose the dates you want to load.</p><a href="#available-observations">Choose your images above &uarr;</a></div>}
+          <div className="viewer-display-frame">
+            <div className="stage-toolbar"><time className="stage-time">{frame && !loadingFrames ? utc(frame.obs.obs_time) : "Observation time: Not available"}</time><ObservationDetails frame={frame} reference={(showCompare || showDifference) ? frames[0] : undefined} observations={selectedObservations} frames={frames} source={source} /><div className="stage-comparison" role="group" aria-label="Comparison modes"><div className="comparison-options"><label className="difference-toggle"><input type="checkbox" checked={compare} disabled={loadingFrames || frames.length < 2} onChange={event => { const on = event.target.checked; setCompare(on); if (on) { setDifference(false); setPlaying(false); setIndex(i => i === 0 ? frames.length - 1 : i); } }} /><span>Compare</span></label><label className="difference-toggle"><input type="checkbox" checked={difference} disabled={loadingFrames || frames.length < 2} onChange={event => { setDifference(event.target.checked); if (event.target.checked) setCompare(false); }} /><span>Difference</span></label></div></div></div>
           <div id="sky-observation-view" className="viewer-stage" aria-label={viewMode === "video" ? "Animated observation sequence" : "Observation image viewer"} aria-describedby="viewer-mode-help" aria-busy={loadingFrames} ref={stageRef}>
-            {frame && !loadingFrames ? <>{frames.map((f, i) => <img key={f.obs.id} src={f.url} alt={`${source === "mock" ? "Synthetic demo observation" : source === "real" ? "SPHEREx observation" : "Observation (source unavailable)"}, ${utc(f.obs.obs_time)}, ${f.obs.band}`} className="sky-frame" style={{ visibility: i === index && !showDifference ? "visible" : "hidden" }} />)}{difference && frames.length > 1 && <canvas ref={canvas} className="sky-frame difference-canvas" role="img" aria-label="Difference between the current frame and the first frame" />}{showCompare && <><img src={frames[0].url} alt="" aria-hidden="true" className="sky-frame compare-reference" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }} /><span className="compare-line" style={{ left: `${split}%` }} aria-hidden="true" /><span className="compare-tag left">{utc(frames[0].obs.obs_time).slice(0, 16)}</span><span className="compare-tag right">{utc(frame.obs.obs_time).slice(0, 16)}</span><input className="compare-range" type="range" min={0} max={100} value={split} onChange={event => setSplit(Number(event.target.value))} aria-label="Move the comparison divider" /></>}{scale && <div className="scale-bar" aria-label={`Scale: ${scale.arcsec} arcseconds, about ${scale.pixels} SPHEREx pixels`}><span style={{ width: scale.px }} /><small>{scale.arcsec}″ · ≈{scale.pixels} px</small></div>}<span className="crosshair" aria-hidden="true" /><span className="stage-label">{difference && frames.length > 1 ? "DIFFERENCE · FRAME 1 REFERENCE" : showCompare ? `COMPARE · FRAME 1 | FRAME ${index + 1}` : `${frame.obs.band} · ${frame.obs.release}`}</span><span className="stage-counter">{index + 1} / {frames.length}</span><span className="north-label" aria-hidden="true">N ↑</span></> : <div className="viewer-empty"><div className={`view-reticle ${loadingFrames || searching ? "loading" : ""}`} aria-hidden="true"><span>✧</span></div><h3>{searching ? "Finding your patch of sky" : loadingFrames ? "Gathering moments in time" : failures.length ? "Images could not be loaded" : searched && !observations.length ? "A little further into the sky" : "Every comparison starts somewhere"}</h3><p>{loadingFrames ? `${progress.ready} of ${selectedObservations.length} images ready · ${progress.completed} processed` : searching ? "We’re looking for observations at your coordinates." : searched && !observations.length ? "Try another position or one of the demo targets." : selected.length === 0 && observations.length ? "Choose all images or specific dates in Available observations below to load your view." : "Enter your coordinates above to find images of this location."}</p>{loadingFrames && <><progress value={progress.completed} max={selectedObservations.length} /><small>First-time archive images can take 5–30 seconds each.</small></>}</div>}
+            {frame && !loadingFrames ? <>{frames.map((f, i) => <img key={f.obs.id} src={f.url} alt={`${source === "mock" ? "Synthetic demo observation" : source === "real" ? "SPHEREx observation" : "Observation (source unavailable)"}, ${utc(f.obs.obs_time)}, ${f.obs.band}`} className="sky-frame" style={{ visibility: i === index && !showDifference ? "visible" : "hidden" }} />)}{difference && frames.length > 1 && <canvas ref={canvas} className="sky-frame difference-canvas" role="img" aria-label="Difference between the current frame and the first frame" />}{showCompare && <><img src={frames[0].url} alt="" aria-hidden="true" className="sky-frame compare-reference" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }} /><span className="compare-line" style={{ left: `${split}%` }} aria-hidden="true" /><span className="compare-tag left">{utc(frames[0].obs.obs_time).slice(0, 16)}</span><span className="compare-tag right">{utc(frame.obs.obs_time).slice(0, 16)}</span><input className="compare-range" type="range" min={0} max={100} value={split} onChange={event => setSplit(Number(event.target.value))} aria-label="Move the comparison divider" /></>}{scale && <div className="scale-bar" aria-label={`Scale: ${scale.arcsec} arcseconds, about ${scale.pixels} SPHEREx pixels`}><span style={{ width: scale.px }} /><small>{scale.arcsec}″ · ≈{scale.pixels} px</small></div>}<span className="crosshair" aria-hidden="true" /><span className="stage-label">{difference && frames.length > 1 ? "DIFFERENCE · FRAME 1 REFERENCE" : showCompare ? `COMPARE · FRAME 1 | FRAME ${index + 1}` : `${frame.obs.band} · ${frame.obs.release}`}</span><span className="stage-counter">{index + 1} / {frames.length}</span><span className="north-label" aria-hidden="true">N ↑</span></> : <div className="viewer-empty"><div className={`view-reticle ${loadingFrames || searching ? "loading" : ""}`} aria-hidden="true"><span>✧</span></div><h3>{searching ? "Finding your patch of sky" : loadingFrames ? "Gathering moments in time" : failures.length ? "Images could not be loaded" : searched && !observations.length ? "A little further into the sky" : "Every comparison starts somewhere"}</h3><p>{loadingFrames ? `${progress.ready} of ${selectedObservations.length} images ready · ${progress.completed} processed` : searching ? "We’re looking for observations at your coordinates." : searched && !observations.length ? "Try another position or one of the demo targets." : selected.length === 0 && observations.length ? "Choose all images or specific dates in Available observations above to load your view." : "Enter your coordinates above to find images of this location."}</p>{loadingFrames && <><progress value={progress.completed} max={selectedObservations.length} /><small>First-time archive images can take 5–30 seconds each.</small></>}</div>}
+          </div>
           </div>
           <div className="playback" role="group" aria-label="Playback controls"><div className="transport"><button aria-label="Previous frame" disabled={loadingFrames || frames.length < 2} onClick={() => { setPlaying(false); step(-1); }}>◀</button><button className="play-button" aria-label={playing ? "Pause playback" : "Play comparison"} disabled={loadingFrames || frames.length < 2} onClick={() => { if (!playing) setViewMode("video"); setPlaying(p => !p); }}>{playing ? "Ⅱ" : "▶"}</button><button aria-label="Next frame" disabled={loadingFrames || frames.length < 2} onClick={() => { setPlaying(false); step(1); }}>▶</button></div><label className="speed-control" htmlFor="speed">Interval <input id="speed" type="range" min="0.2" max="2" step="0.1" value={speed} onChange={event => setSpeed(Number(event.target.value))} /><span>{speed.toFixed(1)}s</span></label></div>
           {viewMode === "video" && <div className="video-timeline"><label htmlFor="video-frame">Video sequence <span>{frames.length ? `Frame ${index + 1} of ${frames.length} / ${playing ? "Playing" : "Paused"}` : "Choose images below to begin"}</span></label><input id="video-frame" type="range" min="0" max={Math.max(0, frames.length - 1)} value={index} disabled={loadingFrames || frames.length < 2} aria-label="Seek to observation frame" aria-valuetext={frame ? utc(frame.obs.obs_time) : "No frames loaded"} onChange={event => { setPlaying(false); setIndex(Number(event.target.value)); }} /></div>}
           <div className="frame-dots" aria-label="Select a frame">{frames.map((f, i) => <button key={f.obs.id} aria-label={`Show frame ${i + 1}`} aria-pressed={i === index} onClick={() => { setPlaying(false); setIndex(i); }} />)}</div>
-          <div className="comparison-modes" role="group" aria-label="Comparison modes"><p className="control-caption">Compare your images<span>Optional ways to look closer</span></p><div className="comparison-options"><label className="difference-toggle"><input type="checkbox" checked={compare} disabled={loadingFrames || frames.length < 2} onChange={event => { const on = event.target.checked; setCompare(on); if (on) { setDifference(false); setPlaying(false); setIndex(i => i === 0 ? frames.length - 1 : i); } }} /><span>Compare<small>Slide between two images</small></span></label><label className="difference-toggle"><input type="checkbox" checked={difference} disabled={loadingFrames || frames.length < 2} onChange={event => { setDifference(event.target.checked); if (event.target.checked) setCompare(false); }} /><span>Difference<small>Highlight changes from frame 1</small></span></label></div></div>
-          <ObservationDetails frame={frame} reference={(showCompare || showDifference) ? frames[0] : undefined} observations={selectedObservations} frames={frames} source={source} />
           {failures.length > 0 && <div className="notice error" role="alert"><strong>{failures.length} {failures.length === 1 ? "image unavailable" : "images unavailable"}</strong><ul>{failures.map(f => <li key={f.observation.id}>{utc(f.observation.obs_time)}: {f.message}</li>)}</ul><button onClick={() => setFrameRetry(n => n + 1)}>Retry images</button></div>}
-          <div className="viewer-settings"><div className="image-adjustments"><p className="control-caption">Image settings<span>Adjust how observations appear</span></p><div className="adjustment-fields"><label>Display stretch<select value={stretch} onChange={event => setStretch(event.target.value as Stretch)}><option value="asinh">Asinh</option><option value="zscale">Zscale</option><option value="linear">Linear</option></select></label><label>Field of view<select value={size} onChange={event => setSize(Number(event.target.value))}><option value="120">120″ · closer</option><option value="240">240″</option><option value="300">300″ · standard</option><option value="450">450″</option><option value="600">600″ · wider</option><option value="900">900″ · widest</option></select></label></div></div><div className="export-actions"><p className="control-caption">Save &amp; share<span>Take your comparison with you</span></p><div className="export-buttons"><button className="share-button" disabled={loadingFrames || frames.length < 2 || exporting} onClick={() => void exportGif()}>{exporting ? "Making GIF…" : "Download GIF ↓"}</button><button className="share-button" disabled={!coordinates} onClick={() => void share()}>{copied ? "Link copied ✓" : "Share position ↗"}</button></div></div></div>
+          <details className="explorer-options"><summary>Image settings &amp; downloads</summary><div className="viewer-settings"><div className="image-adjustments"><p className="control-caption">Image settings<span>Adjust how observations appear</span></p><div className="adjustment-fields"><label>Display stretch<select value={stretch} onChange={event => setStretch(event.target.value as Stretch)}><option value="asinh">Asinh</option><option value="zscale">Zscale</option><option value="linear">Linear</option></select></label><label>Field of view<select value={size} onChange={event => setSize(Number(event.target.value))}><option value="120">120″ · closer</option><option value="240">240″</option><option value="300">300″ · standard</option><option value="450">450″</option><option value="600">600″ · wider</option><option value="900">900″ · widest</option></select></label></div></div><div className="export-actions"><p className="control-caption">Save &amp; share<span>Take your comparison with you</span></p><div className="export-buttons"><button className="share-button" disabled={loadingFrames || frames.length < 2 || exporting} onClick={() => void exportGif()}>{exporting ? "Making GIF…" : "Download GIF ↓"}</button><button className="share-button" disabled={!coordinates} onClick={() => void share()}>{copied ? "Link copied ✓" : "Share position ↗"}</button></div></div></div>
+          </details>
           {shareError && <p className="tiny" role="status">{shareError}</p>}<p className="viewer-footnote">Aligned sky position. Shared brightness scale. A fairer comparison.<br />{difference ? "Difference mode subtracts the first displayed PNG from the current one; it is a visual aid, not a scientific flux measurement." : "Tip: use the left and right arrow keys to step through your frames."}</p>
         </section>
-          <section id="available-observations" className="panel results-panel" aria-labelledby="results-title"><div className="section-heading"><span className="step-number">02</span><div><p className="eyebrow">MOMENTS TO COMPARE</p><h2 id="results-title">Available observations <span className="count">{searched ? observations.length : NOT_AVAILABLE}</span></h2></div></div>
-            <p className="section-hint" role="status">{searching ? "Searching the archive. Real data may take 5–15 seconds." : !searched ? "Your search results will appear here." : !observations.length ? emptyCoverageMessage(source) : `${visits.length} ${visits.length === 1 ? "visit" : "visits"} · oldest first`}</p>
-            {searched && observations.length > 0 && <div className="archive-availability" role="status">
-              <p className="eyebrow">{source === "real" ? "NASA / IPAC IRSA ARCHIVE" : source === "mock" ? "SYNTHETIC DEMO DATA" : "OBSERVATION SEARCH RESULTS"}</p>
-              <h3>{observations.length} images found / {knownObservationDates.length ? `${knownObservationDates.length} reported dates` : "Observation dates not available"}</h3>
-              <p>Available from {(knownObservationDates[0] ?? NOT_AVAILABLE)} to {(knownObservationDates.at(-1) ?? NOT_AVAILABLE)} for RA {coordinates?.ra.toFixed(4)}°, Dec {coordinates?.dec.toFixed(4)}°.</p>
-              <p>Use all images in one detector band, or choose specific dates below. Keeping a single band helps make the comparison more consistent.</p>
-              <div className="availability-actions"><button className="primary-button" onClick={() => setSelected(observations.filter(o => o.band === band).map(o => o.id))}>Use all {band} images</button><a href="#observation-dates">Choose specific dates</a></div>
-            </div>}
-            <fieldset className="band-filter" disabled={!observations.length}><legend>Detector band</legend>{["D1", "D2", "D3", "D4", "D5", "D6"].map(value => <button key={value} type="button" aria-pressed={band === value} disabled={!observations.some(o => o.band === value)} className={band === value ? "active" : ""} onClick={() => changeBand(value)}>{value}</button>)}</fieldset>
-            {!!observations.length && <><div className="selection-tools"><span>{selected.length} selected</span><button onClick={() => setSelected(observations.filter(o => o.band === band).map(o => o.id))}>Select all {band}</button><button onClick={() => setSelected(defaultSelection(observations, band))}>Suggested selection</button></div><p className="tiny muted">Suggested selection picks one frame per visit (all exposures when there is only one visit). You can also select dates or individual images.</p></>}
-            {observations.length > 0 && <fieldset id="observation-dates" className="observation-dates"><legend>Choose the dates you want to view</legend><p className="tiny muted">Dates below have images in {band}. Select a date to include its images, or fine-tune individual exposures in the visits below.</p><div className="date-options">{dates.map(({ date, images }) => {
-              const included = images.filter(o => selected.includes(o.id)).length;
-              return <label key={date}><input type="checkbox" aria-label={`Include images from ${date}`} checked={included === images.length} ref={el => { if (el) el.indeterminate = included > 0 && included < images.length; }} onChange={event => { const checked = event.target.checked; setSelected(ids => selectDate(ids, images, checked)); }} /><span>{date}<small>{images.length} {images.length === 1 ? "image" : "images"}</small></span></label>;
-            })}</div></fieldset>}
-            <div className="visits">{visits.map((visit, i) => {
-              const matching = visit.filter(o => o.band === band); if (!matching.length) return null;
-              return <details key={visit[0].id} open={visits.length <= 4}><summary><span>Visit {i + 1}<small>{month(visit[0].obs_time)}</small></span><span className="visit-count">{matching.length} frames</span></summary><div className="visit-frames">{matching.map(obs => <label key={obs.id}><input type="checkbox" checked={selected.includes(obs.id)} onChange={() => toggle(obs.id)} /><span>{utc(obs.obs_time)}<small>{obs.band} · {obs.release}</small></span></label>)}</div></details>;
-            })}</div>
-          </section>
-        <ScientificEvidence coordinates={coordinates} observations={selectedObservations} frames={frames} source={source} searching={searching} noCoverage={searched && observations.length === 0} searchFailed={!!searchError} loadingImages={loadingFrames} />
+
       </div>
+      <section className="scientific-route-section" aria-labelledby="evidence-section-title" hidden={!coordinates}><div className="section-heading"><span className="step-number">03</span><h2 id="evidence-section-title">Scientific Evidence &amp; Data Reliability</h2></div>
+        <ScientificEvidence coordinates={coordinates} observations={selectedObservations} frames={frames} source={source} searching={searching} noCoverage={searched && observations.length === 0} searchFailed={!!searchError} loadingImages={loadingFrames} />      </section>
+      </div>
+      <div hidden={pathname !== "/machine-learning"}><MachineLearning coordinates={coordinates} targetName={selectedTarget?.name} source={source} changeLocationHref={hrefFor("/explore")} /></div>
       <section className="explore-note"><span aria-hidden="true">✦</span><p><strong>Explore with curiosity. Compare with care.</strong> These observations help you investigate changes, not confirm discoveries. A quiet-looking sky can still tell a story.</p></section>
     </main>
-    <footer className="site-footer"><a href="/" className="explorer-logo" aria-label="SKYTRACE home"><img src="/skytrace/satellite-logo.png" alt="SKYTRACE satellite logo" width="1774" height="887" /></a><p>Data: NASA SPHEREx via NASA/IPAC IRSA · NASA Space Apps Challenge 2026 project, not an official NASA product.</p><nav aria-label="Footer navigation"><a href="/">Home</a><Link href="/explore" aria-current="page">Explorer</Link></nav></footer>
+    <footer className="site-footer"><a href="/" className="explorer-logo" aria-label="SKYTRACE home"><img src="/skytrace/satellite-logo.png" alt="SKYTRACE satellite logo" width="1774" height="887" /></a><p>Data: NASA SPHEREx via NASA/IPAC IRSA · NASA Space Apps Challenge 2026 project, not an official NASA product.</p><WorkspaceNavigation coordinates={coordinates} options={searchOptions.current} targetId={targetId} footer /></footer>
   </div>;
 }
